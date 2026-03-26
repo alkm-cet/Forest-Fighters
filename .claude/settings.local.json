@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx create-expo-app:*)",
+      "Bash(npx expo:*)",
+      "Bash(node --check src/index.js)",
+      "Bash(node --check src/migrate.js)",
+      "Bash(node --check src/seed.js)",
+      "Bash(node --check src/db.js)",
+      "Bash(node --check src/middleware/auth.js)",
+      "Bash(node:*)",
+      "Bash(cd:*)",
+      "Bash(npm show:*)",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(pkill -f \"metro\")",
+      "Bash(ipconfig getifaddr:*)"
+    ]
+  }
+}
