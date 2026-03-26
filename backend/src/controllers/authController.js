@@ -15,10 +15,20 @@ async function register(req, res) {
       [username, email, passwordHash]
     );
     const playerId = result[0].id;
-    await query(
-      'INSERT INTO player_resources (player_id) VALUES ($1)',
-      [playerId]
-    );
+    await query('INSERT INTO player_resources (player_id) VALUES ($1)', [playerId]);
+
+    const starters = [
+      ['Oak Warrior', 'Warrior'],
+      ['Forest Mage', 'Mage'],
+      ['Pine Archer', 'Archer'],
+    ];
+    for (const [name, cls] of starters) {
+      await query(
+        'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3)',
+        [playerId, name, cls]
+      );
+    }
+
     return res.status(201).json({ message: 'registered' });
   } catch (err) {
     if (err.message && err.message.includes('unique')) {

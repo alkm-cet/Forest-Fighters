@@ -5,6 +5,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const resourceRoutes = require('./routes/resources');
 const championRoutes = require('./routes/champions');
+const farmerRoutes = require('./routes/farmers');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/champions', championRoutes);
+app.use('/api/farmers', farmerRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

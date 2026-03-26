@@ -36,6 +36,27 @@ cozy-battle/
 
 ---
 
+## Audio System
+
+All audio goes through `lib/music.ts`. Never use `expo-av` directly in screens or components.
+
+```ts
+import music from '../lib/music';
+
+music.play('MAIN_MUSIC');   // looping background music — idempotent, safe to call multiple times
+music.sfx('WIN_BATTLE');    // one-shot sound effect, auto-unloads
+music.stop();               // stop background music
+```
+
+To add a new sound:
+1. Drop the file in `assets/music/`
+2. Add a key + `require()` to `constants/sounds.ts`
+3. Call `music.play(key)` or `music.sfx(key)`
+
+Background music starts in `app/_layout.tsx` on app launch and plays across all screens.
+
+---
+
 ## Running the Project
 
 ```bash
@@ -72,6 +93,27 @@ DATABASE_URL=         # Neon connection string (pooler URL, not direct)
 JWT_SECRET=           # Random long secret string
 PORT=3000
 ```
+
+---
+
+## Frontend — Code Structure Rules
+
+Every piece of frontend code must follow these rules. No exceptions.
+
+### Module boundaries
+| Folder | What goes here |
+|---|---|
+| `types/` | All shared TypeScript types — `Champion`, `Farmer`, `Resources`, `Player`. Import from here everywhere, never re-declare inline. |
+| `constants/` | Static lookup tables — `RESOURCE_META`, `CLASS_META`. Never hardcode labels/colors/emojis inline in components. |
+| `components/` | Reusable UI components — one component per file, named after the component (`ResourceBar.tsx`, `ChampionCard.tsx`). |
+| `lib/` | API client and auth helpers only. |
+| `app/` | Screen files only — they import components, never define their own sub-components or inline styles beyond layout. |
+
+### Rules
+- Screens (`app/**`) must not contain reusable component definitions. Extract to `components/`.
+- Types are defined once in `types/index.ts` and imported everywhere.
+- Constants (colors, emojis, labels) live in `constants/`, not inside components.
+- Every new backend entity (champion, farmer, etc.) needs its type added to `types/index.ts` before writing any component that uses it.
 
 ---
 
