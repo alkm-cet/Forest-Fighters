@@ -6,9 +6,9 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // Fixed asset sources
 const ASSETS = {
   fire: require("../assets/home-assets/fire.png"),
-  warrior: require("../assets/cats/warrior-cat.webp"),
-  archer: require("../assets/cats/archer-cat.webp"),
-  mage: require("../assets/cats/mage-cat.webp"),
+  warrior: require("../assets/cats/warrior-cat-2.png"),
+  archer: require("../assets/cats/archer-cat-2.png"),
+  mage: require("../assets/cats/mage-cat-2.png"),
 };
 
 const CAT_BY_CLASS: Record<string, keyof typeof ASSETS> = {
@@ -35,27 +35,27 @@ export default function CampfireScene({ champions }: Props) {
   const B = 50;
 
   // Fire — center, sits at bottom padding level
-  const fireW = 125;
+  const fireW = 100;
   const fireH = 135;
   const fireLeft = cx - fireW / 2;
-  const fireBottom = B + 40;
+  const fireBottom = B + 33;
 
   // Archer — center behind fire, base overlaps top of fire stones
-  const archerW = 145;
-  const archerH = 160;
+  const archerW = 100;
+  const archerH = 100;
   const archerLeft = cx - archerW / 2;
-  const archerBottom = B + fireH - 42;
+  const archerBottom = B + fireH - 22;
 
   // Warrior — left, close to fire, same ground level as fire base
-  const warriorW = 125;
-  const warriorH = 135;
-  const warriorLeft = cx - 118;
+  const warriorW = 110;
+  const warriorH = 100;
+  const warriorLeft = cx - 140;
   const warriorBottom = B + fireH - 82;
 
   // Mage — right, close to fire, same ground level
-  const mageW = 125;
-  const mageH = 135;
-  const mageLeft = cx + 8;
+  const mageW = 110;
+  const mageH = 100;
+  const mageLeft = cx + 25;
   const mageBottom = B + fireH - 82;
 
   return (
@@ -108,6 +108,7 @@ export default function CampfireScene({ champions }: Props) {
               left: mageLeft,
               bottom: mageBottom,
               zIndex: 2,
+              transform: [{ scaleX: -1 }],
             },
           ]}
           resizeMode="contain"

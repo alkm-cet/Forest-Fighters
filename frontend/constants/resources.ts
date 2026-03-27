@@ -2,9 +2,21 @@ export const RESOURCE_META: Record<
   string,
   { image: ReturnType<typeof require>; label: string; color: string }
 > = {
-  strawberry: { image: require("../assets/strawberry.png"), label: "Strawberry", color: "#e8534a" },
-  pinecone:   { image: require("../assets/strawberry.png"), label: "Pinecone",   color: "#5a8a3c" },
-  blueberry:  { image: require("../assets/strawberry.png"), label: "Blueberry",  color: "#5b6bbf" },
+  strawberry: {
+    image: require("../assets/resource-images/strawberry.webp"),
+    label: "Strawberry",
+    color: "#e8534a",
+  },
+  pinecone: {
+    image: require("../assets/resource-images/pinecone.webp"),
+    label: "Pinecone",
+    color: "#5a8a3c",
+  },
+  blueberry: {
+    image: require("../assets/resource-images/blueberry.webp"),
+    label: "Blueberry",
+    color: "#5b6bbf",
+  },
 };
 
 export const CLASS_META: Record<
