@@ -12,6 +12,8 @@ export type Champion = {
   attack: number;
   defense: number;
   chance: number;
+  max_hp: number;
+  current_hp: number;
   is_deployed: boolean;
 };
 

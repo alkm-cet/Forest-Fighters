@@ -6,7 +6,7 @@ const authMiddleware = require('../middleware/auth');
 router.get('/', authMiddleware, async (req, res) => {
   try {
     let rows = await query(
-      'SELECT id, name, class, level, attack, defense, chance, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
+      'SELECT id, name, class, level, attack, defense, chance, max_hp, current_hp, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
       [req.player.id]
     );
 
@@ -18,12 +18,12 @@ router.get('/', authMiddleware, async (req, res) => {
       ];
       for (const [name, cls] of starters) {
         await query(
-          'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3)',
+          'INSERT INTO champions (player_id, name, class, max_hp, current_hp) VALUES ($1, $2, $3, 100, 100)',
           [req.player.id, name, cls]
         );
       }
       rows = await query(
-        'SELECT id, name, class, level, attack, defense, chance, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
+        'SELECT id, name, class, level, attack, defense, chance, max_hp, current_hp, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
         [req.player.id]
       );
     }

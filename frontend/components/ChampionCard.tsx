@@ -49,9 +49,9 @@ export default function ChampionCard({ champion, onPress }: Props) {
       <View style={styles.hpRow}>
         <Heart size={11} color="#e05050" strokeWidth={2} fill="#e05050" />
         <View style={styles.hpTrack}>
-          <View style={[styles.hpFill, { width: `${Math.min((champion.defense * 5 + champion.level * 10) / 150 * 100, 100)}%` as any }]} />
+          <View style={[styles.hpFill, { width: `${Math.round((champion.current_hp / champion.max_hp) * 100)}%` as any }]} />
         </View>
-        <Text style={styles.hpValue}>{champion.defense * 5 + champion.level * 10}</Text>
+        <Text style={styles.hpValue}>{champion.current_hp}/{champion.max_hp}</Text>
       </View>
     </TouchableOpacity>
   );

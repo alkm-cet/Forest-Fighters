@@ -36,11 +36,17 @@ async function migrate() {
         attack INT DEFAULT 10,
         defense INT DEFAULT 10,
         chance INT DEFAULT 10,
+        max_hp INT DEFAULT 100,
+        current_hp INT DEFAULT 100,
         is_deployed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
     console.log('Created table: champions');
+
+    // Add hp columns to existing champions table if not present
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS max_hp INT DEFAULT 100`);
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS current_hp INT DEFAULT 100`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS farmers (
