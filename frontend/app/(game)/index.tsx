@@ -15,7 +15,7 @@ import ResourceBar from "../../components/ResourceBar";
 import ChampionCard from "../../components/ChampionCard";
 import CampfireScene from "../../components/CampfireScene";
 
-const BG = require("../../assets/background-image-2.png");
+const BG = require("../../assets/home-assets/background-image-3.png");
 
 export default function MainScreen() {
   const router = useRouter();
@@ -68,9 +68,7 @@ export default function MainScreen() {
 
         {/* Center — cats around campfire */}
         <View style={styles.centerFill}>
-          {champions.length > 0 && (
-            <CampfireScene champions={champions} />
-          )}
+          {champions.length > 0 && <CampfireScene champions={champions} />}
         </View>
 
         {/* Champion cards row */}
@@ -81,7 +79,6 @@ export default function MainScreen() {
             ))}
           </View>
         )}
-
       </SafeAreaView>
     </ImageBackground>
   );
@@ -135,6 +132,7 @@ const styles = StyleSheet.create({
   centerFill: {
     flex: 1,
     justifyContent: "flex-end",
+    overflow: "visible",
   },
   championsRow: {
     flexDirection: "row",

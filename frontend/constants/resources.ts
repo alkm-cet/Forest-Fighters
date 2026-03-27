@@ -1,15 +1,20 @@
 export const RESOURCE_META: Record<
   string,
-  { icon: string; label: string; color: string }
+  { image: ReturnType<typeof require>; label: string; color: string }
 > = {
-  strawberry: { icon: "🍓", label: "Strawberry", color: "#e8534a" },
-  pinecone:   { icon: "🌲", label: "Pinecone",   color: "#5a8a3c" },
-  blueberry:  { icon: "🫐", label: "Blueberry",  color: "#5b6bbf" },
+  strawberry: { image: require("../assets/strawberry.png"), label: "Strawberry", color: "#e8534a" },
+  pinecone:   { image: require("../assets/strawberry.png"), label: "Pinecone",   color: "#5a8a3c" },
+  blueberry:  { image: require("../assets/strawberry.png"), label: "Blueberry",  color: "#5b6bbf" },
 };
 
 export const CLASS_META: Record<
   string,
-  { emoji: string; color: string; image: ReturnType<typeof require>; cost: number }
+  {
+    emoji: string;
+    color: string;
+    image: ReturnType<typeof require>;
+    cost: number;
+  }
 > = {
   Warrior: {
     emoji: "⚔️",

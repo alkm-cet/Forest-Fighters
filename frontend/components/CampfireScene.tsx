@@ -1,147 +1,143 @@
-import { View, Image, Text, StyleSheet } from "react-native";
+import { View, Image, StyleSheet, Dimensions } from "react-native";
 import { Champion } from "../types";
-import { CLASS_META } from "../constants/resources";
+
+const { width: SCREEN_W } = Dimensions.get("window");
+
+// Fixed asset sources
+const ASSETS = {
+  fire: require("../assets/home-assets/fire.png"),
+  warrior: require("../assets/cats/warrior-cat.webp"),
+  archer: require("../assets/cats/archer-cat.webp"),
+  mage: require("../assets/cats/mage-cat.webp"),
+};
+
+const CAT_BY_CLASS: Record<string, keyof typeof ASSETS> = {
+  Warrior: "warrior",
+  Archer: "archer",
+  Mage: "mage",
+};
 
 type Props = {
   champions: Champion[];
 };
 
-const CAT_IMAGES: Record<string, ReturnType<typeof require>> = {
-  Warrior: require("../assets/cats/warrior-cat.webp"),
-  Archer:  require("../assets/cats/archer-cat.webp"),
-  Mage:    require("../assets/cats/mage-cat.webp"),
-};
-
-// Fallback order if DB doesn't have exactly Warrior/Archer/Mage
-const SLOT_ORDER = ["Warrior", "Archer", "Mage"];
-
 export default function CampfireScene({ champions }: Props) {
-  // Map champions to slots by class; fall back to whatever we have
-  const slots = SLOT_ORDER.map(
-    (cls) => champions.find((c) => c.class === cls) ?? null
-  );
+  const warrior = champions.find((c) => c.class === "Warrior");
+  const archer = champions.find((c) => c.class === "Archer");
+  const mage = champions.find((c) => c.class === "Mage");
+
+  const W = SCREEN_W;
+  const H = 300;
+  const cx = W / 2;
+
+  // Extra bottom padding so the scene looks vertically centered
+  // when champion cards sit below it
+  const B = 50;
+
+  // Fire — center, sits at bottom padding level
+  const fireW = 125;
+  const fireH = 135;
+  const fireLeft = cx - fireW / 2;
+  const fireBottom = B + 40;
+
+  // Archer — center behind fire, base overlaps top of fire stones
+  const archerW = 145;
+  const archerH = 160;
+  const archerLeft = cx - archerW / 2;
+  const archerBottom = B + fireH - 42;
+
+  // Warrior — left, close to fire, same ground level as fire base
+  const warriorW = 125;
+  const warriorH = 135;
+  const warriorLeft = cx - 118;
+  const warriorBottom = B + fireH - 82;
+
+  // Mage — right, close to fire, same ground level
+  const mageW = 125;
+  const mageH = 135;
+  const mageLeft = cx + 8;
+  const mageBottom = B + fireH - 82;
 
   return (
-    <View style={styles.scene}>
+    <View style={[styles.scene, { width: W, height: H }]} pointerEvents="none">
+      {/* Archer — behind fire (rendered first = lower z) */}
+      {archer && (
+        <Image
+          source={ASSETS[CAT_BY_CLASS[archer.class]]}
+          style={[
+            styles.cat,
+            {
+              width: archerW,
+              height: archerH,
+              left: archerLeft,
+              bottom: archerBottom,
+              zIndex: 1,
+            },
+          ]}
+          resizeMode="contain"
+        />
+      )}
 
-      {/* Left cat — Warrior */}
-      <View style={[styles.catSlot, styles.leftSlot]}>
-        {slots[0] && (
-          <Image
-            source={CAT_IMAGES[slots[0].class]}
-            style={styles.catLeft}
-            resizeMode="contain"
-          />
-        )}
-      </View>
+      {/* Warrior — left */}
+      {warrior && (
+        <Image
+          source={ASSETS[CAT_BY_CLASS[warrior.class]]}
+          style={[
+            styles.cat,
+            {
+              width: warriorW,
+              height: warriorH,
+              left: warriorLeft,
+              bottom: warriorBottom,
+              zIndex: 2,
+            },
+          ]}
+          resizeMode="contain"
+        />
+      )}
 
-      {/* Center — Archer above fire */}
-      <View style={styles.centerColumn}>
-        {slots[1] && (
-          <Image
-            source={CAT_IMAGES[slots[1].class]}
-            style={styles.catCenter}
-            resizeMode="contain"
-          />
-        )}
+      {/* Mage — right */}
+      {mage && (
+        <Image
+          source={ASSETS[CAT_BY_CLASS[mage.class]]}
+          style={[
+            styles.cat,
+            {
+              width: mageW,
+              height: mageH,
+              left: mageLeft,
+              bottom: mageBottom,
+              zIndex: 2,
+            },
+          ]}
+          resizeMode="contain"
+        />
+      )}
 
-        {/* Campfire */}
-        <View style={styles.fireContainer}>
-          <View style={styles.stoneRing}>
-            <View style={styles.emberGlow} />
-            <Text style={styles.fireEmoji}>🔥</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Right cat — Mage */}
-      <View style={[styles.catSlot, styles.rightSlot]}>
-        {slots[2] && (
-          <Image
-            source={CAT_IMAGES[slots[2].class]}
-            style={styles.catRight}
-            resizeMode="contain"
-          />
-        )}
-      </View>
-
+      {/* Fire — front center, highest z */}
+      <Image
+        source={ASSETS.fire}
+        style={[
+          styles.cat,
+          {
+            width: fireW,
+            height: fireH,
+            left: fireLeft,
+            bottom: fireBottom,
+            zIndex: 3,
+          },
+        ]}
+        resizeMode="contain"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   scene: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    position: "relative",
   },
-
-  // Left — Warrior
-  catSlot: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  leftSlot: {
-    paddingBottom: 28,
-  },
-  catLeft: {
-    width: 90,
-    height: 100,
-    transform: [{ scaleX: 1 }],
-  },
-
-  // Center column — Archer + fire
-  centerColumn: {
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  catCenter: {
-    width: 110,
-    height: 120,
-    marginBottom: -8,
-    zIndex: 2,
-  },
-
-  // Fire
-  fireContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 0,
-  },
-  stoneRing: {
-    width: 72,
-    height: 44,
-    borderRadius: 36,
-    backgroundColor: "#8a7560",
-    borderWidth: 3,
-    borderColor: "#6b5a42",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  emberGlow: {
+  cat: {
     position: "absolute",
-    width: 52,
-    height: 28,
-    borderRadius: 26,
-    backgroundColor: "#ff8c00",
-    opacity: 0.45,
-  },
-  fireEmoji: {
-    fontSize: 30,
-    marginTop: -10,
-    zIndex: 3,
-  },
-
-  // Right — Mage
-  rightSlot: {
-    paddingBottom: 28,
-  },
-  catRight: {
-    width: 90,
-    height: 100,
   },
 });

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 
@@ -9,8 +9,8 @@ type Props = {
 export default function ResourceBar({ resources }: Props) {
   const entries: { key: keyof Resources; amount: number }[] = [
     { key: "strawberry", amount: resources.strawberry },
-    { key: "pinecone",   amount: resources.pinecone },
-    { key: "blueberry",  amount: resources.blueberry },
+    { key: "pinecone", amount: resources.pinecone },
+    { key: "blueberry", amount: resources.blueberry },
   ];
 
   return (
@@ -19,7 +19,11 @@ export default function ResourceBar({ resources }: Props) {
         const meta = RESOURCE_META[key];
         return (
           <View key={key} style={styles.pill}>
-            <Text style={styles.icon}>{meta.icon}</Text>
+            <Image
+              source={meta.image}
+              style={styles.icon}
+              resizeMode="contain"
+            />
             <View style={styles.labelBlock}>
               <Text style={styles.label}>{meta.label}</Text>
               <Text style={styles.amount}>{amount}</Text>
@@ -57,7 +61,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   icon: {
-    fontSize: 20,
+    width: 28,
+    height: 28,
   },
   labelBlock: {
     flex: 1,
@@ -66,7 +71,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#888",
     fontWeight: "600",
-    textTransform: "uppercase",
     letterSpacing: 0.3,
   },
   amount: {
