@@ -10,9 +10,12 @@ import {
   PanResponder,
 } from "react-native";
 import { Text } from "./StyledText";
+import { X, Swords } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
-import Button from "./Button";
+
+import PvpBattleButton from "./PvpBattleButton";
+import EnterDungeonButton from "./EnterDungeonButton";
 
 type Props = {
   champion: Champion | null;
@@ -30,24 +33,32 @@ function StatRow({ label, value }: { label: string; value: number }) {
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${Math.round(pct * 100)}%` as any }]} />
+        <View
+          style={[
+            styles.barFill,
+            { width: `${Math.round(pct * 100)}%` as any },
+          ]}
+        />
       </View>
       <Text style={styles.statValue}>{value}</Text>
     </View>
   );
 }
 
-export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: Props) {
+export default function ChampionDrawer({
+  champion,
+  onClose,
+  onPvp,
+  onDungeon,
+}: Props) {
   const translateY = useRef(new Animated.Value(0)).current;
 
-  // Reset position every time a new champion is opened
   useEffect(() => {
     if (champion) translateY.setValue(0);
   }, [champion]);
 
   const panResponder = useRef(
     PanResponder.create({
-      // Only capture downward vertical swipes
       onMoveShouldSetPanResponder: (_, gs) =>
         gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
       onPanResponderMove: (_, gs) => {
@@ -69,12 +80,16 @@ export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: 
           }).start();
         }
       },
-    })
+    }),
   ).current;
 
   if (!champion) return null;
 
-  const meta = CLASS_META[champion.class] ?? { image: null, color: "#888", cost: 0 };
+  const meta = CLASS_META[champion.class] ?? {
+    image: null,
+    color: "#888",
+    cost: 0,
+  };
 
   return (
     <Modal
@@ -83,7 +98,7 @@ export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: 
       animationType="slide"
       onRequestClose={onClose}
     >
-      {/* Transparent backdrop — tapping it closes the drawer */}
+      {/* Transparent backdrop */}
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
@@ -92,20 +107,26 @@ export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: 
         style={[styles.drawer, { transform: [{ translateY }] }]}
         {...panResponder.panHandlers}
       >
-        {/* Top bar: handle centered, close button on right — in the same row */}
+        {/* Top bar: handle centered, close button on right */}
         <View style={styles.topBar}>
           <View style={styles.handleWrap}>
             <View style={styles.handle} />
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-            <Text style={styles.closeIcon}>✕</Text>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <X size={14} color="#7a5230" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
         {/* Class badge + level */}
         <View style={styles.headerRow}>
           <View style={styles.classBadge}>
-            <Text style={styles.classBadgeText}>{champion.class.toUpperCase()}</Text>
+            <Text style={styles.classBadgeText}>
+              {champion.class.toUpperCase()}
+            </Text>
           </View>
           <View style={styles.levelWrap}>
             <Text style={styles.levelSmall}>Level</Text>
@@ -119,7 +140,11 @@ export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: 
         {/* Champion image */}
         <View style={styles.imageFrame}>
           {meta.image && (
-            <Image source={meta.image} style={styles.champImage} resizeMode="contain" />
+            <Image
+              source={meta.image}
+              style={styles.champImage}
+              resizeMode="contain"
+            />
           )}
         </View>
 
@@ -127,26 +152,21 @@ export default function ChampionDrawer({ champion, onClose, onPvp, onDungeon }: 
         <View style={styles.divider} />
 
         {/* Stats */}
-        <Text style={styles.sectionLabel}>⚔  BASE STATISTICS</Text>
+        <View style={styles.sectionLabelRow}>
+          <Swords size={12} color="#9a7040" strokeWidth={2} />
+          <Text style={styles.sectionLabel}>BASE STATISTICS</Text>
+        </View>
         <StatRow label="Attack" value={champion.attack} />
         <StatRow label="Defense" value={champion.defense} />
         <StatRow label="Chance" value={champion.chance} />
 
         {/* Buttons */}
         <View style={styles.btnRow}>
-          <Button
-            label="PVP"
-            subLabel="Arena Battle"
-            icon="⚔️"
-            variant="danger"
+          <PvpBattleButton
             onPress={() => onPvp(champion)}
             style={styles.btnFlex}
           />
-          <Button
-            label="DUNGEON"
-            subLabel="Explore Ruins"
-            icon="🏰"
-            variant="info"
+          <EnterDungeonButton
             onPress={() => onDungeon(champion)}
             style={styles.btnFlex}
           />
@@ -184,7 +204,6 @@ const styles = StyleSheet.create({
   handleWrap: {
     flex: 1,
     alignItems: "center",
-    // offset to visually center the handle accounting for the close button width
     paddingLeft: 38,
   },
   handle: {
@@ -202,11 +221,6 @@ const styles = StyleSheet.create({
     borderColor: "#c8a96e",
     alignItems: "center",
     justifyContent: "center",
-  },
-  closeIcon: {
-    fontSize: 12,
-    color: "#7a5230",
-    fontWeight: "700",
   },
   headerRow: {
     flexDirection: "row",
@@ -229,7 +243,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   levelWrap: {
-    alignItems: "flex-end",
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 4,
   },
   levelSmall: {
     fontSize: 10,
@@ -273,12 +290,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#d4b896",
     marginBottom: 12,
   },
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 10,
+  },
   sectionLabel: {
     fontSize: 10,
     fontWeight: "700",
     color: "#9a7040",
     letterSpacing: 1.2,
-    marginBottom: 10,
   },
   statRow: {
     flexDirection: "row",

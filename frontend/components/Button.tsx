@@ -1,37 +1,43 @@
+import React from "react";
 import { TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
 import { Text } from "./StyledText";
 
-type Variant = "primary" | "danger" | "info" | "ghost";
+type Variant = "primary" | "danger" | "info" | "ghost" | "stone";
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
 type Props = {
   label: string;
   onPress: () => void;
   variant?: Variant;
   subLabel?: string;
-  icon?: string;
+  icon?: LucideIcon;
   style?: ViewStyle;
   disabled?: boolean;
 };
 
 const BG: Record<Variant, string> = {
-  primary:  "#4a7c3f",
-  danger:   "#c0392b",
-  info:     "#2471a3",
-  ghost:    "transparent",
+  primary: "#4a7c3f",
+  danger:  "#c0392b",
+  info:    "#2471a3",
+  ghost:   "transparent",
+  stone:   "#6b7a5e",
 };
 
 const BORDER: Record<Variant, string> = {
-  primary:  "#2d5a24",
-  danger:   "#922b21",
-  info:     "#1a5276",
-  ghost:    "#c8a96e",
+  primary: "#2d5a24",
+  danger:  "#922b21",
+  info:    "#1a5276",
+  ghost:   "#c8a96e",
+  stone:   "#4a5740",
 };
 
 const TEXT_COLOR: Record<Variant, string> = {
-  primary:  "#fff",
-  danger:   "#fff",
-  info:     "#fff",
-  ghost:    "#4a2e0a",
+  primary: "#fff",
+  danger:  "#fff",
+  info:    "#fff",
+  ghost:   "#4a2e0a",
+  stone:   "#fff",
 };
 
 export default function Button({
@@ -39,10 +45,11 @@ export default function Button({
   onPress,
   variant = "primary",
   subLabel,
-  icon,
+  icon: Icon,
   style,
   disabled = false,
 }: Props) {
+  const color = TEXT_COLOR[variant];
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -50,19 +57,13 @@ export default function Button({
       disabled={disabled}
       style={[
         styles.base,
-        {
-          backgroundColor: BG[variant],
-          borderColor: BORDER[variant],
-          opacity: disabled ? 0.5 : 1,
-        },
+        { backgroundColor: BG[variant], borderColor: BORDER[variant], opacity: disabled ? 0.5 : 1 },
         style,
       ]}
     >
-      {icon ? <Text style={styles.icon}>{icon}</Text> : null}
-      <Text style={[styles.label, { color: TEXT_COLOR[variant] }]}>{label}</Text>
-      {subLabel ? (
-        <Text style={[styles.subLabel, { color: TEXT_COLOR[variant] }]}>{subLabel}</Text>
-      ) : null}
+      {Icon ? <Icon size={20} color={color} strokeWidth={2} /> : null}
+      <Text style={[styles.label, { color }]}>{label}</Text>
+      {subLabel ? <Text style={[styles.subLabel, { color }]}>{subLabel}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -76,9 +77,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
-  },
-  icon: {
-    fontSize: 20,
   },
   label: {
     fontSize: 15,

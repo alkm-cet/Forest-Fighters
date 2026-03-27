@@ -39,6 +39,9 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === "(auth)";
     const inGameGroup = segments[0] === "(game)";
+    const inSplash = segments[0] === undefined;
+
+    if (inSplash) return; // splash screen handles its own navigation
 
     if (!token && !inAuthGroup) {
       router.replace("/(auth)/login");

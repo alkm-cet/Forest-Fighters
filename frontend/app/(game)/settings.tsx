@@ -7,6 +7,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
+import { ChevronLeft, Music2, LogOut } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { deleteToken } from "../../lib/auth";
 import music from "../../lib/music";
@@ -45,7 +46,7 @@ export default function SettingsScreen() {
             onPress={() => router.back()}
             style={styles.backBtn}
           >
-            <Text style={styles.backText}>‹ Back</Text>
+            <ChevronLeft size={28} color="#a8e6a3" strokeWidth={2} />
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
           <View style={styles.backBtn} />
@@ -54,9 +55,12 @@ export default function SettingsScreen() {
         {/* Settings card */}
         <View style={styles.card}>
           <View style={styles.row}>
-            <View>
-              <Text style={styles.rowLabel}>Music</Text>
-              <Text style={styles.rowSub}>Background music</Text>
+            <View style={styles.rowLeft}>
+              <Music2 size={20} color="#4a7c3f" strokeWidth={2} />
+              <View>
+                <Text style={styles.rowLabel}>Music</Text>
+                <Text style={styles.rowSub}>Background music</Text>
+              </View>
             </View>
             <Switch
               value={musicOn}
@@ -69,6 +73,7 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <LogOut size={18} color="#e74c3c" strokeWidth={2} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -95,11 +100,6 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 64,
   },
-  backText: {
-    color: "#a8e6a3",
-    fontSize: 18,
-    fontWeight: "600",
-  },
   title: {
     color: "#fff",
     fontSize: 20,
@@ -117,6 +117,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   rowLabel: {
     fontSize: 16,
     fontWeight: "700",
@@ -133,6 +138,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 16,
   },

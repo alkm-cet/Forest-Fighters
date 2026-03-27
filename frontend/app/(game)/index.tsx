@@ -7,6 +7,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
+import { Leaf, Settings, AlertTriangle } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
 import { Resources, Champion, Farmer, Player } from "../../types";
@@ -47,14 +48,17 @@ export default function MainScreen() {
       <SafeAreaView style={styles.safeArea}>
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Text style={styles.playerName}>
-            {player ? `🌿 ${player.username}` : "🌿 Forest Fighters"}
-          </Text>
+          <View style={styles.playerNameRow}>
+            <Leaf size={16} color="#a8e6a3" strokeWidth={2} />
+            <Text style={styles.playerName}>
+              {player ? player.username : "Forest Fighters"}
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => router.push("/(game)/settings")}
             style={styles.settingsBtn}
           >
-            <Text style={styles.settingsIcon}>⚙️</Text>
+            <Settings size={18} color="#fff" strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
@@ -63,7 +67,8 @@ export default function MainScreen() {
 
         {error && (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>⚠️ Cannot reach server</Text>
+            <AlertTriangle size={14} color="#fff" strokeWidth={2} />
+            <Text style={styles.errorText}>Cannot reach server</Text>
           </View>
         )}
 
@@ -117,6 +122,11 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
+  playerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   playerName: {
     color: "#fff",
     fontSize: 15,
@@ -133,16 +143,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  settingsIcon: {
-    fontSize: 18,
-  },
   errorBanner: {
     marginHorizontal: 16,
     marginTop: 4,
     backgroundColor: "rgba(220,50,50,0.85)",
     borderRadius: 10,
     padding: 8,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
   errorText: {
     color: "#fff",

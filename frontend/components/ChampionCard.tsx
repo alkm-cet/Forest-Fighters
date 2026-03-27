@@ -1,5 +1,6 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "./StyledText";
+import { Heart } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
 
@@ -44,10 +45,13 @@ export default function ChampionCard({ champion, onPress }: Props) {
       {/* Class name */}
       <Text style={styles.name}>{champion.class}</Text>
 
-      {/* Cost footer */}
-      <View style={styles.costRow}>
-        <Text style={styles.costIcon}>🍪</Text>
-        <Text style={styles.costValue}>{meta.cost * champion.level}</Text>
+      {/* HP bar footer */}
+      <View style={styles.hpRow}>
+        <Heart size={11} color="#e05050" strokeWidth={2} fill="#e05050" />
+        <View style={styles.hpTrack}>
+          <View style={[styles.hpFill, { width: `${Math.min((champion.defense * 5 + champion.level * 10) / 150 * 100, 100)}%` as any }]} />
+        </View>
+        <Text style={styles.hpValue}>{champion.defense * 5 + champion.level * 10}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -124,23 +128,34 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  costRow: {
+  hpRow: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ede0c4",
     width: "100%",
-    justifyContent: "center",
-    paddingVertical: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     gap: 4,
     borderTopWidth: 1.5,
     borderTopColor: "#d4b896",
   },
-  costIcon: {
-    fontSize: 16,
+  hpTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#d4b896",
+    borderRadius: 3,
+    overflow: "hidden",
   },
-  costValue: {
-    fontSize: 14,
-    fontWeight: "800",
+  hpFill: {
+    height: "100%",
+    backgroundColor: "#e05050",
+    borderRadius: 3,
+  },
+  hpValue: {
+    fontSize: 10,
+    fontWeight: "700",
     color: "#3a2a10",
+    minWidth: 24,
+    textAlign: "right",
   },
 });
