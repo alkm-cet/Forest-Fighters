@@ -17,7 +17,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (token === undefined) return; // still loading
+    if (token === undefined) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inGameGroup = segments[0] === '(game)';
