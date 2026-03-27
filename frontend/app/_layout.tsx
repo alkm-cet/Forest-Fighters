@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { getToken } from '../lib/auth';
 import music from '../lib/music';
+import { isMusicEnabled } from '../lib/settings';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -10,7 +11,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     getToken().then(setToken);
-    music.play('MAIN_MUSIC');
+    isMusicEnabled().then((enabled) => {
+      if (enabled) music.play('MAIN_MUSIC');
+    });
   }, []);
 
   useEffect(() => {

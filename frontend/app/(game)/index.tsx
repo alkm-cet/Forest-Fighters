@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
-import { deleteToken } from "../../lib/auth";
 import { Resources, Champion, Farmer, Player } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import ChampionCard from "../../components/ChampionCard";
@@ -39,11 +38,6 @@ export default function MainScreen() {
     ]).catch(() => setError(true));
   }, []);
 
-  async function handleLogout() {
-    await deleteToken();
-    router.replace("/(auth)/login");
-  }
-
   return (
     <ImageBackground source={BG} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safeArea}>
@@ -52,8 +46,11 @@ export default function MainScreen() {
           <Text style={styles.playerName}>
             {player ? `🌿 ${player.username}` : "🌿 Forest Fighters"}
           </Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Logout</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/(game)/settings")}
+            style={styles.settingsBtn}
+          >
+            <Text style={styles.settingsIcon}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
@@ -107,15 +104,16 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  logoutBtn: {
+  settingsBtn: {
     backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  logoutText: {
-    color: "#fff",
-    fontSize: 13,
+  settingsIcon: {
+    fontSize: 18,
   },
   errorBanner: {
     marginHorizontal: 16,
