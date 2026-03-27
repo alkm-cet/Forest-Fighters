@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ImageBackground,
   SafeAreaView,
 } from "react-native";
+import { Text } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
 import { Resources, Champion, Farmer, Player } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import ChampionCard from "../../components/ChampionCard";
+import ChampionDrawer from "../../components/ChampionDrawer";
 import CampfireScene from "../../components/CampfireScene";
 
 const BG = require("../../assets/home-assets/background-image-3.png");
@@ -27,6 +28,9 @@ export default function MainScreen() {
   });
   const [champions, setChampions] = useState<Champion[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
+    null,
+  );
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -72,11 +76,28 @@ export default function MainScreen() {
         {champions.length > 0 && (
           <View style={styles.championsRow}>
             {champions.slice(0, 3).map((c) => (
-              <ChampionCard key={c.id} champion={c} />
+              <ChampionCard
+                key={c.id}
+                champion={c}
+                onPress={setSelectedChampion}
+              />
             ))}
           </View>
         )}
       </SafeAreaView>
+
+      <ChampionDrawer
+        champion={selectedChampion}
+        onClose={() => setSelectedChampion(null)}
+        onPvp={(c) => {
+          setSelectedChampion(null);
+          router.push("/(game)/pvp");
+        }}
+        onDungeon={(c) => {
+          setSelectedChampion(null);
+          router.push("/(game)/dungeons");
+        }}
+      />
     </ImageBackground>
   );
 }

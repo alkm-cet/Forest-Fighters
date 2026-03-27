@@ -1,4 +1,5 @@
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { Text } from "./StyledText";
 import { Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 
@@ -77,7 +78,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "900",
+    fontFamily: "Fredoka-Bold",
     color: "#4a2e0a",
     textAlign: "right",
     width: "100%",
@@ -108,11 +110,12 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: "#3a1e00",
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "800",
     minWidth: 28,
     textAlign: "center",
     width: 40,
+    fontFamily: "Fredoka-Bold",
   },
   plusWrap: {
     marginLeft: 2,

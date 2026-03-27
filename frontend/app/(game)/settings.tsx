@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   View,
-  Text,
   Switch,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
 } from "react-native";
+import { Text } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import { deleteToken } from "../../lib/auth";
 import music from "../../lib/music";
@@ -39,10 +39,12 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
             <Text style={styles.backText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Settings</Text>
@@ -51,7 +53,6 @@ export default function SettingsScreen() {
 
         {/* Settings card */}
         <View style={styles.card}>
-
           <View style={styles.row}>
             <View>
               <Text style={styles.rowLabel}>Music</Text>
@@ -70,7 +71,6 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
-
         </View>
       </View>
     </SafeAreaView>

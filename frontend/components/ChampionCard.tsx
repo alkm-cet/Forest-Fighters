@@ -1,4 +1,5 @@
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { Text } from "./StyledText";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
 
@@ -32,7 +33,11 @@ export default function ChampionCard({ champion, onPress }: Props) {
       {/* Cat image */}
       <View style={styles.imageWrapper}>
         {meta.image ? (
-          <Image source={meta.image} style={styles.catImage} resizeMode="contain" />
+          <Image
+            source={meta.image}
+            style={styles.catImage}
+            resizeMode="contain"
+          />
         ) : null}
       </View>
 
