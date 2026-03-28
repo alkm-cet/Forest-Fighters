@@ -1,9 +1,10 @@
-import { View, Image, StyleSheet, Dimensions } from "react-native";
-import { Champion } from "../types";
+import { useRef, useEffect } from "react";
+import { View, StyleSheet, Dimensions, Animated } from "react-native";
+import { Champion, Farmer } from "../types";
+import { RESOURCE_META } from "../constants/resources";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
-// Fixed asset sources
 const ASSETS = {
   fire: require("../assets/home-assets/fire.png"),
   warrior: require("../assets/cats/warrior-cat.webp"),
@@ -11,121 +12,153 @@ const ASSETS = {
   mage: require("../assets/cats/mage-cat.webp"),
 };
 
-const CAT_BY_CLASS: Record<string, keyof typeof ASSETS> = {
-  Warrior: "warrior",
-  Archer: "archer",
-  Mage: "mage",
-};
-
 type Props = {
   champions: Champion[];
+  farmers?: Farmer[];
+  showFarmers?: boolean;
 };
 
-export default function CampfireScene({ champions }: Props) {
+// Shared slot geometry — farmer cats render at the exact same position as champion cats
+const W = SCREEN_W;
+const cx = W / 2;
+const B = 50;
+const fireH = 135;
+
+const SLOTS = {
+  left: {
+    width: 110,
+    height: 100,
+    left: cx - 140,
+    bottom: B + fireH - 82,
+    zIndex: 2,
+  },
+  center: {
+    width: 100,
+    height: 100,
+    left: cx - 50,
+    bottom: B + fireH - 22,
+    zIndex: 1,
+  },
+  right: {
+    width: 110,
+    height: 100,
+    left: cx + 25,
+    bottom: B + fireH - 82,
+    zIndex: 2,
+  },
+};
+
+export default function CampfireScene({
+  champions,
+  farmers = [],
+  showFarmers = false,
+}: Props) {
+  const championOpacity = useRef(
+    new Animated.Value(showFarmers ? 0 : 1),
+  ).current;
+  const farmerOpacity = useRef(new Animated.Value(showFarmers ? 1 : 0)).current;
+  const fireOpacity = useRef(new Animated.Value(showFarmers ? 0 : 1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(championOpacity, {
+        toValue: showFarmers ? 0 : 1,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.timing(farmerOpacity, {
+        toValue: showFarmers ? 1 : 0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fireOpacity, {
+        toValue: showFarmers ? 0 : 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [showFarmers]);
+
   const warrior = champions.find((c) => c.class === "Warrior");
   const archer = champions.find((c) => c.class === "Archer");
   const mage = champions.find((c) => c.class === "Mage");
 
-  const W = SCREEN_W;
-  const H = 300;
-  const cx = W / 2;
-
-  // Extra bottom padding so the scene looks vertically centered
-  // when champion cards sit below it
-  const B = 50;
-
-  // Fire — center, sits at bottom padding level
-  const fireW = 100;
-  const fireH = 135;
-  const fireLeft = cx - fireW / 2;
-  const fireBottom = B + 33;
-
-  // Archer — center behind fire, base overlaps top of fire stones
-  const archerW = 100;
-  const archerH = 100;
-  const archerLeft = cx - archerW / 2;
-  const archerBottom = B + fireH - 22;
-
-  // Warrior — left, close to fire, same ground level as fire base
-  const warriorW = 110;
-  const warriorH = 100;
-  const warriorLeft = cx - 140;
-  const warriorBottom = B + fireH - 82;
-
-  // Mage — right, close to fire, same ground level
-  const mageW = 110;
-  const mageH = 100;
-  const mageLeft = cx + 25;
-  const mageBottom = B + fireH - 82;
+  const farmerByType: Record<string, Farmer> = {};
+  for (const f of farmers) farmerByType[f.resource_type] = f;
 
   return (
-    <View style={[styles.scene, { width: W, height: H }]} pointerEvents="none">
-      {/* Archer — behind fire (rendered first = lower z) */}
-      {archer && (
-        <Image
-          source={ASSETS[CAT_BY_CLASS[archer.class]]}
-          style={[
-            styles.cat,
-            {
-              width: archerW,
-              height: archerH,
-              left: archerLeft,
-              bottom: archerBottom,
-              zIndex: 1,
-            },
-          ]}
-          resizeMode="contain"
-        />
-      )}
-
-      {/* Warrior — left */}
+    <View
+      style={[styles.scene, { width: W, height: 300 }]}
+      pointerEvents="none"
+    >
+      {/* ── Left slot: Warrior ↔ Strawberry ── */}
       {warrior && (
-        <Image
-          source={ASSETS[CAT_BY_CLASS[warrior.class]]}
-          style={[
-            styles.cat,
-            {
-              width: warriorW,
-              height: warriorH,
-              left: warriorLeft,
-              bottom: warriorBottom,
-              zIndex: 2,
-            },
-          ]}
+        <Animated.Image
+          source={ASSETS.warrior}
+          style={[styles.cat, SLOTS.left, { opacity: championOpacity }]}
+          resizeMode="contain"
+        />
+      )}
+      {farmerByType["strawberry"] && (
+        <Animated.Image
+          source={RESOURCE_META["strawberry"].catImage}
+          style={[styles.cat, SLOTS.left, { opacity: farmerOpacity }]}
           resizeMode="contain"
         />
       )}
 
-      {/* Mage — right */}
+      {/* ── Center slot: Archer ↔ Pinecone ── */}
+      {archer && (
+        <Animated.Image
+          source={ASSETS.archer}
+          style={[styles.cat, SLOTS.center, { opacity: championOpacity }]}
+          resizeMode="contain"
+        />
+      )}
+      {farmerByType["pinecone"] && (
+        <Animated.Image
+          source={RESOURCE_META["pinecone"].catImage}
+          style={[styles.cat, SLOTS.center, { opacity: farmerOpacity }]}
+          resizeMode="contain"
+        />
+      )}
+
+      {/* ── Right slot: Mage ↔ Blueberry (mirrored) ── */}
       {mage && (
-        <Image
-          source={ASSETS[CAT_BY_CLASS[mage.class]]}
+        <Animated.Image
+          source={ASSETS.mage}
           style={[
             styles.cat,
-            {
-              width: mageW,
-              height: mageH,
-              left: mageLeft,
-              bottom: mageBottom,
-              zIndex: 2,
-              transform: [{ scaleX: -1 }],
-            },
+            SLOTS.right,
+            { opacity: championOpacity, transform: [{ scaleX: -1 }] },
+          ]}
+          resizeMode="contain"
+        />
+      )}
+      {farmerByType["blueberry"] && (
+        <Animated.Image
+          source={RESOURCE_META["blueberry"].catImage}
+          style={[
+            styles.cat,
+            SLOTS.right,
+            { opacity: farmerOpacity, transform: [{ scaleX: -1 }] },
           ]}
           resizeMode="contain"
         />
       )}
 
-      {/* Fire — front center, highest z */}
-      <Image
+      {/* ── Fire — fades out when showing farmers ── */}
+      <Animated.Image
         source={ASSETS.fire}
         style={[
           styles.cat,
           {
-            width: fireW,
+            width: 100,
             height: fireH,
-            left: fireLeft,
-            bottom: fireBottom,
+            left: cx - 50,
+            bottom: B + 33,
             zIndex: 3,
+            opacity: fireOpacity,
           },
         ]}
         resizeMode="contain"

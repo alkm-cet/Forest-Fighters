@@ -94,9 +94,15 @@ export default function MainScreen() {
           </View>
         )}
 
-        {/* Center — cats around campfire */}
+        {/* Center — cats around campfire / farmer scene */}
         <View style={styles.centerFill}>
-          {champions.length > 0 && <CampfireScene champions={champions} />}
+          {(champions.length > 0 || farmers.length > 0) && (
+            <CampfireScene
+              champions={champions}
+              farmers={farmers}
+              showFarmers={showFarmers}
+            />
+          )}
         </View>
 
         {/* Cards section */}

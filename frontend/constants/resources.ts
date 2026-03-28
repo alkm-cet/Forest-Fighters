@@ -1,19 +1,27 @@
 export const RESOURCE_META: Record<
   string,
-  { image: ReturnType<typeof require>; label: string; color: string }
+  {
+    image: ReturnType<typeof require>;
+    catImage: ReturnType<typeof require>;
+    label: string;
+    color: string;
+  }
 > = {
   strawberry: {
     image: require("../assets/resource-images/strawberry.webp"),
+    catImage: require("../assets/cats/strawberry-cat.png"),
     label: "Strawberry",
     color: "#e8534a",
   },
   pinecone: {
     image: require("../assets/resource-images/pinecone.webp"),
+    catImage: require("../assets/cats/pinecone-cat.png"),
     label: "Pinecone",
     color: "#5a8a3c",
   },
   blueberry: {
     image: require("../assets/resource-images/blueberry.webp"),
+    catImage: require("../assets/cats/blueberry-cat.png"),
     label: "Blueberry",
     color: "#5b6bbf",
   },
