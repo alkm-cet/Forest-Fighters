@@ -157,8 +157,9 @@ async function claimRun(req, res) {
     );
 
     if (rewardAmount > 0) {
+      const rewardCapCol = `${rewardResource}_cap`;
       await query(
-        `UPDATE player_resources SET ${rewardResource} = ${rewardResource} + $1 WHERE player_id = $2`,
+        `UPDATE player_resources SET ${rewardResource} = LEAST(${rewardResource} + $1, ${rewardCapCol}) WHERE player_id = $2`,
         [rewardAmount, playerId]
       );
     }

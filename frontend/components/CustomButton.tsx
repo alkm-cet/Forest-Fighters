@@ -33,11 +33,11 @@ export default function CustomButton({
   disabled = false,
 }: Props) {
   // btnIcon takes precedence over btnImage when both are provided
-  const leadEl = btnIcon
-    ? btnIcon
-    : btnImage
-    ? <Image source={btnImage} style={styles.icon} resizeMode="contain" />
-    : null;
+  const leadEl = btnIcon ? (
+    btnIcon
+  ) : btnImage ? (
+    <Image source={btnImage} style={styles.icon} resizeMode="contain" />
+  ) : null;
 
   return (
     <TouchableOpacity

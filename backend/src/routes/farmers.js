@@ -97,23 +97,41 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
     const pending = calcPending(farmer.last_collected_at, farmer.level, farmer.resource_type);
     if (pending === 0) return res.status(400).json({ error: 'Nothing to collect yet' });
 
+    // Check how much free space the player has for this resource
+    const capCol = `${farmer.resource_type}_cap`;
+    const resRows = await query(
+      `SELECT ${farmer.resource_type}, ${capCol} FROM player_resources WHERE player_id = $1`,
+      [playerId]
+    );
+    const currentAmount = resRows[0]?.[farmer.resource_type] ?? 0;
+    const cap = resRows[0]?.[capCol] ?? 15;
+    const freeSpace = Math.max(0, cap - currentAmount);
+
+    if (freeSpace === 0) return res.status(400).json({ error: 'Capacity full' });
+
+    // Only collect as many items as there is space for
+    const collectible = Math.min(pending, freeSpace);
+
     const intervalMs = getIntervalByType(farmer.resource_type, farmer.level) * 60 * 1000;
     const elapsed = Date.now() - new Date(farmer.last_collected_at).getTime();
-    // Preserve only the partial progress into the current incomplete interval
     const partialMs = elapsed % intervalMs;
-    const newLastCollected = new Date(Date.now() - partialMs);
+    // Roll back last_collected_at so uncollected items (pending - collectible) remain pending
+    const newLastCollected = new Date(Date.now() - partialMs - (pending - collectible) * intervalMs);
 
     await query(
       `UPDATE player_resources SET ${farmer.resource_type} = ${farmer.resource_type} + $1 WHERE player_id = $2`,
-      [pending, playerId]
+      [collectible, playerId]
     );
     await query(
       'UPDATE farmers SET last_collected_at = $1 WHERE id = $2',
       [newLastCollected, farmerId]
     );
 
-    const resRows = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
-    res.json({ collected: pending, resource_type: farmer.resource_type, resources: resRows[0] });
+    const updatedRes = await query(
+      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1',
+      [playerId]
+    );
+    res.json({ collected: collectible, resource_type: farmer.resource_type, resources: updatedRes[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Collect failed' });

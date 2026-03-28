@@ -134,6 +134,11 @@ async function migrate() {
     // Stat points (earned each level-up, spent on attack/defense/chance)
     await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS stat_points INT DEFAULT 0`);
 
+    // Resource storage caps (player can hold up to cap of each resource)
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS strawberry_cap INT DEFAULT 15`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS pinecone_cap INT DEFAULT 15`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS blueberry_cap INT DEFAULT 15`);
+
     // XP reward per dungeon
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS xp_reward INT DEFAULT 20`);
 

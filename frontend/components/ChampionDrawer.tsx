@@ -329,10 +329,12 @@ export default function ChampionDrawer({
         ) : (
           <>
             <View style={styles.btnRow}>
-              <PvpBattleButton
-                onPress={() => onPvp(champion)}
-                style={styles.btnFlex}
-              />
+              {!isOnMission && !claimableRun && (
+                <PvpBattleButton
+                  onPress={() => onPvp(champion)}
+                  style={styles.btnFlex}
+                />
+              )}
               {claimableRun ? (
                 <TouchableOpacity
                   style={[styles.claimBtn, styles.btnFlex]}
@@ -360,8 +362,8 @@ export default function ChampionDrawer({
               )}
             </View>
 
-            {/* Heal button — only when injured */}
-            {champion.current_hp < champion.max_hp && (
+            {/* Heal button — only when injured and not on mission */}
+            {!isOnMission && champion.current_hp < champion.max_hp && (
               (() => {
                 const healCost = Math.ceil((champion.max_hp - champion.current_hp) / 35);
                 const canHeal = (resources?.strawberry ?? 0) >= healCost;

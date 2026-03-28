@@ -96,12 +96,17 @@ const translations = {
     victory: "Victory!",
     defeat: "Defeat",
     missionComplete: "Mission Complete",
+    missionDone: "Mission Done!",
     timeRemaining: "Time remaining",
     reward: "Reward",
     enemy: "Enemy",
     noDungeons: "No dungeons available",
     championDeployed: "Champion is already deployed",
     readyToClaim: "READY!",
+
+    // Resource capacity
+    upgradeCapacityTitle: "Upgrade Capacity?",
+    upgradeCapacityInfo: "Max storage +3",
   },
   tr: {
     // App name
@@ -193,12 +198,17 @@ const translations = {
     victory: "Zafer!",
     defeat: "Yenilgi",
     missionComplete: "Görev Tamamlandı",
+    missionDone: "Görev Bitti!",
     timeRemaining: "Kalan süre",
     reward: "Ödül",
     enemy: "Düşman",
     noDungeons: "Zindan bulunamadı",
     championDeployed: "Savaşçı zaten görevde",
     readyToClaim: "HAZIR!",
+
+    // Resource capacity
+    upgradeCapacityTitle: "Kapasiteyi Artır?",
+    upgradeCapacityInfo: "Maks depolama +3",
   },
 } as const;
 

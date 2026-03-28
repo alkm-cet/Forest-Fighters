@@ -1,4 +1,5 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { useState, useEffect } from "react";
 import { Text } from "./StyledText";
 import { Heart } from "lucide-react-native";
 import { Champion } from "../types";
@@ -20,6 +21,15 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
     cost: 0,
   };
 
+  const [isExpired, setIsExpired] = useState(
+    () => !!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date()
+  );
+
+  // Re-sync whenever a new mission starts (activeRunEndsAt changes)
+  useEffect(() => {
+    setIsExpired(!!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date());
+  }, [activeRunEndsAt]);
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -27,10 +37,20 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
       onPress={() => onPress?.(champion)}
     >
       {champion.is_deployed && (
-        <View style={styles.deployedOverlay}>
-          <Text style={styles.deployedText}>{t("onMission")}</Text>
-          {activeRunEndsAt && (
-            <CountdownTimer endsAt={activeRunEndsAt} style={styles.deployedTimer} />
+        <View style={[styles.deployedOverlay, isExpired ? styles.overlayDone : styles.overlayActive]}>
+          {isExpired ? (
+            <Text style={styles.deployedText}>{t("missionDone")}</Text>
+          ) : (
+            <>
+              <Text style={styles.deployedText}>{t("onMission")}</Text>
+              {activeRunEndsAt && (
+                <CountdownTimer
+                  endsAt={activeRunEndsAt}
+                  style={styles.deployedTimer}
+                  onExpire={() => setIsExpired(true)}
+                />
+              )}
+            </>
           )}
         </View>
       )}
@@ -172,11 +192,16 @@ const styles = StyleSheet.create({
   },
   deployedOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(74,124,63,0.75)",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
+  },
+  overlayActive: {
+    backgroundColor: "rgba(200,100,20,0.82)",
+  },
+  overlayDone: {
+    backgroundColor: "rgba(210,170,0,0.88)",
   },
   deployedText: {
     fontSize: 12,

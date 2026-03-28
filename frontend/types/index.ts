@@ -1,7 +1,12 @@
+export type ResourceKey = "strawberry" | "pinecone" | "blueberry";
+
 export type Resources = {
   strawberry: number;
   pinecone: number;
   blueberry: number;
+  strawberry_cap: number;
+  pinecone_cap: number;
+  blueberry_cap: number;
 };
 
 export type Champion = {

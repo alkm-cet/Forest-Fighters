@@ -1,6 +1,6 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "./StyledText";
-import { Resources } from "../types";
+import { Resources, ResourceKey } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 
@@ -8,21 +8,34 @@ const PLUS_BTN = require("../assets/plus-button-image.png");
 
 type Props = {
   resources: Resources;
+  onUpgrade?: (resource: ResourceKey) => void;
 };
 
-type Entry = { key: keyof Resources; amount: number };
+type Entry = { key: ResourceKey; amount: number; cap: number };
 
-export default function ResourceBar({ resources }: Props) {
+export default function ResourceBar({ resources, onUpgrade }: Props) {
   const { t } = useLanguage();
   const entries: Entry[] = [
-    { key: "strawberry", amount: resources.strawberry },
-    { key: "pinecone", amount: resources.pinecone },
-    { key: "blueberry", amount: resources.blueberry },
+    {
+      key: "strawberry",
+      amount: resources.strawberry,
+      cap: resources.strawberry_cap ?? 15,
+    },
+    {
+      key: "pinecone",
+      amount: resources.pinecone,
+      cap: resources.pinecone_cap ?? 15,
+    },
+    {
+      key: "blueberry",
+      amount: resources.blueberry,
+      cap: resources.blueberry_cap ?? 15,
+    },
   ];
 
   return (
     <View style={styles.container}>
-      {entries.map(({ key, amount }) => {
+      {entries.map(({ key, amount, cap }) => {
         const meta = RESOURCE_META[key];
         return (
           <View key={key} style={styles.section}>
@@ -39,8 +52,15 @@ export default function ResourceBar({ resources }: Props) {
               />
               {/* Badge pulled left under the image */}
               <View style={styles.amountBadge}>
-                <Text style={styles.amountText}>{amount}</Text>
-                <TouchableOpacity activeOpacity={0.8} style={styles.plusWrap}>
+                <Text style={styles.amountText}>
+                  {amount}
+                  <Text style={styles.capText}>/{cap}</Text>
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.plusWrap}
+                  onPress={() => onUpgrade?.(key)}
+                >
                   <Image
                     source={PLUS_BTN}
                     style={styles.plusBtn}
@@ -104,19 +124,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#d4aa6e",
     height: 24,
     borderRadius: 10,
-    paddingLeft: 12, // space for the image that overlaps from the left
-    paddingRight: 4,
+    paddingLeft: 22, // space for the image that overlaps from the left
+    paddingRight: 14,
     marginLeft: -16, // pulls badge under the resource image
     zIndex: 1,
     gap: 4,
   },
   amountText: {
     color: "#3a1e00",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     minWidth: 28,
     textAlign: "center",
-    width: 40,
+    fontFamily: "Fredoka-Bold",
+  },
+  capText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#6a3e10",
     fontFamily: "Fredoka-Bold",
   },
   plusWrap: {
@@ -124,7 +149,7 @@ const styles = StyleSheet.create({
   },
   plusBtn: {
     position: "absolute",
-    right: -20,
+    right: -30,
     bottom: 0,
     transform: [{ translateY: "50%" }],
     width: 28,

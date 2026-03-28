@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Image,
   ImageBackground,
   SafeAreaView,
   Animated,
@@ -11,13 +12,21 @@ import {
   ScrollView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
-import { Leaf, Settings, AlertTriangle, Sprout, Swords } from "lucide-react-native";
+import {
+  Leaf,
+  Settings,
+  AlertTriangle,
+  Sprout,
+  Swords,
+} from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
+import music from "../../lib/music";
 import { useLanguage } from "../../lib/i18n";
-import { Resources, Champion, Farmer, Player, DungeonRun } from "../../types";
+import { Resources, ResourceKey, Champion, Farmer, Player, DungeonRun } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
+import { RESOURCE_META } from "../../constants/resources";
 import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
 import FarmerCard from "../../components/FarmerCard";
@@ -37,7 +46,17 @@ export default function MainScreen() {
     strawberry: 0,
     pinecone: 0,
     blueberry: 0,
+    strawberry_cap: 15,
+    pinecone_cap: 15,
+    blueberry_cap: 15,
   });
+  const [capUpgradeConfirm, setCapUpgradeConfirm] = useState<{
+    resource: ResourceKey;
+    currentCap: number;
+    cost: number;
+    costRes1: ResourceKey;
+    costRes2: ResourceKey;
+  } | null>(null);
   const [champions, setChampions] = useState<Champion[]>([]);
   const [runMap, setRunMap] = useState<Record<string, DungeonRun>>({});
   const [claimResult, setClaimResult] = useState<{
@@ -50,9 +69,17 @@ export default function MainScreen() {
     newLevel: number;
   } | null>(null);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
-  const [selectedChampion, setSelectedChampion] = useState<Champion | null>(null);
+  const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
+    null,
+  );
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
-  const [collectAnim, setCollectAnim] = useState<{ farmerId: string; amount: number; resourceType: string; farmerIndex: number; key: number } | null>(null);
+  const [collectAnim, setCollectAnim] = useState<{
+    farmerId: string;
+    amount: number;
+    resourceType: string;
+    farmerIndex: number;
+    key: number;
+  } | null>(null);
   const [showFarmers, setShowFarmers] = useState(false);
   const [error, setError] = useState(false);
 
@@ -73,7 +100,7 @@ export default function MainScreen() {
           setRunMap(map);
         }),
       ]).catch(() => setError(true));
-    }, [])
+    }, []),
   );
 
   function toggleView() {
@@ -109,7 +136,21 @@ export default function MainScreen() {
         </View>
 
         {/* Resource pills */}
-        <ResourceBar resources={resources} />
+        <ResourceBar
+          resources={resources}
+          onUpgrade={(resource) => {
+            const CAP_COSTS: Record<ResourceKey, [ResourceKey, ResourceKey]> = {
+              strawberry: ["pinecone",   "blueberry"],
+              pinecone:   ["strawberry", "blueberry"],
+              blueberry:  ["strawberry", "pinecone"],
+            };
+            const capKey = `${resource}_cap` as keyof Resources;
+            const currentCap = resources[capKey] as number ?? 15;
+            const cost = Math.floor((currentCap - 15) / 3) * 2 + 2;
+            const [costRes1, costRes2] = CAP_COSTS[resource];
+            setCapUpgradeConfirm({ resource, currentCap, cost, costRes1, costRes2 });
+          }}
+        />
 
         {error && (
           <View style={styles.errorBanner}>
@@ -195,7 +236,11 @@ export default function MainScreen() {
                 {/* Farmers row */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
                   {farmers.slice(0, 3).map((f) => (
-                    <FarmerCard key={f.id} farmer={f} onPress={setSelectedFarmer} />
+                    <FarmerCard
+                      key={f.id}
+                      farmer={f}
+                      onPress={setSelectedFarmer}
+                    />
                   ))}
                 </View>
               </Animated.View>
@@ -221,17 +266,22 @@ export default function MainScreen() {
           });
         }}
         claimableRun={
-          selectedChampion && runMap[selectedChampion.id] &&
+          selectedChampion &&
+          runMap[selectedChampion.id] &&
           new Date(runMap[selectedChampion.id].ends_at) <= new Date()
             ? runMap[selectedChampion.id]
             : undefined
         }
         isOnMission={
-          !!(selectedChampion && runMap[selectedChampion.id] &&
-          new Date(runMap[selectedChampion.id].ends_at) > new Date())
+          !!(
+            selectedChampion &&
+            runMap[selectedChampion.id] &&
+            new Date(runMap[selectedChampion.id].ends_at) > new Date()
+          )
         }
         activeRunEndsAt={
-          selectedChampion && runMap[selectedChampion.id] &&
+          selectedChampion &&
+          runMap[selectedChampion.id] &&
           new Date(runMap[selectedChampion.id].ends_at) > new Date()
             ? runMap[selectedChampion.id].ends_at
             : undefined
@@ -258,11 +308,18 @@ export default function MainScreen() {
         }}
         onSpendStat={async (champion, stat) => {
           try {
-            const res = await api.post(`/api/champions/${champion.id}/spend-stat`, { stat });
-            setChampions((prev) => prev.map((c) => (c.id === champion.id ? res.data : c)));
+            const res = await api.post(
+              `/api/champions/${champion.id}/spend-stat`,
+              { stat },
+            );
+            setChampions((prev) =>
+              prev.map((c) => (c.id === champion.id ? res.data : c)),
+            );
             setSelectedChampion(res.data);
           } catch (err: any) {
-            alert(err.response?.data?.error ?? "İstatistik güçlendirme başarısız");
+            alert(
+              err.response?.data?.error ?? "İstatistik güçlendirme başarısız",
+            );
           }
         }}
         onClaim={async (run) => {
@@ -283,7 +340,15 @@ export default function MainScreen() {
               }),
             ]).catch(() => {});
           } catch (err: any) {
-            setClaimResult({ winner: "enemy", rewardResource: "", rewardAmount: 0, log: [], xpGained: 0, levelsGained: 0, newLevel: 1 });
+            setClaimResult({
+              winner: "enemy",
+              rewardResource: "",
+              rewardAmount: 0,
+              log: [],
+              xpGained: 0,
+              levelsGained: 0,
+              newLevel: 1,
+            });
           }
         }}
       />
@@ -298,6 +363,7 @@ export default function MainScreen() {
             setResources(res.data.resources);
             api.get("/api/farmers").then((r) => setFarmers(r.data));
             setSelectedFarmer(null);
+            music.sfx("COLLECT");
             const idx = farmers.findIndex((f) => f.id === farmer.id);
             setCollectAnim({
               farmerId: farmer.id,
@@ -315,7 +381,7 @@ export default function MainScreen() {
             const res = await api.post(`/api/farmers/${farmer.id}/upgrade`);
             setResources(res.data.resources);
             setFarmers((prev) =>
-              prev.map((f) => (f.id === farmer.id ? res.data.farmer : f))
+              prev.map((f) => (f.id === farmer.id ? res.data.farmer : f)),
             );
             setSelectedFarmer(res.data.farmer);
           } catch (err: any) {
@@ -323,6 +389,83 @@ export default function MainScreen() {
           }
         }}
       />
+
+      {/* Capacity upgrade confirmation modal */}
+      <Modal
+        visible={capUpgradeConfirm !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCapUpgradeConfirm(null)}
+      >
+        <View style={styles.capModalOverlay}>
+          <View style={styles.capModalCard}>
+            {capUpgradeConfirm && (() => {
+              const { resource, currentCap, cost, costRes1, costRes2 } = capUpgradeConfirm;
+              const meta = RESOURCE_META[resource];
+              const meta1 = RESOURCE_META[costRes1];
+              const meta2 = RESOURCE_META[costRes2];
+              const canAfford =
+                resources[costRes1] >= cost && resources[costRes2] >= cost;
+              return (
+                <>
+                  <Text style={styles.capModalTitle}>{t("upgradeCapacityTitle")}</Text>
+                  {/* Resource icon + cap change */}
+                  <View style={styles.capModalResourceRow}>
+                    <Image source={meta.image} style={styles.capModalResIcon} resizeMode="contain" />
+                    <Text style={styles.capModalCapChange}>
+                      {currentCap}
+                      <Text style={styles.capModalArrow}> → </Text>
+                      <Text style={styles.capModalNewCap}>{currentCap + 3}</Text>
+                    </Text>
+                  </View>
+                  <Text style={styles.capModalInfo}>{t("upgradeCapacityInfo")}</Text>
+                  {/* Cost row */}
+                  <View style={styles.capModalCostRow}>
+                    <View style={styles.capModalCostItem}>
+                      <Image source={meta1.image} style={styles.capModalCostIcon} resizeMode="contain" />
+                      <Text style={[styles.capModalCostText, resources[costRes1] < cost && styles.capModalCostLow]}>
+                        ×{cost}
+                      </Text>
+                    </View>
+                    <Text style={styles.capModalPlus}>+</Text>
+                    <View style={styles.capModalCostItem}>
+                      <Image source={meta2.image} style={styles.capModalCostIcon} resizeMode="contain" />
+                      <Text style={[styles.capModalCostText, resources[costRes2] < cost && styles.capModalCostLow]}>
+                        ×{cost}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Buttons */}
+                  <View style={styles.capModalBtns}>
+                    <TouchableOpacity
+                      style={styles.capModalCancelBtn}
+                      onPress={() => setCapUpgradeConfirm(null)}
+                    >
+                      <Text style={styles.capModalCancelText}>{t("cancelBtn")}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.capModalConfirmBtn, !canAfford && styles.capModalConfirmDisabled]}
+                      activeOpacity={canAfford ? 0.75 : 1}
+                      onPress={async () => {
+                        if (!canAfford) return;
+                        setCapUpgradeConfirm(null);
+                        try {
+                          const res = await api.post("/api/resources/upgrade-capacity", { resource });
+                          setResources(res.data);
+                        } catch (err: any) {
+                          alert(err.response?.data?.error ?? "Kapasite artırılamadı");
+                        }
+                      }}
+                    >
+                      <Text style={styles.capModalConfirmText}>{t("confirmUpgradeBtn")}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
 
       {/* Battle log modal */}
       <Modal
@@ -334,12 +477,18 @@ export default function MainScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             {/* Result header */}
-            <View style={[
-              styles.modalHeader,
-              claimResult?.winner === "champion" ? styles.modalHeaderWin : styles.modalHeaderLose
-            ]}>
+            <View
+              style={[
+                styles.modalHeader,
+                claimResult?.winner === "champion"
+                  ? styles.modalHeaderWin
+                  : styles.modalHeaderLose,
+              ]}
+            >
               <Text style={styles.modalTitle}>
-                {claimResult?.winner === "champion" ? "⚔️ Zafer!" : "💀 Yenilgi"}
+                {claimResult?.winner === "champion"
+                  ? "⚔️ Zafer!"
+                  : "💀 Yenilgi"}
               </Text>
               <View style={styles.modalRewardRow}>
                 {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
@@ -350,7 +499,9 @@ export default function MainScreen() {
                   <Text style={styles.modalNoReward}>Ödül yok</Text>
                 )}
                 {(claimResult?.xpGained ?? 0) > 0 && (
-                  <Text style={styles.modalXp}>+{claimResult!.xpGained} XP</Text>
+                  <Text style={styles.modalXp}>
+                    +{claimResult!.xpGained} XP
+                  </Text>
                 )}
               </View>
               {(claimResult?.levelsGained ?? 0) > 0 && (
@@ -364,39 +515,80 @@ export default function MainScreen() {
 
             {/* Battle log */}
             <Text style={styles.logTitle}>Savaş Günlüğü</Text>
-            <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.logScroll}
+              showsVerticalScrollIndicator={false}
+            >
               {(claimResult?.log ?? []).map((entry: any, i: number) => {
                 const isChamp = entry.actor === "attacker";
-                const atkHp  = isChamp ? entry.attackerHpAfter : entry.defenderHpAfter;
-                const defHp  = isChamp ? entry.defenderHpAfter : entry.attackerHpAfter;
-                const blocked  = entry.damage === 0;
-                const newRound = i === 0 || claimResult?.log[i - 1]?.round !== entry.round;
+                const atkHp = isChamp
+                  ? entry.attackerHpAfter
+                  : entry.defenderHpAfter;
+                const defHp = isChamp
+                  ? entry.defenderHpAfter
+                  : entry.attackerHpAfter;
+                const blocked = entry.damage === 0;
+                const newRound =
+                  i === 0 || claimResult?.log[i - 1]?.round !== entry.round;
 
                 return (
                   <View key={i} style={styles.logRow}>
                     {newRound && (
                       <View style={styles.roundBadge}>
-                        <Text style={styles.roundBadgeText}>Tur {entry.round + 1}</Text>
+                        <Text style={styles.roundBadgeText}>
+                          Tur {entry.round + 1}
+                        </Text>
                       </View>
                     )}
-                    <View style={[styles.logLine, isChamp ? styles.logLineChamp : styles.logLineEnemy]}>
+                    <View
+                      style={[
+                        styles.logLine,
+                        isChamp ? styles.logLineChamp : styles.logLineEnemy,
+                      ]}
+                    >
                       {/* Attacker */}
                       <View style={styles.logSide}>
-                        <Text style={[styles.logSideName, isChamp ? styles.logActorChamp : styles.logActorEnemy]}>
-                          {isChamp ? "⚔️" : "👹"} {isChamp ? "Şampiyon" : "Düşman"}
+                        <Text
+                          style={[
+                            styles.logSideName,
+                            isChamp
+                              ? styles.logActorChamp
+                              : styles.logActorEnemy,
+                          ]}
+                        >
+                          {isChamp ? "⚔️" : "👹"}{" "}
+                          {isChamp ? "Şampiyon" : "Düşman"}
                         </Text>
                         <Text style={styles.logSideHp}>{atkHp} HP</Text>
                         <View style={styles.logSideStatRow}>
-                          <Text style={styles.logAtkVal}>ATK {entry.attackValue}</Text>
-                          {entry.atkBoosted && <Text style={styles.logCritBadge}>KRİT</Text>}
+                          <Text style={styles.logAtkVal}>
+                            ATK {entry.attackValue}
+                          </Text>
+                          {entry.atkBoosted && (
+                            <Text style={styles.logCritBadge}>KRİT</Text>
+                          )}
                         </View>
                       </View>
 
                       {/* Center */}
                       <View style={styles.logCenter}>
                         <Text style={styles.logArrow}>→</Text>
-                        <View style={[styles.logDmgPill, blocked ? styles.logDmgPillBlock : styles.logDmgPillHit]}>
-                          <Text style={[styles.logDmgText, blocked ? styles.logDmgTextBlock : styles.logDmgTextHit]}>
+                        <View
+                          style={[
+                            styles.logDmgPill,
+                            blocked
+                              ? styles.logDmgPillBlock
+                              : styles.logDmgPillHit,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.logDmgText,
+                              blocked
+                                ? styles.logDmgTextBlock
+                                : styles.logDmgTextHit,
+                            ]}
+                          >
                             {blocked ? "BLOK" : `−${entry.damage}`}
                           </Text>
                         </View>
@@ -404,13 +596,37 @@ export default function MainScreen() {
 
                       {/* Defender */}
                       <View style={[styles.logSide, styles.logSideRight]}>
-                        <Text style={[styles.logSideName, isChamp ? styles.logActorEnemy : styles.logActorChamp]}>
-                          {isChamp ? "👹" : "⚔️"} {isChamp ? "Düşman" : "Şampiyon"}
+                        <Text
+                          style={[
+                            styles.logSideName,
+                            isChamp
+                              ? styles.logActorEnemy
+                              : styles.logActorChamp,
+                          ]}
+                        >
+                          {isChamp ? "👹" : "⚔️"}{" "}
+                          {isChamp ? "Düşman" : "Şampiyon"}
                         </Text>
-                        <Text style={[styles.logSideHp, !blocked && styles.logSideHpDamaged]}>{defHp} HP</Text>
-                        <View style={[styles.logSideStatRow, styles.logSideStatRight]}>
-                          {entry.defBoosted && <Text style={styles.logBlockBadge}>BLOK</Text>}
-                          <Text style={styles.logDefVal}>DEF {entry.defenseValue}</Text>
+                        <Text
+                          style={[
+                            styles.logSideHp,
+                            !blocked && styles.logSideHpDamaged,
+                          ]}
+                        >
+                          {defHp} HP
+                        </Text>
+                        <View
+                          style={[
+                            styles.logSideStatRow,
+                            styles.logSideStatRight,
+                          ]}
+                        >
+                          {entry.defBoosted && (
+                            <Text style={styles.logBlockBadge}>BLOK</Text>
+                          )}
+                          <Text style={styles.logDefVal}>
+                            DEF {entry.defenseValue}
+                          </Text>
                         </View>
                       </View>
                     </View>
@@ -419,7 +635,10 @@ export default function MainScreen() {
               })}
             </ScrollView>
 
-            <TouchableOpacity style={styles.modalBtn} onPress={() => setClaimResult(null)}>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => setClaimResult(null)}
+            >
               <Text style={styles.modalBtnText}>Kapat</Text>
             </TouchableOpacity>
           </View>
@@ -753,6 +972,124 @@ const styles = StyleSheet.create({
   },
   modalBtnText: {
     fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+  },
+
+  // Capacity upgrade modal
+  capModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  capModalCard: {
+    backgroundColor: "#f5edd8",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#d4b896",
+    marginHorizontal: 32,
+    padding: 24,
+    alignItems: "center",
+  },
+  capModalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#3a2a10",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  capModalResourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 4,
+  },
+  capModalResIcon: {
+    width: 36,
+    height: 36,
+  },
+  capModalCapChange: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#3a2a10",
+  },
+  capModalArrow: {
+    color: "#9a7040",
+    fontSize: 20,
+  },
+  capModalNewCap: {
+    color: "#4a7c3f",
+    fontSize: 22,
+  },
+  capModalInfo: {
+    fontSize: 12,
+    color: "#9a7040",
+    marginBottom: 16,
+  },
+  capModalCostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  capModalCostItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  capModalCostIcon: {
+    width: 24,
+    height: 24,
+  },
+  capModalCostText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#3a2a10",
+  },
+  capModalCostLow: {
+    color: "#c0392b",
+  },
+  capModalPlus: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#9a7040",
+  },
+  capModalBtns: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  capModalCancelBtn: {
+    flex: 1,
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#d4b896",
+  },
+  capModalCancelText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#6a4010",
+  },
+  capModalConfirmBtn: {
+    flex: 1,
+    backgroundColor: "#4a7c3f",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  capModalConfirmDisabled: {
+    backgroundColor: "#9ab89a",
+  },
+  capModalConfirmText: {
+    fontSize: 14,
     fontWeight: "800",
     color: "#fff",
   },

@@ -19,8 +19,8 @@ import CustomButton from "./CustomButton";
 // Cross-resource upgrade costs
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
   strawberry: ["strawberry", "pinecone"],
-  pinecone:   ["pinecone",   "blueberry"],
-  blueberry:  ["blueberry",  "strawberry"],
+  pinecone: ["pinecone", "blueberry"],
+  blueberry: ["blueberry", "strawberry"],
 };
 
 function getUpgradeCost(level: number) {
@@ -48,7 +48,13 @@ type Props = {
 
 const DISMISS_THRESHOLD = 100;
 
-export default function FarmerDrawer({ farmer, resources, onClose, onCollect, onUpgrade }: Props) {
+export default function FarmerDrawer({
+  farmer,
+  resources,
+  onClose,
+  onCollect,
+  onUpgrade,
+}: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
 
@@ -109,7 +115,12 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
 
   if (!farmer) return null;
 
-  const meta = RESOURCE_META[farmer.resource_type] ?? { catImage: null, image: null, color: "#4a8c3f", label: farmer.resource_type };
+  const meta = RESOURCE_META[farmer.resource_type] ?? {
+    catImage: null,
+    image: null,
+    color: "#4a8c3f",
+    label: farmer.resource_type,
+  };
 
   const [res1, res2] = UPGRADE_RESOURCES[farmer.resource_type] ?? ["?", "?"];
   const upgradeCost = getUpgradeCost(farmer.level);
@@ -118,6 +129,12 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
   const canUpgrade =
     (resources?.[res1 as keyof Resources] ?? 0) >= upgradeCost &&
     (resources?.[res2 as keyof Resources] ?? 0) >= upgradeCost;
+
+  const currentStored = resources?.[farmer.resource_type as keyof Resources] as number ?? 0;
+  const storageCap = resources?.[(farmer.resource_type + "_cap") as keyof Resources] as number ?? 15;
+  const freeSpace = Math.max(0, storageCap - currentStored);
+  const collectible = Math.min(livePending, freeSpace);
+  const capacityFull = freeSpace === 0 && livePending > 0;
 
   return (
     <Modal
@@ -139,7 +156,11 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
           <View style={styles.handleWrap}>
             <View style={styles.handle} />
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
             <X size={14} color="#7a5230" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
@@ -148,16 +169,36 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
         <View style={styles.headerRow}>
           <View style={styles.upgradeMini}>
             {res1Meta?.image && (
-              <Image source={res1Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+              <Image
+                source={res1Meta.image}
+                style={styles.upgradeMiniIcon}
+                resizeMode="contain"
+              />
             )}
-            <Text style={[styles.upgradeMiniCost, (resources?.[res1 as keyof Resources] ?? 0) < upgradeCost && styles.costShort]}>
+            <Text
+              style={[
+                styles.upgradeMiniCost,
+                (resources?.[res1 as keyof Resources] ?? 0) < upgradeCost &&
+                  styles.costShort,
+              ]}
+            >
               ×{upgradeCost}
             </Text>
             <Text style={styles.upgradeMiniPlus}>+</Text>
             {res2Meta?.image && (
-              <Image source={res2Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+              <Image
+                source={res2Meta.image}
+                style={styles.upgradeMiniIcon}
+                resizeMode="contain"
+              />
             )}
-            <Text style={[styles.upgradeMiniCost, (resources?.[res2 as keyof Resources] ?? 0) < upgradeCost && styles.costShort]}>
+            <Text
+              style={[
+                styles.upgradeMiniCost,
+                (resources?.[res2 as keyof Resources] ?? 0) < upgradeCost &&
+                  styles.costShort,
+              ]}
+            >
               ×{upgradeCost}
             </Text>
             <Text style={styles.upgradeMiniArrow}>→</Text>
@@ -175,7 +216,11 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
         {/* Cat image */}
         <View style={styles.imageFrame}>
           {meta.catImage && (
-            <Image source={meta.catImage} style={styles.catImage} resizeMode="contain" />
+            <Image
+              source={meta.catImage}
+              style={styles.catImage}
+              resizeMode="contain"
+            />
           )}
         </View>
 
@@ -191,12 +236,19 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
           <View style={styles.productionBlock}>
             <Text style={styles.productionValue}>1</Text>
             <Text style={styles.productionSep}>/</Text>
-            <Text style={styles.productionInterval}>{farmer.interval_minutes} {t("perMin").replace("/ ", "")}</Text>
+            <Text style={styles.productionInterval}>
+              {farmer.interval_minutes} {t("perMin").replace("/ ", "")}
+            </Text>
           </View>
           {livePending > 0 && (
-            <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
+            <View
+              style={[styles.pendingBadge, { backgroundColor: meta.color }]}
+            >
               <Package size={12} color="#fff" strokeWidth={2} />
-              <Text style={styles.pendingText}>{livePending} {t("pendingReady")}</Text>
+              <Text style={styles.pendingText}>
+                {livePending} / {getMaxCapacity(farmer.level)}{" "}
+                {t("pendingReady")}
+              </Text>
             </View>
           )}
         </View>
@@ -211,11 +263,17 @@ export default function FarmerDrawer({ farmer, resources, onClose, onCollect, on
         {/* Collect button */}
         <CustomButton
           btnImage={meta.image ?? undefined}
-          text={livePending > 0 ? `${t("collect")} (+${livePending})` : t("nothingToCollect")}
+          text={
+            capacityFull
+              ? `${t("collect")} — depo dolu`
+              : collectible > 0
+              ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
+              : t("nothingToCollect")
+          }
           onClick={() => onCollect(farmer)}
-          bgColor={meta.color}
-          borderColor={meta.color}
-          disabled={livePending === 0}
+          bgColor={capacityFull ? "#9a7040" : meta.color}
+          borderColor={capacityFull ? "#7a5030" : meta.color}
+          disabled={collectible === 0}
           style={styles.actionBtn}
         />
 
@@ -258,65 +316,142 @@ const styles = StyleSheet.create({
   handleWrap: { flex: 1, alignItems: "center", paddingLeft: 38 },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#c8a96e" },
   closeBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: "#e8d5a8", borderWidth: 1.5, borderColor: "#c8a96e",
-    alignItems: "center", justifyContent: "center",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#e8d5a8",
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
   upgradeMini: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "#ede0c4", borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1.5, borderColor: "#c8a96e",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
   },
   upgradeMiniIcon: { width: 20, height: 20 },
   upgradeMiniCost: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
   upgradeMiniPlus: { fontSize: 13, fontWeight: "700", color: "#9a7040" },
-  upgradeMiniArrow: { fontSize: 11, fontWeight: "700", color: "#9a7040", marginLeft: 2 },
+  upgradeMiniArrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+    marginLeft: 2,
+  },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
   costShort: { color: "#c0392b" },
   levelBadge: {
-    flexDirection: "row", alignItems: "baseline", gap: 3,
-    backgroundColor: "#3a1e00", borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3,
+    backgroundColor: "#3a1e00",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  levelBadgeLabel: { fontSize: 11, fontWeight: "700", color: "#d4a84b", letterSpacing: 1 },
-  levelBadgeNum: { fontSize: 22, fontWeight: "800", color: "#f5c842", lineHeight: 24 },
-  farmerName: { fontSize: 24, fontWeight: "800", color: "#3a1e00", marginBottom: 12 },
+  levelBadgeLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#d4a84b",
+    letterSpacing: 1,
+  },
+  levelBadgeNum: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#f5c842",
+    lineHeight: 24,
+  },
+  farmerName: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#3a1e00",
+    marginBottom: 12,
+  },
   imageFrame: {
-    alignSelf: "center", width: 148, height: 148,
-    backgroundColor: "#ede0c4", borderRadius: 20,
-    borderWidth: 2, borderColor: "#c8a96e",
-    alignItems: "center", justifyContent: "center",
+    alignSelf: "center",
+    width: 148,
+    height: 148,
+    backgroundColor: "#ede0c4",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
-    shadowColor: "#b8893a", shadowOpacity: 0.3, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    shadowColor: "#b8893a",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   catImage: { width: 128, height: 128 },
-  divider: { height: 1.5, backgroundColor: "#d4b896", marginBottom: 12, marginTop: 4 },
-  sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 },
-  sectionLabel: { fontSize: 10, fontWeight: "700", color: "#9a7040", letterSpacing: 1.2 },
+  divider: {
+    height: 1.5,
+    backgroundColor: "#d4b896",
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  sectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 10,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#9a7040",
+    letterSpacing: 1.2,
+  },
   productionRow: {
-    flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   productionBlock: { flexDirection: "row", alignItems: "baseline", gap: 4 },
   productionValue: { fontSize: 28, fontWeight: "800", color: "#3a1e00" },
   productionSep: { fontSize: 20, color: "#9a7040" },
   productionInterval: { fontSize: 16, fontWeight: "700", color: "#7a5a30" },
   pendingBadge: {
-    flexDirection: "row", alignItems: "center", gap: 5,
-    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   pendingText: { fontSize: 13, fontWeight: "800", color: "#fff" },
   nextReadyRow: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#ede0c4", borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     marginBottom: 12,
   },
   nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "#9a7040" },
-  nextReadyTimer: { fontSize: 14, fontWeight: "800", color: "#4a2e0a", letterSpacing: 1 },
+  nextReadyTimer: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#4a2e0a",
+    letterSpacing: 1,
+  },
   actionBtn: {
     marginBottom: 4,
   },
