@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -10,58 +10,76 @@ import {
   PanResponder,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Sprout } from "lucide-react-native";
-import { Farmer } from "../types";
+import { X, Sprout, Package, ArrowUp, Timer } from "lucide-react-native";
+import { Farmer, Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
-import UpgradeFarmerButton from "./UpgradeFarmerButton";
 import { useLanguage, TranslationKeys } from "../lib/i18n";
+import CustomButton from "./CustomButton";
+
+// Cross-resource upgrade costs
+const UPGRADE_RESOURCES: Record<string, [string, string]> = {
+  strawberry: ["strawberry", "pinecone"],
+  pinecone:   ["pinecone",   "blueberry"],
+  blueberry:  ["blueberry",  "strawberry"],
+};
+
+function getUpgradeCost(level: number) {
+  return level * 2;
+}
+
+function getMaxCapacity(level: number) {
+  return 4 + level;
+}
+
+function formatTime(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
+}
 
 type Props = {
   farmer: Farmer | null;
+  resources?: Resources;
   onClose: () => void;
+  onCollect: (farmer: Farmer) => void;
   onUpgrade: (farmer: Farmer) => void;
 };
 
 const DISMISS_THRESHOLD = 100;
 
-function StatRow({
-  label,
-  value,
-  max,
-  color,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  color?: string;
-}) {
-  const pct = Math.min(value / max, 1);
-  return (
-    <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.barTrack}>
-        <View
-          style={[
-            styles.barFill,
-            {
-              width: `${Math.round(pct * 100)}%` as any,
-              backgroundColor: color ?? "#4a8c3f",
-            },
-          ]}
-        />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
+export default function FarmerDrawer({ farmer, resources, onClose, onCollect, onUpgrade }: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
 
+  // Live pending + countdown managed locally
+  const [livePending, setLivePending] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // Initialise / reset when drawer opens for a farmer
   useEffect(() => {
-    if (farmer) translateY.setValue(0);
-  }, [farmer]);
+    if (farmer) {
+      translateY.setValue(0);
+      setLivePending(farmer.pending);
+      setTimeLeft(farmer.next_ready_in_seconds);
+    }
+  }, [farmer?.id]);
+
+  // Tick every second; auto-restart and increment pending when it hits 0
+  useEffect(() => {
+    if (!farmer) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // One more item produced
+          setLivePending((p) => Math.min(p + 1, getMaxCapacity(farmer.level)));
+          return farmer.interval_minutes * 60; // restart
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [farmer?.id]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -91,11 +109,15 @@ export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
 
   if (!farmer) return null;
 
-  const meta = RESOURCE_META[farmer.resource_type] ?? {
-    image: null,
-    color: "#4a8c3f",
-    label: farmer.resource_type,
-  };
+  const meta = RESOURCE_META[farmer.resource_type] ?? { catImage: null, image: null, color: "#4a8c3f", label: farmer.resource_type };
+
+  const [res1, res2] = UPGRADE_RESOURCES[farmer.resource_type] ?? ["?", "?"];
+  const upgradeCost = getUpgradeCost(farmer.level);
+  const res1Meta = RESOURCE_META[res1];
+  const res2Meta = RESOURCE_META[res2];
+  const canUpgrade =
+    (resources?.[res1 as keyof Resources] ?? 0) >= upgradeCost &&
+    (resources?.[res2 as keyof Resources] ?? 0) >= upgradeCost;
 
   return (
     <Modal
@@ -117,82 +139,105 @@ export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
           <View style={styles.handleWrap}>
             <View style={styles.handle} />
           </View>
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
             <X size={14} color="#7a5230" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
-        {/* Resource type badge + level */}
+        {/* Upgrade cost (left) + level badge (right) */}
         <View style={styles.headerRow}>
-          <View
-            style={[
-              styles.typeBadge,
-              {
-                borderColor: meta.color,
-                backgroundColor: meta.color + "22",
-              },
-            ]}
-          >
-            <Text style={[styles.typeBadgeText, { color: meta.color }]}>
-              {t(farmer.resource_type as TranslationKeys).toUpperCase()}
+          <View style={styles.upgradeMini}>
+            {res1Meta?.image && (
+              <Image source={res1Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+            )}
+            <Text style={[styles.upgradeMiniCost, (resources?.[res1 as keyof Resources] ?? 0) < upgradeCost && styles.costShort]}>
+              ×{upgradeCost}
             </Text>
+            <Text style={styles.upgradeMiniPlus}>+</Text>
+            {res2Meta?.image && (
+              <Image source={res2Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+            )}
+            <Text style={[styles.upgradeMiniCost, (resources?.[res2 as keyof Resources] ?? 0) < upgradeCost && styles.costShort]}>
+              ×{upgradeCost}
+            </Text>
+            <Text style={styles.upgradeMiniArrow}>→</Text>
+            <Text style={styles.upgradeMiniLevel}>LV {farmer.level + 1}</Text>
           </View>
-          <View style={styles.levelWrap}>
-            <Text style={styles.levelSmall}>{t("level")}</Text>
-            <Text style={styles.levelNum}>{farmer.level}</Text>
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelBadgeLabel}>LV</Text>
+            <Text style={styles.levelBadgeNum}>{farmer.level}</Text>
           </View>
         </View>
 
         {/* Farmer name */}
         <Text style={styles.farmerName}>{farmer.name}</Text>
 
-        {/* Resource image */}
+        {/* Cat image */}
         <View style={styles.imageFrame}>
-          {meta.image && (
-            <Image
-              source={meta.image}
-              style={styles.resourceImage}
-              resizeMode="contain"
-            />
+          {meta.catImage && (
+            <Image source={meta.catImage} style={styles.catImage} resizeMode="contain" />
           )}
         </View>
 
-        {/* Divider */}
         <View style={styles.divider} />
 
-        {/* Stats */}
+        {/* Production stats */}
         <View style={styles.sectionLabelRow}>
           <Sprout size={12} color="#9a7040" strokeWidth={2} />
           <Text style={styles.sectionLabel}>{t("productionStats")}</Text>
         </View>
-        <StatRow
-          label={t("production")}
-          value={farmer.production_rate}
-          max={30}
-          color={meta.color}
+
+        <View style={styles.productionRow}>
+          <View style={styles.productionBlock}>
+            <Text style={styles.productionValue}>1</Text>
+            <Text style={styles.productionSep}>/</Text>
+            <Text style={styles.productionInterval}>{farmer.interval_minutes} {t("perMin").replace("/ ", "")}</Text>
+          </View>
+          {livePending > 0 && (
+            <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
+              <Package size={12} color="#fff" strokeWidth={2} />
+              <Text style={styles.pendingText}>{livePending} {t("pendingReady")}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Next production countdown */}
+        <View style={styles.nextReadyRow}>
+          <Timer size={12} color="#9a7040" strokeWidth={2} />
+          <Text style={styles.nextReadyLabel}>{t("nextIn")}</Text>
+          <Text style={styles.nextReadyTimer}>{formatTime(timeLeft)}</Text>
+        </View>
+
+        {/* Collect button */}
+        <CustomButton
+          btnImage={meta.image ?? undefined}
+          text={livePending > 0 ? `${t("collect")} (+${livePending})` : t("nothingToCollect")}
+          onClick={() => onCollect(farmer)}
+          bgColor={meta.color}
+          borderColor={meta.color}
+          disabled={livePending === 0}
+          style={styles.actionBtn}
         />
-        <StatRow label={t("level")} value={farmer.level} max={10} color="#8e6c3a" />
+
+        <View style={styles.divider} />
 
         {/* Upgrade button */}
-        <View style={styles.btnRow}>
-          <UpgradeFarmerButton
-            onPress={() => onUpgrade(farmer)}
-            style={styles.btnFull}
-          />
-        </View>
+        <CustomButton
+          btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
+          text={`${t("upgrade")} → LV ${farmer.level + 1}`}
+          onClick={() => onUpgrade(farmer)}
+          bgColor="#4a7c3f"
+          borderColor="#2d5a24"
+          disabled={!canUpgrade}
+          style={styles.actionBtn}
+        />
       </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-  },
+  backdrop: { flex: 1 },
   drawer: {
     backgroundColor: "#f5e9cc",
     borderTopLeftRadius: 28,
@@ -209,145 +254,71 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
     elevation: 20,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  handleWrap: {
-    flex: 1,
-    alignItems: "center",
-    paddingLeft: 38,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#c8a96e",
-  },
+  topBar: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  handleWrap: { flex: 1, alignItems: "center", paddingLeft: 38 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#c8a96e" },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#e8d5a8",
-    borderWidth: 1.5,
-    borderColor: "#c8a96e",
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: "#e8d5a8", borderWidth: 1.5, borderColor: "#c8a96e",
+    alignItems: "center", justifyContent: "center",
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  upgradeMini: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#ede0c4", borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1.5, borderColor: "#c8a96e",
+  },
+  upgradeMiniIcon: { width: 20, height: 20 },
+  upgradeMiniCost: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
+  upgradeMiniPlus: { fontSize: 13, fontWeight: "700", color: "#9a7040" },
+  upgradeMiniArrow: { fontSize: 11, fontWeight: "700", color: "#9a7040", marginLeft: 2 },
+  upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
+  costShort: { color: "#c0392b" },
+  levelBadge: {
+    flexDirection: "row", alignItems: "baseline", gap: 3,
+    backgroundColor: "#3a1e00", borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  levelBadgeLabel: { fontSize: 11, fontWeight: "700", color: "#d4a84b", letterSpacing: 1 },
+  levelBadgeNum: { fontSize: 22, fontWeight: "800", color: "#f5c842", lineHeight: 24 },
+  farmerName: { fontSize: 24, fontWeight: "800", color: "#3a1e00", marginBottom: 12 },
+  imageFrame: {
+    alignSelf: "center", width: 148, height: 148,
+    backgroundColor: "#ede0c4", borderRadius: 20,
+    borderWidth: 2, borderColor: "#c8a96e",
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: "#b8893a", shadowOpacity: 0.3, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
+  catImage: { width: 128, height: 128 },
+  divider: { height: 1.5, backgroundColor: "#d4b896", marginBottom: 12, marginTop: 4 },
+  sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 },
+  sectionLabel: { fontSize: 10, fontWeight: "700", color: "#9a7040", letterSpacing: 1.2 },
+  productionRow: {
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", marginBottom: 10,
+  },
+  productionBlock: { flexDirection: "row", alignItems: "baseline", gap: 4 },
+  productionValue: { fontSize: 28, fontWeight: "800", color: "#3a1e00" },
+  productionSep: { fontSize: 20, color: "#9a7040" },
+  productionInterval: { fontSize: 16, fontWeight: "700", color: "#7a5a30" },
+  pendingBadge: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  pendingText: { fontSize: 13, fontWeight: "800", color: "#fff" },
+  nextReadyRow: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#ede0c4", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 7,
+    marginBottom: 12,
+  },
+  nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "#9a7040" },
+  nextReadyTimer: { fontSize: 14, fontWeight: "800", color: "#4a2e0a", letterSpacing: 1 },
+  actionBtn: {
     marginBottom: 4,
   },
-  typeBadge: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  levelWrap: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 4,
-  },
-  levelSmall: {
-    fontSize: 10,
-    color: "#9a7040",
-  },
-  levelNum: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#4a8c3f",
-    lineHeight: 24,
-  },
-  farmerName: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#3a1e00",
-    marginBottom: 12,
-  },
-  imageFrame: {
-    alignSelf: "center",
-    width: 148,
-    height: 148,
-    backgroundColor: "#ede0c4",
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "#c8a96e",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    shadowColor: "#b8893a",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  resourceImage: {
-    width: 110,
-    height: 110,
-  },
-  divider: {
-    height: 1.5,
-    backgroundColor: "#d4b896",
-    marginBottom: 12,
-  },
-  sectionLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginBottom: 10,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#9a7040",
-    letterSpacing: 1.2,
-  },
-  statRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 10,
-  },
-  statLabel: {
-    width: 72,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#4a2e0a",
-  },
-  barTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: "#e8d5a8",
-    borderRadius: 4,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#c8a96e",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  statValue: {
-    width: 30,
-    textAlign: "right",
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#3a1e00",
-  },
-  btnRow: {
-    marginTop: 20,
-  },
-  btnFull: {
-    width: "100%",
-  },
+  btnDisabled: { opacity: 0.4 },
 });

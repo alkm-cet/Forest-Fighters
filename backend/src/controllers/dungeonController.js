@@ -150,10 +150,10 @@ async function claimRun(req, res) {
       }
     }
 
-    // Update champion: HP + XP + level
+    // Update champion: HP + XP + level + stat points (1 per level gained)
     await query(
-      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4 WHERE id = $5',
-      [result.attackerHpLeft, newXp, newLevel, newXpToNext, run.champion_id]
+      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5 WHERE id = $6',
+      [result.attackerHpLeft, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
     );
 
     if (rewardAmount > 0) {

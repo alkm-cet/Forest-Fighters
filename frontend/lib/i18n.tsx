@@ -46,6 +46,12 @@ const translations = {
     // Farmer drawer
     productionStats: "PRODUCTION STATS",
     production: "Production",
+    collect: "Collect",
+    pendingReady: "ready",
+    nothingToCollect: "Nothing ready yet",
+    upgradeCost: "Upgrade Cost",
+    perMin: "/ min",
+    nextIn: "Next in",
 
     // Champion card stat labels
     atk: "ATK",
@@ -74,6 +80,13 @@ const translations = {
     revive: "Revive",
     heal: "Heal",
     notEnoughStrawberries: "Not enough strawberries",
+    statPoints: "Stat Points",
+    confirmUpgradeTitle: "Confirm Upgrade?",
+    confirmUpgradeBtn: "Confirm",
+    cancelBtn: "Cancel",
+    upgradeStatAttack: "Upgrade Attack stat",
+    upgradeStatDefense: "Upgrade Defense stat",
+    upgradeStatChance: "Upgrade Chance stat",
 
     // Dungeon screen
     dungeons: "Dungeons",
@@ -130,6 +143,12 @@ const translations = {
     // Farmer drawer
     productionStats: "ÜRETİM İSTATİSTİKLERİ",
     production: "Üretim",
+    collect: "Topla",
+    pendingReady: "hazır",
+    nothingToCollect: "Henüz hazır değil",
+    upgradeCost: "Geliştirme Maliyeti",
+    perMin: "/ dak",
+    nextIn: "Sonraki",
 
     // Champion card stat labels
     atk: "SAL",
@@ -158,6 +177,13 @@ const translations = {
     revive: "Canlandır",
     heal: "İyileştir",
     notEnoughStrawberries: "Yeterli çilek yok",
+    statPoints: "İstatistik Puanı",
+    confirmUpgradeTitle: "Güçlendirmeyi Onaylıyor musun?",
+    confirmUpgradeBtn: "Onayla",
+    cancelBtn: "Reddet",
+    upgradeStatAttack: "Saldırı istatistiğini güçlendir",
+    upgradeStatDefense: "Savunma istatistiğini güçlendir",
+    upgradeStatChance: "Şans istatistiğini güçlendir",
 
     // Dungeon screen
     dungeons: "Zindanlar",

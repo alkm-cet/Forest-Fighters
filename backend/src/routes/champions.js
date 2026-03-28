@@ -3,10 +3,12 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 
+const CHAMPION_FIELDS = 'id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed, stat_points';
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     let rows = await query(
-      'SELECT id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
+      `SELECT ${CHAMPION_FIELDS} FROM champions WHERE player_id = $1 ORDER BY created_at ASC`,
       [req.player.id]
     );
 
@@ -23,7 +25,7 @@ router.get('/', authMiddleware, async (req, res) => {
         );
       }
       rows = await query(
-        'SELECT id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed FROM champions WHERE player_id = $1 ORDER BY created_at ASC',
+        `SELECT ${CHAMPION_FIELDS} FROM champions WHERE player_id = $1 ORDER BY created_at ASC`,
         [req.player.id]
       );
     }
@@ -97,6 +99,44 @@ router.post('/:id/heal', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Heal failed' });
+  }
+});
+
+// POST /:id/spend-stat — spend 1 stat point on attack, defense, or chance
+router.post('/:id/spend-stat', authMiddleware, async (req, res) => {
+  const playerId = req.player.id;
+  const championId = req.params.id;
+  const { stat } = req.body;
+
+  if (!['attack', 'defense', 'chance'].includes(stat)) {
+    return res.status(400).json({ error: 'Invalid stat. Must be attack, defense, or chance.' });
+  }
+
+  try {
+    const rows = await query(
+      `SELECT ${CHAMPION_FIELDS} FROM champions WHERE id = $1 AND player_id = $2`,
+      [championId, playerId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Champion not found' });
+    const champ = rows[0];
+
+    if (champ.stat_points < 1) {
+      return res.status(400).json({ error: 'No stat points available' });
+    }
+
+    await query(
+      `UPDATE champions SET ${stat} = ${stat} + 1, stat_points = stat_points - 1 WHERE id = $1`,
+      [championId]
+    );
+
+    const updated = await query(
+      `SELECT ${CHAMPION_FIELDS} FROM champions WHERE id = $1`,
+      [championId]
+    );
+    res.json(updated[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to spend stat point' });
   }
 });
 

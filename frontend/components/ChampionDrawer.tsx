@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -10,7 +10,7 @@ import {
   PanResponder,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Swords, Gift, MapPin, Heart, Sparkles } from "lucide-react-native";
+import { X, Swords, Gift, MapPin, Heart, Sparkles, HeartPulse } from "lucide-react-native";
 import { Champion, DungeonRun, Resources } from "../types";
 import { CLASS_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
@@ -20,6 +20,8 @@ import EnterDungeonButton from "./EnterDungeonButton";
 import CountdownTimer from "./CountdownTimer";
 
 const REVIVE_COST = 3;
+
+type StatKey = 'attack' | 'defense' | 'chance';
 
 type Props = {
   champion: Champion | null;
@@ -33,12 +35,23 @@ type Props = {
   onClaim?: (run: DungeonRun) => void;
   onRevive?: (champion: Champion) => void;
   onHeal?: (champion: Champion) => void;
+  onSpendStat?: (champion: Champion, stat: StatKey) => void;
 };
 
 const STAT_MAX = 100;
 const DISMISS_THRESHOLD = 100;
 
-function StatRow({ label, value }: { label: string; value: number }) {
+function StatRow({
+  label,
+  value,
+  canUpgrade,
+  onUpgrade,
+}: {
+  label: string;
+  value: number;
+  canUpgrade?: boolean;
+  onUpgrade?: () => void;
+}) {
   const pct = Math.min(value / STAT_MAX, 1);
   return (
     <View style={styles.statRow}>
@@ -52,6 +65,11 @@ function StatRow({ label, value }: { label: string; value: number }) {
         />
       </View>
       <Text style={styles.statValue}>{value}</Text>
+      {canUpgrade && (
+        <TouchableOpacity style={styles.statPlusBtn} onPress={onUpgrade} activeOpacity={0.75}>
+          <Text style={styles.statPlusBtnText}>+</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -68,9 +86,11 @@ export default function ChampionDrawer({
   onClaim,
   onRevive,
   onHeal,
+  onSpendStat,
 }: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
+  const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
 
   useEffect(() => {
     if (champion) translateY.setValue(0);
@@ -187,6 +207,33 @@ export default function ChampionDrawer({
           )}
         </View>
 
+        {/* HP Bar */}
+        {(() => {
+          const hpPct = champion.max_hp > 0 ? champion.current_hp / champion.max_hp : 0;
+          const hpColor = hpPct > 0.6 ? "#2d8a3e" : hpPct > 0.3 ? "#d4a017" : "#c0392b";
+          return (
+            <View style={styles.hpSection}>
+              <View style={styles.hpLabelRow}>
+                <HeartPulse size={14} color={hpColor} strokeWidth={2.5} />
+                <Text style={[styles.hpTitle, { color: hpColor }]}>
+                  {champion.current_hp} / {champion.max_hp} HP
+                </Text>
+              </View>
+              <View style={styles.hpBarTrack}>
+                <View
+                  style={[
+                    styles.hpBarFill,
+                    {
+                      width: `${Math.round(Math.max(0, hpPct) * 100)}%` as any,
+                      backgroundColor: hpColor,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Divider */}
         <View style={styles.divider} />
 
@@ -194,10 +241,72 @@ export default function ChampionDrawer({
         <View style={styles.sectionLabelRow}>
           <Swords size={12} color="#9a7040" strokeWidth={2} />
           <Text style={styles.sectionLabel}>{t("baseStatistics")}</Text>
+          {champion.stat_points > 0 && (
+            <View style={styles.statPointsBadge}>
+              <Text style={styles.statPointsText}>+{champion.stat_points} {t("statPoints")}</Text>
+            </View>
+          )}
         </View>
-        <StatRow label={t("attack")} value={champion.attack} />
-        <StatRow label={t("defense")} value={champion.defense} />
-        <StatRow label={t("chance")} value={champion.chance} />
+        <StatRow
+          label={t("attack")}
+          value={champion.attack}
+          canUpgrade={champion.stat_points > 0}
+          onUpgrade={() => setPendingStat('attack')}
+        />
+        <StatRow
+          label={t("defense")}
+          value={champion.defense}
+          canUpgrade={champion.stat_points > 0}
+          onUpgrade={() => setPendingStat('defense')}
+        />
+        <StatRow
+          label={t("chance")}
+          value={champion.chance}
+          canUpgrade={champion.stat_points > 0}
+          onUpgrade={() => setPendingStat('chance')}
+        />
+
+        {/* Stat upgrade confirmation modal */}
+        {pendingStat && (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setPendingStat(null)}>
+            <TouchableWithoutFeedback onPress={() => setPendingStat(null)}>
+              <View style={styles.confirmOverlay} />
+            </TouchableWithoutFeedback>
+            <View style={styles.confirmCard}>
+              <TouchableOpacity style={styles.confirmClose} onPress={() => setPendingStat(null)} activeOpacity={0.7}>
+                <X size={14} color="#7a5230" strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={styles.confirmTitle}>{t("confirmUpgradeTitle")}</Text>
+              <Text style={styles.confirmSubtitle}>
+                {t(pendingStat === 'attack' ? 'upgradeStatAttack' : pendingStat === 'defense' ? 'upgradeStatDefense' : 'upgradeStatChance')}
+              </Text>
+              <View style={styles.confirmValueRow}>
+                <Text style={styles.confirmValueCurrent}>{champion[pendingStat]}</Text>
+                <Text style={styles.confirmValueArrow}>→</Text>
+                <Text style={styles.confirmValueNext}>{champion[pendingStat] + 1}</Text>
+              </View>
+              <View style={styles.confirmBtnRow}>
+                <TouchableOpacity
+                  style={styles.confirmRejectBtn}
+                  onPress={() => setPendingStat(null)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.confirmRejectText}>{t("cancelBtn")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmAcceptBtn}
+                  onPress={() => {
+                    onSpendStat?.(champion, pendingStat);
+                    setPendingStat(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.confirmAcceptText}>{t("confirmUpgradeBtn")}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
 
         {/* Buttons */}
         {champion.current_hp <= 0 ? (
@@ -417,6 +526,32 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
   },
+  hpSection: {
+    marginBottom: 12,
+  },
+  hpLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  hpTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  hpBarTrack: {
+    height: 10,
+    backgroundColor: "#e0d0b0",
+    borderRadius: 5,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+  },
+  hpBarFill: {
+    height: "100%",
+    borderRadius: 5,
+  },
   divider: {
     height: 1.5,
     backgroundColor: "#d4b896",
@@ -433,6 +568,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#9a7040",
     letterSpacing: 1.2,
+  },
+  statPointsBadge: {
+    marginLeft: "auto" as any,
+    backgroundColor: "#3a1e00",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statPointsText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#f5c842",
+    letterSpacing: 0.5,
   },
   statRow: {
     flexDirection: "row",
@@ -466,6 +614,125 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#3a1e00",
+  },
+  statPlusBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#4a7c3f",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#2d5a24",
+  },
+  statPlusBtnText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+    lineHeight: 20,
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  confirmCard: {
+    position: "absolute",
+    bottom: "30%" as any,
+    left: 24,
+    right: 24,
+    backgroundColor: "#f5e9cc",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 20,
+  },
+  confirmClose: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#e8d5a8",
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#3a1e00",
+    marginBottom: 6,
+    paddingRight: 32,
+  },
+  confirmSubtitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#7a5a30",
+    marginBottom: 16,
+  },
+  confirmValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 20,
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  confirmValueCurrent: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#3a1e00",
+  },
+  confirmValueArrow: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#9a7040",
+  },
+  confirmValueNext: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#4a7c3f",
+  },
+  confirmBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  confirmRejectBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: "#e8d5a8",
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+  },
+  confirmRejectText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#7a5a30",
+  },
+  confirmAcceptBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: "#4a7c3f",
+    borderWidth: 1.5,
+    borderColor: "#2d5a24",
+    alignItems: "center",
+  },
+  confirmAcceptText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#fff",
   },
   btnRow: {
     flexDirection: "row",

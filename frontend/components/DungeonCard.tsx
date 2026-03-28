@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Text } from "./StyledText";
 import { Skull, Clock, Gift, Star } from "lucide-react-native";
+import CustomButton from "./CustomButton";
 import { Dungeon, DungeonRun } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
@@ -89,15 +90,15 @@ export default function DungeonCard({ dungeon, activeRun, onEnter, onClaim, disa
           </TouchableOpacity>
         ) : (
           // Default — enter dungeon
-          <TouchableOpacity
-            style={[styles.enterBtn, disabled && styles.enterBtnDisabled]}
-            onPress={() => !disabled && onEnter(dungeon)}
-            activeOpacity={disabled ? 1 : 0.8}
-          >
-            <Text style={[styles.enterBtnText, disabled && styles.enterBtnTextDisabled]}>
-              {t("enterDungeon")}
-            </Text>
-          </TouchableOpacity>
+          <CustomButton
+            btnImage={require("../assets/dungeon.png")}
+            text={t("enterDungeon")}
+            onClick={() => onEnter(dungeon)}
+            bgColor="#6D7579"
+            borderColor="#4a5f72"
+            disabled={disabled}
+            style={styles.enterBtn}
+          />
         )}
       </View>
     </View>
@@ -251,23 +252,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   enterBtn: {
-    backgroundColor: "#4a7c3f",
-    borderRadius: 10,
-    paddingHorizontal: 28,
-    paddingVertical: 10,
     width: "100%",
-    alignItems: "center",
   },
-  enterBtnDisabled: {
-    backgroundColor: "#b0c8b0",
-  },
-  enterBtnText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.5,
-  },
-  enterBtnTextDisabled: {
+  _placeholder: {
     color: "#e8e8e8",
   },
 });

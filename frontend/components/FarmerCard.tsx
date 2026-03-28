@@ -10,7 +10,7 @@ type Props = {
   onPress?: (farmer: Farmer) => void;
 };
 
-const MAX_PROD = 30;
+const getMaxCapacity = (level: number) => 4 + level;
 
 export default function FarmerCard({ farmer, onPress }: Props) {
   const { t } = useLanguage();
@@ -30,7 +30,7 @@ export default function FarmerCard({ farmer, onPress }: Props) {
       <View style={styles.statsRow}>
         <StatCell label={t("lvl")} value={String(farmer.level)} />
         <View style={styles.statDivider} />
-        <StatCell label={t("prod")} value={String(farmer.production_rate)} />
+        <StatCell label={t("prod")} value={String(farmer.pending)} />
       </View>
 
       {/* Farmer cat image */}
@@ -56,13 +56,13 @@ export default function FarmerCard({ farmer, onPress }: Props) {
               styles.prodFill,
               {
                 width:
-                  `${Math.min((farmer.production_rate / MAX_PROD) * 100, 100)}%` as any,
+                  `${Math.min((farmer.pending / getMaxCapacity(farmer.level)) * 100, 100)}%` as any,
                 backgroundColor: meta.color,
               },
             ]}
           />
         </View>
-        <Text style={styles.prodValue}>{farmer.production_rate}/tk</Text>
+        <Text style={styles.prodValue}>{farmer.pending}/{getMaxCapacity(farmer.level)}</Text>
       </View>
     </TouchableOpacity>
   );

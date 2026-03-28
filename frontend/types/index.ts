@@ -17,14 +17,17 @@ export type Champion = {
   max_hp: number;
   current_hp: number;
   is_deployed: boolean;
+  stat_points: number;
 };
 
 export type Farmer = {
   id: string;
   name: string;
   resource_type: string;
-  production_rate: number;
   level: number;
+  interval_minutes: number;
+  pending: number;
+  next_ready_in_seconds: number;
 };
 
 export type Player = {

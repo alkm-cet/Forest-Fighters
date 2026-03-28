@@ -22,6 +22,7 @@ import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
 import FarmerCard from "../../components/FarmerCard";
 import FarmerDrawer from "../../components/FarmerDrawer";
+import CollectFloater from "../../components/CollectFloater";
 import CampfireScene from "../../components/CampfireScene";
 
 const BG = require("../../assets/home-assets/background-image-3.png");
@@ -51,6 +52,7 @@ export default function MainScreen() {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(null);
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
+  const [collectAnim, setCollectAnim] = useState<{ farmerId: string; amount: number; resourceType: string; farmerIndex: number; key: number } | null>(null);
   const [showFarmers, setShowFarmers] = useState(false);
   const [error, setError] = useState(false);
 
@@ -158,6 +160,18 @@ export default function MainScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Collect floater — rendered outside slideClip to avoid overflow:hidden clipping */}
+            {collectAnim && showFarmers && (
+              <CollectFloater
+                key={collectAnim.key}
+                amount={collectAnim.amount}
+                resourceType={collectAnim.resourceType}
+                farmerIndex={collectAnim.farmerIndex}
+                screenWidth={screenWidth}
+                onDone={() => setCollectAnim(null)}
+              />
+            )}
+
             {/* Sliding card rows */}
             <View style={styles.slideClip}>
               <Animated.View
@@ -181,11 +195,7 @@ export default function MainScreen() {
                 {/* Farmers row */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
                   {farmers.slice(0, 3).map((f) => (
-                    <FarmerCard
-                      key={f.id}
-                      farmer={f}
-                      onPress={setSelectedFarmer}
-                    />
+                    <FarmerCard key={f.id} farmer={f} onPress={setSelectedFarmer} />
                   ))}
                 </View>
               </Animated.View>
@@ -246,6 +256,15 @@ export default function MainScreen() {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
           }
         }}
+        onSpendStat={async (champion, stat) => {
+          try {
+            const res = await api.post(`/api/champions/${champion.id}/spend-stat`, { stat });
+            setChampions((prev) => prev.map((c) => (c.id === champion.id ? res.data : c)));
+            setSelectedChampion(res.data);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "İstatistik güçlendirme başarısız");
+          }
+        }}
         onClaim={async (run) => {
           setSelectedChampion(null);
           try {
@@ -271,10 +290,37 @@ export default function MainScreen() {
 
       <FarmerDrawer
         farmer={selectedFarmer}
+        resources={resources}
         onClose={() => setSelectedFarmer(null)}
-        onUpgrade={() => {
-          // upgrade logic to be wired up
-          setSelectedFarmer(null);
+        onCollect={async (farmer) => {
+          try {
+            const res = await api.post(`/api/farmers/${farmer.id}/collect`);
+            setResources(res.data.resources);
+            api.get("/api/farmers").then((r) => setFarmers(r.data));
+            setSelectedFarmer(null);
+            const idx = farmers.findIndex((f) => f.id === farmer.id);
+            setCollectAnim({
+              farmerId: farmer.id,
+              amount: res.data.collected,
+              resourceType: farmer.resource_type,
+              farmerIndex: idx >= 0 ? idx : 0,
+              key: Date.now(),
+            });
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Toplama başarısız");
+          }
+        }}
+        onUpgrade={async (farmer) => {
+          try {
+            const res = await api.post(`/api/farmers/${farmer.id}/upgrade`);
+            setResources(res.data.resources);
+            setFarmers((prev) =>
+              prev.map((f) => (f.id === farmer.id ? res.data.farmer : f))
+            );
+            setSelectedFarmer(res.data.farmer);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Geliştirme başarısız");
+          }
         }}
       />
 
