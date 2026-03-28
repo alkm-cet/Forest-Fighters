@@ -4,13 +4,15 @@ import { Heart } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
+import CountdownTimer from "./CountdownTimer";
 
 type Props = {
   champion: Champion;
+  activeRunEndsAt?: string;
   onPress?: (champion: Champion) => void;
 };
 
-export default function ChampionCard({ champion, onPress }: Props) {
+export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Props) {
   const { t } = useLanguage();
   const meta = CLASS_META[champion.class] ?? {
     image: null,
@@ -24,6 +26,14 @@ export default function ChampionCard({ champion, onPress }: Props) {
       activeOpacity={0.85}
       onPress={() => onPress?.(champion)}
     >
+      {champion.is_deployed && (
+        <View style={styles.deployedOverlay}>
+          <Text style={styles.deployedText}>{t("onMission")}</Text>
+          {activeRunEndsAt && (
+            <CountdownTimer endsAt={activeRunEndsAt} style={styles.deployedTimer} />
+          )}
+        </View>
+      )}
       {/* Stats row */}
       <View style={styles.statsRow}>
         <StatCell label={t("atk")} value={String(champion.attack)} />
@@ -159,5 +169,27 @@ const styles = StyleSheet.create({
     color: "#3a2a10",
     minWidth: 24,
     textAlign: "right",
+  },
+  deployedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(74,124,63,0.75)",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  deployedText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  deployedTimer: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 1.5,
+    marginTop: 2,
   },
 });

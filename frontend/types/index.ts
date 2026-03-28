@@ -9,6 +9,8 @@ export type Champion = {
   name: string;
   class: string;
   level: number;
+  xp: number;
+  xp_to_next_level: number;
   attack: number;
   defense: number;
   chance: number;
@@ -29,4 +31,33 @@ export type Player = {
   id: string;
   username: string;
   email: string;
+};
+
+export type Dungeon = {
+  id: string;
+  name: string;
+  description: string;
+  enemy_name: string;
+  enemy_attack: number;
+  enemy_defense: number;
+  enemy_chance: number;
+  enemy_hp: number;
+  duration_minutes: number;
+  reward_resource: "strawberry" | "pinecone" | "blueberry";
+  reward_amount: number;
+  xp_reward: number;
+};
+
+export type DungeonRun = {
+  id: string;
+  champion_id: string;
+  champion_name: string;
+  dungeon_id: string;
+  dungeon_name: string;
+  started_at: string;
+  ends_at: string;
+  status: "active" | "completed" | "claimed";
+  winner: "champion" | "enemy" | null;
+  reward_resource: string | null;
+  reward_amount: number | null;
 };

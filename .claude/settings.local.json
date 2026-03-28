@@ -19,7 +19,9 @@
       "Bash(curl -s http://localhost:3000/health)",
       "Bash(curl:*)",
       "Bash(npm run:*)",
-      "Bash(find '/Users/alikemalcetindere/Desktop/Forest Fighters' -maxdepth 3 -name *.webp -o -name background*)"
+      "Bash(find '/Users/alikemalcetindere/Desktop/Forest Fighters' -maxdepth 3 -name *.webp -o -name background*)",
+      "Bash(ls:*)",
+      "Bash(find /Users/alikemalcetindere/Desktop/Forest Fighters/backend -not -path */node_modules/* -type d)"
     ]
   }
 }

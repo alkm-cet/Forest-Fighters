@@ -90,6 +90,58 @@ async function migrate() {
     `);
     console.log('Created table: pvp_battles');
 
+    await query(`
+      CREATE TABLE IF NOT EXISTS dungeons (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        description TEXT,
+        enemy_name VARCHAR(100) NOT NULL,
+        enemy_attack INT NOT NULL,
+        enemy_defense INT NOT NULL,
+        enemy_chance INT NOT NULL,
+        enemy_hp INT NOT NULL,
+        duration_minutes INT NOT NULL,
+        reward_resource VARCHAR(50) NOT NULL,
+        reward_amount INT NOT NULL
+      )
+    `);
+    console.log('Created table: dungeons');
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS dungeon_runs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        champion_id UUID REFERENCES champions(id),
+        dungeon_id UUID REFERENCES dungeons(id),
+        started_at TIMESTAMPTZ DEFAULT NOW(),
+        ends_at TIMESTAMPTZ NOT NULL,
+        status VARCHAR(20) DEFAULT 'active',
+        winner VARCHAR(20),
+        battle_log JSONB,
+        reward_resource VARCHAR(50),
+        reward_amount INT
+      )
+    `);
+    console.log('Created table: dungeon_runs');
+
+    // Ensure is_deployed column exists on champions
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS is_deployed BOOLEAN DEFAULT FALSE`);
+
+    // XP / leveling system
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0`);
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS xp_to_next_level INT DEFAULT 100`);
+
+    // XP reward per dungeon
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS xp_reward INT DEFAULT 20`);
+
+    // Seed xp_reward values for existing dungeons (safe to run multiple times — only updates 0s)
+    await query(`UPDATE dungeons SET xp_reward = 10  WHERE name = '[TEST] Quick Cave'   AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 20  WHERE name = 'Whispering Woods'   AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 40  WHERE name = 'Mossy Ruins'        AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 60  WHERE name = 'Troll Bridge'       AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 80  WHERE name = 'Orcish Camp'        AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 120 WHERE name = 'Dark Sanctum'       AND xp_reward = 20`);
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

@@ -69,6 +69,26 @@ const translations = {
     battle: "BATTLE",
     upgrade: "UPGRADE",
     farmer: "FARMER",
+
+    // Champion actions
+    revive: "Revive",
+    heal: "Heal",
+    notEnoughStrawberries: "Not enough strawberries",
+
+    // Dungeon screen
+    dungeons: "Dungeons",
+    enterDungeon: "ENTER DUNGEON",
+    claimReward: "CLAIM REWARD",
+    onMission: "ON MISSION",
+    victory: "Victory!",
+    defeat: "Defeat",
+    missionComplete: "Mission Complete",
+    timeRemaining: "Time remaining",
+    reward: "Reward",
+    enemy: "Enemy",
+    noDungeons: "No dungeons available",
+    championDeployed: "Champion is already deployed",
+    readyToClaim: "READY!",
   },
   tr: {
     // App name
@@ -133,6 +153,26 @@ const translations = {
     battle: "SAVAŞ",
     upgrade: "GELİŞTİR",
     farmer: "ÇİFTÇİ",
+
+    // Champion actions
+    revive: "Canlandır",
+    heal: "İyileştir",
+    notEnoughStrawberries: "Yeterli çilek yok",
+
+    // Dungeon screen
+    dungeons: "Zindanlar",
+    enterDungeon: "ZINDANA GİR",
+    claimReward: "ÖDÜL AL",
+    onMission: "GÖREVDE",
+    victory: "Zafer!",
+    defeat: "Yenilgi",
+    missionComplete: "Görev Tamamlandı",
+    timeRemaining: "Kalan süre",
+    reward: "Ödül",
+    enemy: "Düşman",
+    noDungeons: "Zindan bulunamadı",
+    championDeployed: "Savaşçı zaten görevde",
+    readyToClaim: "HAZIR!",
   },
 } as const;
 

@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const resourceRoutes = require('./routes/resources');
 const championRoutes = require('./routes/champions');
 const farmerRoutes = require('./routes/farmers');
+const dungeonRoutes = require('./routes/dungeons');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/champions', championRoutes);
 app.use('/api/farmers', farmerRoutes);
+app.use('/api/dungeons', dungeonRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
