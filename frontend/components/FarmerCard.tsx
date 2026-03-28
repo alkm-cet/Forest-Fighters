@@ -3,6 +3,7 @@ import { Text } from "./StyledText";
 import { Sprout } from "lucide-react-native";
 import { Farmer } from "../types";
 import { RESOURCE_META } from "../constants/resources";
+import { useLanguage, TranslationKeys } from "../lib/i18n";
 
 type Props = {
   farmer: Farmer;
@@ -12,6 +13,7 @@ type Props = {
 const MAX_PROD = 30;
 
 export default function FarmerCard({ farmer, onPress }: Props) {
+  const { t } = useLanguage();
   const meta = RESOURCE_META[farmer.resource_type] ?? {
     image: null,
     color: "#888",
@@ -26,13 +28,13 @@ export default function FarmerCard({ farmer, onPress }: Props) {
     >
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <StatCell label="LVL" value={String(farmer.level)} />
+        <StatCell label={t("lvl")} value={String(farmer.level)} />
         <View style={styles.statDivider} />
-        <StatCell label="PROD" value={String(farmer.production_rate)} />
+        <StatCell label={t("prod")} value={String(farmer.production_rate)} />
         <View style={styles.statDivider} />
         <StatCell
-          label="TYPE"
-          value={meta.label.slice(0, 3).toUpperCase()}
+          label={t("type")}
+          value={t(farmer.resource_type as TranslationKeys).slice(0, 3).toUpperCase()}
           color={meta.color}
         />
       </View>

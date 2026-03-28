@@ -6,9 +6,9 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // Fixed asset sources
 const ASSETS = {
   fire: require("../assets/home-assets/fire.png"),
-  warrior: require("../assets/cats/warrior-cat-2.png"),
-  archer: require("../assets/cats/archer-cat-2.png"),
-  mage: require("../assets/cats/mage-cat-2.png"),
+  warrior: require("../assets/cats/warrior-cat.webp"),
+  archer: require("../assets/cats/archer-cat.webp"),
+  mage: require("../assets/cats/mage-cat.webp"),
 };
 
 const CAT_BY_CLASS: Record<string, keyof typeof ASSETS> = {

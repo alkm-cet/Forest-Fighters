@@ -6,6 +6,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Text } from "./StyledText";
+import { useLanguage } from "../lib/i18n";
 
 type Props = {
   onPress: () => void;
@@ -20,6 +21,7 @@ export default function PvpBattleButton({
   style,
   disabled = false,
 }: Props) {
+  const { t } = useLanguage();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -31,8 +33,8 @@ export default function PvpBattleButton({
       <View style={styles.inner}>
         <Image source={crossSwords} style={styles.icon} resizeMode="contain" />
         <View style={styles.textStack}>
-          <Text style={styles.pvpText}>PvP</Text>
-          <Text style={styles.battleText}>BATTLE</Text>
+          <Text style={styles.pvpText}>{t("pvp")}</Text>
+          <Text style={styles.battleText}>{t("battle")}</Text>
         </View>
       </View>
     </TouchableOpacity>

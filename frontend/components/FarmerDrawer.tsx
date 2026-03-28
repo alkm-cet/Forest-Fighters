@@ -14,6 +14,7 @@ import { X, Sprout } from "lucide-react-native";
 import { Farmer } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import UpgradeFarmerButton from "./UpgradeFarmerButton";
+import { useLanguage, TranslationKeys } from "../lib/i18n";
 
 type Props = {
   farmer: Farmer | null;
@@ -55,6 +56,7 @@ function StatRow({
 }
 
 export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -136,11 +138,11 @@ export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
             ]}
           >
             <Text style={[styles.typeBadgeText, { color: meta.color }]}>
-              {meta.label.toUpperCase()}
+              {t(farmer.resource_type as TranslationKeys).toUpperCase()}
             </Text>
           </View>
           <View style={styles.levelWrap}>
-            <Text style={styles.levelSmall}>Level</Text>
+            <Text style={styles.levelSmall}>{t("level")}</Text>
             <Text style={styles.levelNum}>{farmer.level}</Text>
           </View>
         </View>
@@ -165,15 +167,15 @@ export default function FarmerDrawer({ farmer, onClose, onUpgrade }: Props) {
         {/* Stats */}
         <View style={styles.sectionLabelRow}>
           <Sprout size={12} color="#9a7040" strokeWidth={2} />
-          <Text style={styles.sectionLabel}>PRODUCTION STATS</Text>
+          <Text style={styles.sectionLabel}>{t("productionStats")}</Text>
         </View>
         <StatRow
-          label="Production"
+          label={t("production")}
           value={farmer.production_rate}
           max={30}
           color={meta.color}
         />
-        <StatRow label="Level" value={farmer.level} max={10} color="#8e6c3a" />
+        <StatRow label={t("level")} value={farmer.level} max={10} color="#8e6c3a" />
 
         {/* Upgrade button */}
         <View style={styles.btnRow}>

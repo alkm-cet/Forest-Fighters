@@ -13,6 +13,7 @@ import { Text } from "./StyledText";
 import { X, Swords } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
+import { useLanguage } from "../lib/i18n";
 
 import PvpBattleButton from "./PvpBattleButton";
 import EnterDungeonButton from "./EnterDungeonButton";
@@ -51,6 +52,7 @@ export default function ChampionDrawer({
   onPvp,
   onDungeon,
 }: Props) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export default function ChampionDrawer({
             </Text>
           </View>
           <View style={styles.levelWrap}>
-            <Text style={styles.levelSmall}>Level</Text>
+            <Text style={styles.levelSmall}>{t("level")}</Text>
             <Text style={styles.levelNum}>{champion.level}</Text>
           </View>
         </View>
@@ -154,11 +156,11 @@ export default function ChampionDrawer({
         {/* Stats */}
         <View style={styles.sectionLabelRow}>
           <Swords size={12} color="#9a7040" strokeWidth={2} />
-          <Text style={styles.sectionLabel}>BASE STATISTICS</Text>
+          <Text style={styles.sectionLabel}>{t("baseStatistics")}</Text>
         </View>
-        <StatRow label="Attack" value={champion.attack} />
-        <StatRow label="Defense" value={champion.defense} />
-        <StatRow label="Chance" value={champion.chance} />
+        <StatRow label={t("attack")} value={champion.attack} />
+        <StatRow label={t("defense")} value={champion.defense} />
+        <StatRow label={t("chance")} value={champion.chance} />
 
         {/* Buttons */}
         <View style={styles.btnRow}>

@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { getToken } from "../lib/auth";
 import music from "../lib/music";
 import { isMusicEnabled } from "../lib/settings";
+import { LanguageProvider } from "../lib/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -58,5 +59,9 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
-  return <Slot />;
+  return (
+    <LanguageProvider>
+      <Slot />
+    </LanguageProvider>
+  );
 }

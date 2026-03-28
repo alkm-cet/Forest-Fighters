@@ -12,6 +12,7 @@ import { Text } from "../../components/StyledText";
 import { Leaf, Settings, AlertTriangle, Sprout, Swords } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
+import { useLanguage } from "../../lib/i18n";
 import { Resources, Champion, Farmer, Player } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import ChampionCard from "../../components/ChampionCard";
@@ -24,6 +25,7 @@ const BG = require("../../assets/home-assets/background-image-3.png");
 
 export default function MainScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { width: screenWidth } = useWindowDimensions();
 
   const [player, setPlayer] = useState<Player | null>(null);
@@ -71,7 +73,7 @@ export default function MainScreen() {
           <View style={styles.playerNameRow}>
             <Leaf size={16} color="#a8e6a3" strokeWidth={2} />
             <Text style={styles.playerName}>
-              {player ? player.username : "Forest Fighters"}
+              {player ? player.username : t("appName")}
             </Text>
           </View>
           <TouchableOpacity
@@ -88,7 +90,7 @@ export default function MainScreen() {
         {error && (
           <View style={styles.errorBanner}>
             <AlertTriangle size={14} color="#fff" strokeWidth={2} />
-            <Text style={styles.errorText}>Cannot reach server</Text>
+            <Text style={styles.errorText}>{t("cannotReachServer")}</Text>
           </View>
         )}
 
@@ -109,7 +111,7 @@ export default function MainScreen() {
                   <Swords size={13} color="#a8e6a3" strokeWidth={2.5} />
                 )}
                 <Text style={styles.sectionTitle}>
-                  {showFarmers ? "FARMERS" : "CHAMPIONS"}
+                  {showFarmers ? t("farmersUpper") : t("championsUpper")}
                 </Text>
               </View>
               <TouchableOpacity
@@ -123,7 +125,7 @@ export default function MainScreen() {
                   <Sprout size={12} color="#3a2a10" strokeWidth={2.5} />
                 )}
                 <Text style={styles.toggleBtnText}>
-                  {showFarmers ? "Champions" : "Farmers"}
+                  {showFarmers ? t("champions") : t("farmers")}
                 </Text>
               </TouchableOpacity>
             </View>

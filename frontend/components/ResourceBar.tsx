@@ -2,6 +2,7 @@ import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "./StyledText";
 import { Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
+import { useLanguage, TranslationKeys } from "../lib/i18n";
 
 const PLUS_BTN = require("../assets/plus-button-image.png");
 
@@ -12,6 +13,7 @@ type Props = {
 type Entry = { key: keyof Resources; amount: number };
 
 export default function ResourceBar({ resources }: Props) {
+  const { t } = useLanguage();
   const entries: Entry[] = [
     { key: "strawberry", amount: resources.strawberry },
     { key: "pinecone", amount: resources.pinecone },
@@ -25,7 +27,7 @@ export default function ResourceBar({ resources }: Props) {
         return (
           <View key={key} style={styles.section}>
             {/* Resource name */}
-            <Text style={styles.label}>{meta.label}</Text>
+            <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
 
             {/* Row: image overlaps badge from the left */}
             <View style={styles.row}>

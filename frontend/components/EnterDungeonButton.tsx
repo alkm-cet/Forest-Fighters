@@ -6,6 +6,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Text } from "./StyledText";
+import { useLanguage } from "../lib/i18n";
 
 type Props = {
   onPress: () => void;
@@ -20,6 +21,7 @@ export default function EnterDungeonButton({
   style,
   disabled = false,
 }: Props) {
+  const { t } = useLanguage();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -30,8 +32,8 @@ export default function EnterDungeonButton({
       <View style={styles.inner}>
         <Image source={dungeonIcon} style={styles.icon} resizeMode="contain" />
         <View style={styles.textStack}>
-          <Text style={styles.enterText}>ENTER</Text>
-          <Text style={styles.dungeonText}>DUNGEON</Text>
+          <Text style={styles.enterText}>{t("enter")}</Text>
+          <Text style={styles.dungeonText}>{t("dungeon")}</Text>
         </View>
       </View>
     </TouchableOpacity>

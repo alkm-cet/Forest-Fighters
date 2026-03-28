@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { Text } from "./StyledText";
 import { TrendingUp } from "lucide-react-native";
+import { useLanguage } from "../lib/i18n";
 
 type Props = {
   onPress: () => void;
@@ -18,6 +19,7 @@ export default function UpgradeFarmerButton({
   style,
   disabled = false,
 }: Props) {
+  const { t } = useLanguage();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -28,8 +30,8 @@ export default function UpgradeFarmerButton({
       <View style={styles.inner}>
         <TrendingUp size={28} color="#fff" strokeWidth={2.5} />
         <View style={styles.textStack}>
-          <Text style={styles.upgradeLabel}>UPGRADE</Text>
-          <Text style={styles.upgradeSub}>FARMER</Text>
+          <Text style={styles.upgradeLabel}>{t("upgrade")}</Text>
+          <Text style={styles.upgradeSub}>{t("farmer")}</Text>
         </View>
       </View>
     </TouchableOpacity>

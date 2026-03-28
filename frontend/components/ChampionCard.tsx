@@ -3,6 +3,7 @@ import { Text } from "./StyledText";
 import { Heart } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
+import { useLanguage } from "../lib/i18n";
 
 type Props = {
   champion: Champion;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export default function ChampionCard({ champion, onPress }: Props) {
+  const { t } = useLanguage();
   const meta = CLASS_META[champion.class] ?? {
     image: null,
     color: "#888",
@@ -24,11 +26,11 @@ export default function ChampionCard({ champion, onPress }: Props) {
     >
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <StatCell label="ATK" value={String(champion.attack)} />
+        <StatCell label={t("atk")} value={String(champion.attack)} />
         <View style={styles.statDivider} />
-        <StatCell label="DEF" value={String(champion.defense)} />
+        <StatCell label={t("def")} value={String(champion.defense)} />
         <View style={styles.statDivider} />
-        <StatCell label="CHC" value={`${champion.chance}%`} />
+        <StatCell label={t("chc")} value={`${champion.chance}%`} />
       </View>
 
       {/* Cat image */}

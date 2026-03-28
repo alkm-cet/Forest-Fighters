@@ -4,9 +4,11 @@ import { Text, TextInput } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
 import { saveToken } from "../../lib/auth";
+import { useLanguage } from "../../lib/i18n";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -18,17 +20,17 @@ export default function LoginScreen() {
       await saveToken(res.data.token);
       router.replace("/(game)/");
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Login failed";
+      const msg = err.response?.data?.error || t("loginFailed");
       setError(msg);
     }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Forest Fighters</Text>
+      <Text style={styles.title}>{t("appName")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t("email")}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -36,17 +38,17 @@ export default function LoginScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t("password")}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+        <Text style={styles.buttonText}>{t("login")}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-        <Text style={styles.link}>Don't have an account? Register</Text>
+        <Text style={styles.link}>{t("noAccount")}</Text>
       </TouchableOpacity>
     </View>
   );

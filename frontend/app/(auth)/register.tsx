@@ -4,9 +4,11 @@ import { Text, TextInput } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
 import { saveToken } from "../../lib/auth";
+import { useLanguage } from "../../lib/i18n";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,24 +22,24 @@ export default function RegisterScreen() {
       await saveToken(loginRes.data.token);
       router.replace("/(game)/");
     } catch (err: any) {
-      const msg = err.response?.data?.error || "Registration failed";
+      const msg = err.response?.data?.error || t("registerFailed");
       setError(msg);
     }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.title}>{t("createAccount")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Username"
+        placeholder={t("username")}
         autoCapitalize="none"
         value={username}
         onChangeText={setUsername}
       />
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t("email")}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -45,17 +47,17 @@ export default function RegisterScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t("password")}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
+        <Text style={styles.buttonText}>{t("register")}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => router.back()}>
-        <Text style={styles.link}>Already have an account? Login</Text>
+        <Text style={styles.link}>{t("haveAccount")}</Text>
       </TouchableOpacity>
     </View>
   );
