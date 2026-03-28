@@ -1,5 +1,12 @@
 IMPORTANT: THE INFORMATION BELOW IS A CONCEPT BRIEF FOR A MOBILE GAME. IT IS NOT A COMPLETE DESIGN DOCUMENT, BUT RATHER AN OVERVIEW OF THE CORE IDEAS AND MECHANICS. THIS SHOULD BE USED AS A STARTING POINT FOR DISCUSSIONS AND FURTHER DEVELOPMENT.
 
+## Test Account
+
+| Field    | Value         |
+| -------- | ------------- |
+| Email    | test@test.com |
+| Password | password123   |
+
 Mobile Game Concept Brief
 Game Type
 

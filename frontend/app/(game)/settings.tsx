@@ -9,13 +9,14 @@ import {
 import { Text } from "../../components/StyledText";
 import { ChevronLeft, Music2, LogOut, Globe } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { deleteToken } from "../../lib/auth";
+import { useAuth } from "../../lib/auth-context";
 import music from "../../lib/music";
 import { isMusicEnabled, setMusicEnabled } from "../../lib/settings";
 import { useLanguage, Language } from "../../lib/i18n";
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [musicOn, setMusicOn] = useState(true);
 
@@ -35,8 +36,7 @@ export default function SettingsScreen() {
 
   async function handleLogout() {
     await music.stop();
-    await deleteToken();
-    router.replace("/(auth)/login");
+    await signOut();
   }
 
   return (

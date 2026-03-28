@@ -1,19 +1,40 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { getToken } from "../lib/auth";
 import music from "../lib/music";
 import { isMusicEnabled } from "../lib/settings";
 import { LanguageProvider } from "../lib/i18n";
+import { AuthProvider, useAuth } from "../lib/auth-context";
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+// Handles redirect logic — must be inside AuthProvider to use useAuth()
+function AuthGuard() {
+  const { token } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-  const [token, setToken] = useState<string | null | undefined>(undefined);
 
+  useEffect(() => {
+    if (token === undefined) return; // still loading from storage
+
+    const inAuthGroup = segments[0] === "(auth)";
+    const inGameGroup = segments[0] === "(game)";
+    const inSplash = segments[0] === undefined;
+
+    if (inSplash) return; // splash handles its own navigation
+
+    if (!token && !inAuthGroup) {
+      router.replace("/(auth)/login");
+    } else if (token && !inGameGroup) {
+      router.replace("/(game)/");
+    }
+  }, [token, segments]);
+
+  return <Slot />;
+}
+
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     "Fredoka-Light": require("../assets/fonts/Fredoka/static/Fredoka-Light.ttf"),
     "Fredoka-Regular": require("../assets/fonts/Fredoka/static/Fredoka-Regular.ttf"),
@@ -23,45 +44,26 @@ export default function RootLayout() {
   });
 
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync();
-    }
+    if (fontsLoaded) await SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
   useEffect(() => {
-    getToken().then(setToken);
     isMusicEnabled().then((enabled) => {
       if (enabled) music.play("MAIN_MUSIC");
     });
   }, []);
 
   useEffect(() => {
-    if (token === undefined) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
-    const inGameGroup = segments[0] === "(game)";
-    const inSplash = segments[0] === undefined;
-
-    if (inSplash) return; // splash screen handles its own navigation
-
-    if (!token && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (token && !inGameGroup) {
-      router.replace("/(game)/");
-    }
-  }, [token, segments]);
-
-  useEffect(() => {
-    if (fontsLoaded) {
-      onLayoutRootView();
-    }
+    if (fontsLoaded) onLayoutRootView();
   }, [fontsLoaded, onLayoutRootView]);
 
   if (!fontsLoaded) return null;
 
   return (
     <LanguageProvider>
-      <Slot />
+      <AuthProvider>
+        <AuthGuard />
+      </AuthProvider>
     </LanguageProvider>
   );
 }

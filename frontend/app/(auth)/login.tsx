@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Text, TextInput } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
-import { saveToken } from "../../lib/auth";
+import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/i18n";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,8 +18,7 @@ export default function LoginScreen() {
     setError("");
     try {
       const res = await api.post("/api/auth/login", { email, password });
-      await saveToken(res.data.token);
-      router.replace("/(game)/");
+      await signIn(res.data.token);
     } catch (err: any) {
       const msg = err.response?.data?.error || t("loginFailed");
       setError(msg);

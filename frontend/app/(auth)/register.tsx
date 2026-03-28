@@ -3,11 +3,12 @@ import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Text, TextInput } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
-import { saveToken } from "../../lib/auth";
+import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/i18n";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -19,8 +20,7 @@ export default function RegisterScreen() {
     try {
       await api.post("/api/auth/register", { username, email, password });
       const loginRes = await api.post("/api/auth/login", { email, password });
-      await saveToken(loginRes.data.token);
-      router.replace("/(game)/");
+      await signIn(loginRes.data.token);
     } catch (err: any) {
       const msg = err.response?.data?.error || t("registerFailed");
       setError(msg);
