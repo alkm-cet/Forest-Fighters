@@ -69,6 +69,47 @@ async function seed() {
       console.log('Dungeons already seeded. Skipping.');
     }
 
+    // ── Bot players for PvP matchmaking ──────────────────────────────────────
+    const existingBots = await query(`SELECT id FROM players WHERE is_bot = TRUE LIMIT 1`);
+    if (existingBots.length === 0) {
+      const botDefs = [
+        { username: 'ForestGuardian', email: 'bot1@bots.internal', trophies: 12, champions: [{ name: 'Stone Warrior', class: 'Warrior' }, { name: 'Ember Mage', class: 'Mage' }], defIdx: 0 },
+        { username: 'WildHunter',     email: 'bot2@bots.internal', trophies: 25, champions: [{ name: 'Shadow Archer', class: 'Archer' }, { name: 'Iron Guard', class: 'Warrior' }], defIdx: 0 },
+        { username: 'AncientDruid',   email: 'bot3@bots.internal', trophies: 55, champions: [{ name: 'Storm Mage', class: 'Mage' }, { name: 'Vine Archer', class: 'Archer' }], defIdx: 0 },
+      ];
+
+      const botHash = await bcrypt.hash('botpassword_never_used', 10);
+
+      for (const bot of botDefs) {
+        const botRow = await query(
+          `INSERT INTO players (username, email, password_hash, trophies, is_bot) VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
+          [bot.username, bot.email, botHash, bot.trophies]
+        );
+        const botId = botRow[0].id;
+
+        await query(
+          'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, 30, 30, 30)',
+          [botId]
+        );
+
+        const champIds = [];
+        for (const c of bot.champions) {
+          const cRow = await query(
+            'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3) RETURNING id',
+            [botId, c.name, c.class]
+          );
+          champIds.push(cRow[0].id);
+        }
+
+        // Set defender to first champion
+        await query('UPDATE players SET defender_champion_id = $1 WHERE id = $2', [champIds[bot.defIdx], botId]);
+      }
+
+      console.log('Added 3 bot players for PvP');
+    } else {
+      console.log('Bot players already seeded. Skipping.');
+    }
+
     console.log('\nSeed complete! Login with test@test.com / password123');
   } catch (err) {
     console.error('Seed failed:', err);

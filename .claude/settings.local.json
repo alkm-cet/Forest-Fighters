@@ -26,7 +26,10 @@
       "Bash(cp \"Fredoka-Regular.ttf\" \"fredoka_regular.ttf\")",
       "Bash(cp \"Fredoka-Medium.ttf\" \"fredoka_medium.ttf\")",
       "Bash(cp \"Fredoka-SemiBold.ttf\" \"fredoka_semibold.ttf\")",
-      "Bash(cp \"Fredoka-Bold.ttf\" \"fredoka_bold.ttf\")"
+      "Bash(cp \"Fredoka-Bold.ttf\" \"fredoka_bold.ttf\")",
+      "Bash(wc:*)",
+      "Bash(npx tsc:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

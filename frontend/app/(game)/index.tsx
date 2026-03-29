@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -23,6 +23,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import music from "../../lib/music";
 import { useLanguage } from "../../lib/i18n";
+import { connectSocket, disconnectSocket } from "../../lib/socket";
 import {
   Resources,
   ResourceKey,
@@ -30,6 +31,7 @@ import {
   Farmer,
   Player,
   DungeonRun,
+  PvpBattle,
 } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
@@ -90,6 +92,14 @@ export default function MainScreen() {
   const [showFarmers, setShowFarmers] = useState(false);
   const [error, setError] = useState(false);
   const [missionTick, setMissionTick] = useState(0);
+  const [attackedBanner, setAttackedBanner] = useState<string | null>(null);
+  const [resultBanner, setResultBanner] = useState(false);
+  const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
+  const [pvpTrophies, setPvpTrophies] = useState<number>(10);
+  const [pvpLeague, setPvpLeague] = useState<string>("Bronz");
+  const [pvpPendingChampionId, setPvpPendingChampionId] = useState<string | null>(null);
+  const [pvpBattleEndsAt, setPvpBattleEndsAt] = useState<string | null>(null);
+  const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -108,8 +118,60 @@ export default function MainScreen() {
           setRunMap(map);
         }),
       ]).catch(() => setError(true));
+
+      // Check PvP status on focus
+      api.get("/api/pvp/status").then((r) => {
+        setPvpDefenderId(r.data.defender_champion_id ?? null);
+        setPvpTrophies(r.data.trophies ?? 10);
+        setPvpLeague(r.data.league ?? "Bronz");
+        const pending = r.data.pending_battle;
+        if (pending) {
+          setPvpPendingChampionId(pending.attacker_champion_id ?? null);
+          setPvpBattleEndsAt(pending.result_available_at ?? null);
+          if (new Date(pending.result_available_at) <= new Date()) {
+            setResultBanner(true);
+          }
+        } else {
+          setPvpPendingChampionId(null);
+          setPvpBattleEndsAt(null);
+        }
+      }).catch(() => {});
     }, []),
   );
+
+  // Socket.io — connect when player loads, disconnect on unmount
+  useEffect(() => {
+    if (!player?.id) return;
+    const sock = connectSocket(player.id);
+    sock.on("pvp:attacked", ({ attackerName }: { battleId: string; attackerName: string }) => {
+      setAttackedBanner(attackerName);
+      setTimeout(() => setAttackedBanner(null), 4000);
+    });
+    return () => {
+      disconnectSocket();
+    };
+  }, [player?.id]);
+
+  async function handleViewPvpResult() {
+    try {
+      const res = await api.get("/api/pvp/battles");
+      if (res.data.length > 0) {
+        setPvpResult(res.data[0]);
+        setPvpPendingChampionId(null);
+        setPvpBattleEndsAt(null);
+        setResultBanner(false);
+        // Refresh resources and champions
+        const [champRes, resRes] = await Promise.all([
+          api.get("/api/champions"),
+          api.get("/api/resources"),
+        ]);
+        setChampions(champRes.data);
+        setResources(resRes.data);
+      }
+    } catch {
+      // silent
+    }
+  }
 
   function toggleView() {
     const toValue = showFarmers ? 0 : -screenWidth;
@@ -171,6 +233,30 @@ export default function MainScreen() {
             <AlertTriangle size={14} color="#fff" strokeWidth={2} />
             <Text style={styles.errorText}>{t("cannotReachServer")}</Text>
           </View>
+        )}
+
+        {/* "Under attack" WebSocket banner */}
+        {attackedBanner && (
+          <View style={styles.pvpAttackedBanner}>
+            <Text style={styles.pvpAttackedText}>
+              ⚔️ {t("underAttack")} — {attackedBanner}
+            </Text>
+          </View>
+        )}
+
+        {/* "Result ready" polling banner */}
+        {resultBanner && (
+          <TouchableOpacity
+            style={styles.pvpResultBanner}
+            onPress={() => {
+              setResultBanner(false);
+              const pendingChamp = champions.find((c) => c.id === pvpPendingChampionId);
+              if (pendingChamp) setSelectedChampion(pendingChamp);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.pvpResultText}>🏆 {t("resultReady")}</Text>
+          </TouchableOpacity>
         )}
 
         {/* Center — cats around campfire / farmer scene */}
@@ -242,7 +328,9 @@ export default function MainScreen() {
                       key={c.id}
                       champion={c}
                       activeRunEndsAt={runMap[c.id]?.ends_at}
+                      pvpBattleEndsAt={pvpPendingChampionId === c.id ? pvpBattleEndsAt ?? undefined : undefined}
                       onPress={setSelectedChampion}
+                      isDefender={pvpDefenderId === c.id}
                     />
                   ))}
                 </View>
@@ -267,9 +355,22 @@ export default function MainScreen() {
         champion={selectedChampion}
         resources={resources}
         onClose={() => setSelectedChampion(null)}
-        onPvp={() => {
+        onPvp={(champion) => {
           setSelectedChampion(null);
-          router.push("/(game)/pvp");
+          router.push({
+            pathname: "/(game)/pvp",
+            params: {
+              championId:      champion.id,
+              championName:    champion.name,
+              championClass:   champion.class,
+              championAttack:  String(champion.attack),
+              championDefense: String(champion.defense),
+              championChance:  String(champion.chance),
+              championMaxHp:   String(champion.max_hp),
+              championCurrentHp: String(champion.current_hp),
+              championLevel:   String(champion.level),
+            },
+          });
         }}
         onDungeon={() => {
           const champ = selectedChampion;
@@ -333,6 +434,22 @@ export default function MainScreen() {
           }
         }}
         onMissionExpire={() => setMissionTick((t) => t + 1)}
+        defenderChampionId={pvpDefenderId}
+        pvpTrophies={pvpTrophies}
+        pvpLeague={pvpLeague}
+        isPvpBattle={pvpPendingChampionId === selectedChampion?.id}
+        pvpBattleEndsAt={pvpPendingChampionId === selectedChampion?.id ? pvpBattleEndsAt ?? undefined : undefined}
+        onViewPvpResult={handleViewPvpResult}
+        onSetDefender={async (champion) => {
+          try {
+            const res = await api.post("/api/pvp/set-defender", { champion_id: champion.id });
+            setPvpDefenderId(res.data.defender_champion_id);
+            setPvpTrophies(res.data.trophies);
+            setPvpLeague(res.data.league);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Savunucu ayarlanamadı");
+          }
+        }}
         onBoost={async (champion, type) => {
           try {
             const res = await api.post(`/api/champions/${champion.id}/boost`, { type });
@@ -728,6 +845,54 @@ export default function MainScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* PvP Result modal */}
+      <Modal
+        visible={pvpResult !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPvpResult(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            {pvpResult && (() => {
+              const won = pvpResult.winner_id === pvpResult.attacker_id;
+              const trophyDelta = pvpResult.attacker_trophies_delta;
+              return (
+                <>
+                  <View style={[styles.modalHeader, won ? styles.modalHeaderWin : styles.modalHeaderLose]}>
+                    <Text style={styles.modalTitle}>{won ? "⚔️ Zafer!" : "💀 Yenilgi"}</Text>
+                    <View style={styles.modalRewardRow}>
+                      <Text style={won ? styles.modalReward : styles.modalNoReward}>
+                        {trophyDelta >= 0 ? "+" : ""}{trophyDelta} 🏆
+                      </Text>
+                      <Text style={styles.modalXp}>vs {pvpResult.defender_name}</Text>
+                    </View>
+                  </View>
+                  <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }}>
+                    {(["strawberry", "pinecone", "blueberry"] as const).map((r) => {
+                      const amt = (pvpResult as any)[`transferred_${r}`] ?? 0;
+                      if (amt === 0) return null;
+                      const meta = RESOURCE_META[r];
+                      return (
+                        <View key={r} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Image source={meta.image} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                          <Text style={[styles.modalReward, { color: won ? "#4a7c3f" : "#c0392b" }]}>
+                            {won ? "+" : "-"}{amt}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <TouchableOpacity style={styles.modalBtn} onPress={() => setPvpResult(null)}>
+                    <Text style={styles.modalBtnText}>Kapat</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -782,6 +947,34 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#fff",
     fontSize: 13,
+  },
+  pvpAttackedBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    backgroundColor: "rgba(192, 57, 43, 0.92)",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  pvpAttackedText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  pvpResultBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    backgroundColor: "rgba(74, 124, 63, 0.92)",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  pvpResultText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
   },
   centerFill: {
     flex: 1,

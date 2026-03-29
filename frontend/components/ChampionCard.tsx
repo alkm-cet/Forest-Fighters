@@ -10,10 +10,18 @@ import CountdownTimer from "./CountdownTimer";
 type Props = {
   champion: Champion;
   activeRunEndsAt?: string;
+  pvpBattleEndsAt?: string;
   onPress?: (champion: Champion) => void;
+  isDefender?: boolean;
 };
 
-export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Props) {
+export default function ChampionCard({
+  champion,
+  activeRunEndsAt,
+  pvpBattleEndsAt,
+  onPress,
+  isDefender,
+}: Props) {
   const { t } = useLanguage();
   const meta = CLASS_META[champion.class] ?? {
     image: null,
@@ -22,7 +30,10 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
   };
 
   const [isExpired, setIsExpired] = useState(
-    () => !!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date()
+    () => !!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date(),
+  );
+  const [pvpExpired, setPvpExpired] = useState(
+    () => !!pvpBattleEndsAt && new Date(pvpBattleEndsAt) <= new Date(),
   );
 
   // Re-sync whenever a new mission starts (activeRunEndsAt changes)
@@ -30,14 +41,42 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
     setIsExpired(!!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date());
   }, [activeRunEndsAt]);
 
+  useEffect(() => {
+    setPvpExpired(!!pvpBattleEndsAt && new Date(pvpBattleEndsAt) <= new Date());
+  }, [pvpBattleEndsAt]);
+
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[
+        styles.card,
+        isDefender && styles.cardDefender,
+        isDefender && { opacity: 0.7 },
+      ]}
       activeOpacity={0.85}
       onPress={() => onPress?.(champion)}
     >
-      {champion.is_deployed && (
-        <View style={[styles.deployedOverlay, isExpired ? styles.overlayDone : styles.overlayActive]}>
+      {pvpBattleEndsAt && !pvpExpired && (
+        <View style={[styles.deployedOverlay, styles.overlayPvp]}>
+          <Text style={styles.deployedText}>Savaşta!</Text>
+          <CountdownTimer
+            endsAt={pvpBattleEndsAt}
+            style={styles.deployedTimer}
+            onExpire={() => setPvpExpired(true)}
+          />
+        </View>
+      )}
+      {pvpBattleEndsAt && pvpExpired && (
+        <View style={[styles.deployedOverlay, styles.overlayPvpDone]}>
+          <Text style={styles.deployedText}>Sonuç Hazır!</Text>
+        </View>
+      )}
+      {champion.is_deployed && !pvpBattleEndsAt && (
+        <View
+          style={[
+            styles.deployedOverlay,
+            isExpired ? styles.overlayDone : styles.overlayActive,
+          ]}
+        >
           {isExpired ? (
             <Text style={styles.deployedText}>{t("missionDone")}</Text>
           ) : (
@@ -95,6 +134,11 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
             <Zap size={9} color="#fff" strokeWidth={2} fill="#fff" />
           </View>
         )}
+        {isDefender && (
+          <View style={styles.defenderShieldCenter}>
+            <Shield size={32} color="#4a7c3f" fill="#4a7c3f" strokeWidth={2} />
+          </View>
+        )}
       </View>
 
       {/* Class name */}
@@ -104,19 +148,39 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
       <View style={styles.hpRow}>
         <Heart size={11} color="#e05050" strokeWidth={2} fill="#e05050" />
         <View style={styles.hpTrack}>
-          <View style={[styles.hpFill, { width: `${Math.round((champion.current_hp / champion.max_hp) * 100)}%` as any }]} />
+          <View
+            style={[
+              styles.hpFill,
+              {
+                width:
+                  `${Math.round((champion.current_hp / champion.max_hp) * 100)}%` as any,
+              },
+            ]}
+          />
         </View>
-        <Text style={styles.hpValue}>{champion.current_hp}/{champion.max_hp}</Text>
+        <Text style={styles.hpValue}>
+          {champion.current_hp}/{champion.max_hp}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-function StatCell({ label, value, boosted }: { label: string; value: string; boosted?: boolean }) {
+function StatCell({
+  label,
+  value,
+  boosted,
+}: {
+  label: string;
+  value: string;
+  boosted?: boolean;
+}) {
   return (
     <View style={styles.statCell}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, boosted && styles.statValueBoosted]}>{value}</Text>
+      <Text style={[styles.statValue, boosted && styles.statValueBoosted]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -131,6 +195,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
     paddingTop: 8,
+  },
+  cardDefender: {
+    borderColor: "#4a7c3f",
+    borderWidth: 2.5,
+  },
+  defenderShieldCenter: {
+    position: "absolute",
+    alignSelf: "center",
+    opacity: 1,
   },
 
   statsRow: {
@@ -201,6 +274,11 @@ const styles = StyleSheet.create({
     right: 6,
     backgroundColor: "#8a5cc7",
   },
+  badgeBottomRight: {
+    bottom: 2,
+    right: 6,
+    backgroundColor: "#2e6da4",
+  },
   catImage: {
     width: 80,
     height: 90,
@@ -255,6 +333,12 @@ const styles = StyleSheet.create({
   },
   overlayDone: {
     backgroundColor: "rgba(210,170,0,0.88)",
+  },
+  overlayPvp: {
+    backgroundColor: "rgba(150,30,180,0.85)",
+  },
+  overlayPvpDone: {
+    backgroundColor: "rgba(70,130,50,0.88)",
   },
   deployedText: {
     fontSize: 12,

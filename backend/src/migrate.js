@@ -159,6 +159,30 @@ async function migrate() {
     await query(`UPDATE dungeons SET xp_reward = 80  WHERE name = 'Orcish Camp'        AND xp_reward = 20`);
     await query(`UPDATE dungeons SET xp_reward = 120 WHERE name = 'Dark Sanctum'       AND xp_reward = 20`);
 
+    // ── PvP system ──────────────────────────────────────────────────────────────
+
+    // players: trophy & defender columns
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS trophies INT DEFAULT 10`);
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS defender_champion_id UUID REFERENCES champions(id)`);
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS defense_shield_until TIMESTAMPTZ`);
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`);
+
+    // champions: last_defender flag
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS last_defender BOOLEAN DEFAULT FALSE`);
+
+    // pvp_battles: new columns
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS result_available_at TIMESTAMPTZ`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS attacker_trophies_delta INT DEFAULT 0`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS defender_trophies_delta INT DEFAULT 0`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS transferred_strawberry INT DEFAULT 0`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS transferred_pinecone INT DEFAULT 0`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS transferred_blueberry INT DEFAULT 0`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS seen_by_attacker BOOLEAN DEFAULT FALSE`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS seen_by_defender BOOLEAN DEFAULT FALSE`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS combat_log JSONB`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS revenge_used BOOLEAN DEFAULT FALSE`);
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

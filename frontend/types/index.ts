@@ -26,6 +26,7 @@ export type Champion = {
   boost_hp: number;
   boost_defense: number;
   boost_chance: number;
+  last_defender: boolean;
 };
 
 export type Farmer = {
@@ -71,4 +72,40 @@ export type DungeonRun = {
   winner: "champion" | "enemy" | null;
   reward_resource: string | null;
   reward_amount: number | null;
+};
+
+export type PvpStatus = {
+  trophies: number;
+  league: string;
+  defender_champion_id: string | null;
+  pending_battle: {
+    battleId: string;
+    result_available_at: string;
+    opponent_name: string;
+  } | null;
+};
+
+export type PvpBattle = {
+  id: string;
+  attacker_id: string;
+  defender_id: string;
+  attacker_champion_id: string;
+  defender_champion_id: string;
+  winner_id: string;
+  attacker_name: string;
+  defender_name: string;
+  attacker_champion_name: string;
+  attacker_champion_class: string;
+  defender_champion_name: string;
+  defender_champion_class: string;
+  combat_log: any[];
+  fought_at: string;
+  result_available_at: string;
+  status: "pending" | "resolved";
+  attacker_trophies_delta: number;
+  defender_trophies_delta: number;
+  transferred_strawberry: number;
+  transferred_pinecone: number;
+  transferred_blueberry: number;
+  revenge_used: boolean;
 };
