@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import music from "../lib/music";
 import { isMusicEnabled } from "../lib/settings";
 import { LanguageProvider } from "../lib/i18n";
@@ -60,10 +61,12 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AuthGuard />
-      </AuthProvider>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AuthGuard />
+        </AuthProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

@@ -106,7 +106,8 @@ const translations = {
 
     // Resource capacity
     upgradeCapacityTitle: "Upgrade Capacity?",
-    upgradeCapacityInfo: "Max storage +3",
+    upgradeCapacityInfo: "Max storage +2",
+    farmerStorageFull: "Storage Full",
   },
   tr: {
     // App name
@@ -208,7 +209,8 @@ const translations = {
 
     // Resource capacity
     upgradeCapacityTitle: "Kapasiteyi Artır?",
-    upgradeCapacityInfo: "Maks depolama +3",
+    upgradeCapacityInfo: "Maks depolama +2",
+    farmerStorageFull: "Depo Dolu",
   },
 } as const;
 

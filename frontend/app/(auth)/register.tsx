@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, TextInput } from "../../components/StyledText";
 import { useRouter } from "expo-router";
 import api from "../../lib/api";
@@ -28,7 +29,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>{t("createAccount")}</Text>
       <TextInput
         style={styles.input}
@@ -59,7 +60,7 @@ export default function RegisterScreen() {
       <TouchableOpacity onPress={() => router.back()}>
         <Text style={styles.link}>{t("haveAccount")}</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

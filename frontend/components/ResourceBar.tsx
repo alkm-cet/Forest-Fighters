@@ -56,17 +56,19 @@ export default function ResourceBar({ resources, onUpgrade }: Props) {
                   {amount}
                   <Text style={styles.capText}>/{cap}</Text>
                 </Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.plusWrap}
-                  onPress={() => onUpgrade?.(key)}
-                >
-                  <Image
-                    source={PLUS_BTN}
-                    style={styles.plusBtn}
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+                {cap < 100 && (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.plusWrap}
+                    onPress={() => onUpgrade?.(key)}
+                  >
+                    <Image
+                      source={PLUS_BTN}
+                      style={styles.plusBtn}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>

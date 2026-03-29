@@ -13,6 +13,8 @@ import { Text } from "./StyledText";
 import { X, Swords, Gift, MapPin, Heart, Sparkles, HeartPulse } from "lucide-react-native";
 import { Champion, DungeonRun, Resources } from "../types";
 import { CLASS_META } from "../constants/resources";
+
+const PLUS_BTN = require("../assets/plus-button-image.png");
 import { useLanguage } from "../lib/i18n";
 
 import PvpBattleButton from "./PvpBattleButton";
@@ -66,8 +68,8 @@ function StatRow({
       </View>
       <Text style={styles.statValue}>{value}</Text>
       {canUpgrade && (
-        <TouchableOpacity style={styles.statPlusBtn} onPress={onUpgrade} activeOpacity={0.75}>
-          <Text style={styles.statPlusBtnText}>+</Text>
+        <TouchableOpacity onPress={onUpgrade} activeOpacity={0.75} style={styles.statPlusWrap}>
+          <Image source={PLUS_BTN} style={styles.statPlusBtn} resizeMode="contain" />
         </TouchableOpacity>
       )}
     </View>
@@ -617,21 +619,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#3a1e00",
   },
-  statPlusBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#4a7c3f",
+  statPlusWrap: {
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#2d5a24",
   },
-  statPlusBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fff",
-    lineHeight: 20,
+  statPlusBtn: {
+    width: 28,
+    height: 28,
   },
   confirmOverlay: {
     flex: 1,

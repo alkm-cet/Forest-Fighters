@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import {
   Modal,
   View,
@@ -61,25 +61,36 @@ export default function FarmerDrawer({
   // Live pending + countdown managed locally
   const [livePending, setLivePending] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [timerRowWidth, setTimerRowWidth] = useState(0);
+  const livePendingRef = useRef(0);
 
   // Initialise / reset when drawer opens for a farmer
   useEffect(() => {
     if (farmer) {
       translateY.setValue(0);
+      livePendingRef.current = farmer.pending;
       setLivePending(farmer.pending);
       setTimeLeft(farmer.next_ready_in_seconds);
     }
   }, [farmer?.id]);
 
-  // Tick every second; auto-restart and increment pending when it hits 0
+  // Keep ref in sync so interval can read latest value without recreating
+  useEffect(() => {
+    livePendingRef.current = livePending;
+  }, [livePending]);
+
+  // Tick every second; pause when farmer storage is full
   useEffect(() => {
     if (!farmer) return;
+    const maxCap = getMaxCapacity(farmer.level);
     const interval = setInterval(() => {
+      // Storage full — freeze the timer, don't produce
+      if (livePendingRef.current >= maxCap) return;
+
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          // One more item produced
-          setLivePending((p) => Math.min(p + 1, getMaxCapacity(farmer.level)));
-          return farmer.interval_minutes * 60; // restart
+          setLivePending((p) => Math.min(p + 1, maxCap));
+          return farmer.interval_minutes * 60;
         }
         return prev - 1;
       });
@@ -126,7 +137,9 @@ export default function FarmerDrawer({
   const upgradeCost = getUpgradeCost(farmer.level);
   const res1Meta = RESOURCE_META[res1];
   const res2Meta = RESOURCE_META[res2];
+  const isMaxLevel = farmer.level >= 50;
   const canUpgrade =
+    !isMaxLevel &&
     (resources?.[res1 as keyof Resources] ?? 0) >= upgradeCost &&
     (resources?.[res2 as keyof Resources] ?? 0) >= upgradeCost;
 
@@ -237,7 +250,7 @@ export default function FarmerDrawer({
             <Text style={styles.productionValue}>1</Text>
             <Text style={styles.productionSep}>/</Text>
             <Text style={styles.productionInterval}>
-              {farmer.interval_minutes} {t("perMin").replace("/ ", "")}
+              {Number(farmer.interval_minutes).toFixed(1)} {t("perMin").replace("/ ", "")}
             </Text>
           </View>
           {livePending > 0 && (
@@ -254,18 +267,45 @@ export default function FarmerDrawer({
         </View>
 
         {/* Next production countdown */}
-        <View style={styles.nextReadyRow}>
-          <Timer size={12} color="#9a7040" strokeWidth={2} />
-          <Text style={styles.nextReadyLabel}>{t("nextIn")}</Text>
-          <Text style={styles.nextReadyTimer}>{formatTime(timeLeft)}</Text>
-        </View>
+        {(() => {
+          const maxCap = getMaxCapacity(farmer.level);
+          const isFarmerFull = livePending >= maxCap;
+          const totalSeconds = farmer.interval_minutes * 60;
+          const progress = isFarmerFull ? 0
+            : totalSeconds > 0
+            ? Math.max(0, Math.min(1, 1 - (timeLeft - 1) / totalSeconds))
+            : 1;
+          return (
+            <View
+              style={styles.nextReadyRow}
+              onLayout={(e) => setTimerRowWidth(e.nativeEvent.layout.width)}
+            >
+              {/* Progress fill behind the content */}
+              {!isFarmerFull && (
+                <View
+                  style={[
+                    styles.nextReadyFill,
+                    { width: timerRowWidth * progress, backgroundColor: meta.color },
+                  ]}
+                />
+              )}
+              <Timer size={12} color={isFarmerFull ? "#c0392b" : "#9a7040"} strokeWidth={2} />
+              <Text style={styles.nextReadyLabel}>
+                {isFarmerFull ? t("farmerStorageFull") : t("nextIn")}
+              </Text>
+              {!isFarmerFull && (
+                <Text style={styles.nextReadyTimer}>{formatTime(timeLeft)}</Text>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Collect button */}
         <CustomButton
           btnImage={meta.image ?? undefined}
           text={
             capacityFull
-              ? `${t("collect")} — depo dolu`
+              ? `${t("collect")} — ${t("farmerStorageFull")}`
               : collectible > 0
               ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
               : t("nothingToCollect")
@@ -282,10 +322,10 @@ export default function FarmerDrawer({
         {/* Upgrade button */}
         <CustomButton
           btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-          text={`${t("upgrade")} → LV ${farmer.level + 1}`}
+          text={isMaxLevel ? `MAX LV ${farmer.level}` : `${t("upgrade")} → LV ${farmer.level + 1}`}
           onClick={() => onUpgrade(farmer)}
-          bgColor="#4a7c3f"
-          borderColor="#2d5a24"
+          bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
+          borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
           disabled={!canUpgrade}
           style={styles.actionBtn}
         />
@@ -444,6 +484,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     marginBottom: 12,
+    overflow: "hidden",
+  },
+  nextReadyFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 10,
+    opacity: 0.28,
   },
   nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "#9a7040" },
   nextReadyTimer: {

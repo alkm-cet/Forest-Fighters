@@ -16,16 +16,12 @@ export default function CountdownTimer({ endsAt, onExpire, style }: Props) {
   onExpireRef.current = onExpire;
 
   useEffect(() => {
-    if (secondsLeft <= 0) {
-      onExpireRef.current?.();
-      return;
-    }
+    if (secondsLeft <= 0) return;
     const id = setInterval(() => {
       setSecondsLeft((prev) => {
         const next = prev - 1;
         if (next <= 0) {
           clearInterval(id);
-          onExpireRef.current?.();
           return 0;
         }
         return next;
@@ -33,6 +29,13 @@ export default function CountdownTimer({ endsAt, onExpire, style }: Props) {
     }, 1000);
     return () => clearInterval(id);
   }, [endsAt]);
+
+  // Fire onExpire after render, never inside a state updater
+  useEffect(() => {
+    if (secondsLeft <= 0) {
+      onExpireRef.current?.();
+    }
+  }, [secondsLeft]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;

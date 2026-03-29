@@ -4,8 +4,8 @@ import {
   Switch,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../components/StyledText";
 import { ChevronLeft, Music2, LogOut, Globe } from "lucide-react-native";
 import { useRouter } from "expo-router";

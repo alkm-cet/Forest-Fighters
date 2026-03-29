@@ -10,9 +10,14 @@ const CAP_UPGRADE_COSTS = {
   blueberry:  ['strawberry', 'pinecone'],
 };
 
-// Upgrade cost scales with current cap tier: cap 15 → 2, cap 18 → 4, cap 21 → 6, ...
+const RESOURCE_CAP_START = 10;
+const RESOURCE_CAP_MAX   = 100;
+const RESOURCE_CAP_STEP  = 2;
+
+// Cost formula: tiers of 20 capacity, +2 per tier starting at 2
+// cap 10–28: cost 2 | cap 30–48: cost 4 | ... | cap 90–98: cost 10
 function getCapUpgradeCost(currentCap) {
-  return Math.floor((currentCap - 15) / 3) * 2 + 2;
+  return Math.floor((currentCap - RESOURCE_CAP_START) / 20) * 2 + 2;
 }
 
 router.get('/', authMiddleware, async (req, res) => {
@@ -54,7 +59,12 @@ router.post('/upgrade-capacity', authMiddleware, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Resources not found' });
 
     const playerRes = rows[0];
-    const currentCap = playerRes[capCol] ?? 15;
+    const currentCap = playerRes[capCol] ?? RESOURCE_CAP_START;
+
+    if (currentCap >= RESOURCE_CAP_MAX) {
+      return res.status(400).json({ error: 'Maximum capacity reached' });
+    }
+
     const cost = getCapUpgradeCost(currentCap);
 
     if ((playerRes[costRes1] ?? 0) < cost || (playerRes[costRes2] ?? 0) < cost) {
@@ -66,7 +76,7 @@ router.post('/upgrade-capacity', authMiddleware, async (req, res) => {
 
     await query(
       `UPDATE player_resources
-         SET ${capCol}  = ${capCol} + 3,
+         SET ${capCol}  = LEAST(${capCol} + ${RESOURCE_CAP_STEP}, ${RESOURCE_CAP_MAX}),
              ${costRes1} = ${costRes1} - $1,
              ${costRes2} = ${costRes2} - $2
        WHERE player_id = $3`,

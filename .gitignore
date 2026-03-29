@@ -1,3 +1,4 @@
+game_math.txt
 node_modules/
 .env
 *.log
@@ -8,3 +9,4 @@ build/
 GAME_DETAIL.md
 GAME_DESIGN_SUMMARY.md
 CLAUDE_CODE_PROMPT.md
+TODO.md

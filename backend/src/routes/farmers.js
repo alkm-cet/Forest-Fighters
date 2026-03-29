@@ -3,14 +3,28 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 
-// Resource type + level → production interval in minutes (each level reduces by 1, min 1)
+const FARMER_MAX_LEVEL = 50;
+
+// Rate-based linear interpolation: interval = 60 / rate(level)
+// This gives large improvements early and smaller (but non-zero) improvements late.
+// At L1: strawberry=8min, pinecone=12min, blueberry=16min
+// At L50: strawberry=1min, pinecone=2min,  blueberry=3min
 function getIntervalByType(resourceType, level = 1) {
-  let base;
-  if (resourceType === 'strawberry') base = 8;
-  else if (resourceType === 'pinecone')   base = 12;
-  else if (resourceType === 'blueberry')  base = 16;
-  else base = 10;
-  return Math.max(1, base - (level - 1));
+  const L = Math.max(1, Math.min(FARMER_MAX_LEVEL, level));
+  let rate;
+  if (resourceType === 'strawberry') {
+    // baseRate=7.5/hr (8min), maxRate=60/hr (1min)
+    rate = 7.5 + 52.5 * (L - 1) / 49;
+  } else if (resourceType === 'pinecone') {
+    // baseRate=5/hr (12min), maxRate=30/hr (2min)
+    rate = 5 + 25 * (L - 1) / 49;
+  } else if (resourceType === 'blueberry') {
+    // baseRate=3.75/hr (16min), maxRate=20/hr (3min)
+    rate = 3.75 + 16.25 * (L - 1) / 49;
+  } else {
+    rate = 6 + 24 * (L - 1) / 49;
+  }
+  return 60 / rate;
 }
 
 // Cross-resource upgrade costs: resource_type → [costRes1, costRes2]
@@ -151,6 +165,10 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Farmer not found' });
 
     const farmer = rows[0];
+    if (farmer.level >= FARMER_MAX_LEVEL) {
+      return res.status(400).json({ error: 'Max level reached' });
+    }
+
     const [res1, res2] = UPGRADE_RESOURCES[farmer.resource_type];
     const cost = getUpgradeCost(farmer.level);
 

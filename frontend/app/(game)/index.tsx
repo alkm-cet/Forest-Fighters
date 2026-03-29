@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Image,
   ImageBackground,
-  SafeAreaView,
   Animated,
   useWindowDimensions,
   Modal,
@@ -27,6 +26,7 @@ import { useLanguage } from "../../lib/i18n";
 import { Resources, ResourceKey, Champion, Farmer, Player, DungeonRun } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
+import { SafeAreaView } from "react-native-safe-area-context";
 import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
 import FarmerCard from "../../components/FarmerCard";
@@ -46,9 +46,9 @@ export default function MainScreen() {
     strawberry: 0,
     pinecone: 0,
     blueberry: 0,
-    strawberry_cap: 15,
-    pinecone_cap: 15,
-    blueberry_cap: 15,
+    strawberry_cap: 10,
+    pinecone_cap: 10,
+    blueberry_cap: 10,
   });
   const [capUpgradeConfirm, setCapUpgradeConfirm] = useState<{
     resource: ResourceKey;
@@ -146,7 +146,7 @@ export default function MainScreen() {
             };
             const capKey = `${resource}_cap` as keyof Resources;
             const currentCap = resources[capKey] as number ?? 15;
-            const cost = Math.floor((currentCap - 15) / 3) * 2 + 2;
+            const cost = Math.floor((currentCap - 10) / 20) * 2 + 2;
             const [costRes1, costRes2] = CAP_COSTS[resource];
             setCapUpgradeConfirm({ resource, currentCap, cost, costRes1, costRes2 });
           }}
