@@ -10,9 +10,10 @@ import {
   PanResponder,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Swords, Gift, MapPin, Heart, Sparkles, HeartPulse } from "lucide-react-native";
+import { X, Swords, Gift, MapPin, Heart, Sparkles, HeartPulse, Shield, Zap } from "lucide-react-native";
 import { Champion, DungeonRun, Resources } from "../types";
 import { CLASS_META } from "../constants/resources";
+import CustomModal from "./CustomModal";
 
 const PLUS_BTN = require("../assets/plus-button-image.png");
 import { useLanguage } from "../lib/i18n";
@@ -24,6 +25,8 @@ import CountdownTimer from "./CountdownTimer";
 const REVIVE_COST = 3;
 
 type StatKey = 'attack' | 'defense' | 'chance';
+
+type BoostType = 'hp' | 'defense' | 'chance';
 
 type Props = {
   champion: Champion | null;
@@ -38,6 +41,26 @@ type Props = {
   onRevive?: (champion: Champion) => void;
   onHeal?: (champion: Champion) => void;
   onSpendStat?: (champion: Champion, stat: StatKey) => void;
+  onBoost?: (champion: Champion, type: BoostType) => void;
+  onMissionExpire?: () => void;
+};
+
+const BOOST_META: Record<BoostType, {
+  label: string;
+  icon: React.ReactNode;
+  cost: number;
+  costEmoji: string;
+  boostCol: keyof Champion;
+}> = {
+  hp:      { label: '+10 HP',  icon: null, cost: 4, costEmoji: '🍓', boostCol: 'boost_hp' },
+  defense: { label: '+5 DEF',  icon: null, cost: 4, costEmoji: '🌲', boostCol: 'boost_defense' },
+  chance:  { label: '+5 CHC',  icon: null, cost: 3, costEmoji: '🫐', boostCol: 'boost_chance' },
+};
+
+const BOOST_RESOURCE: Record<BoostType, keyof Resources> = {
+  hp:      'strawberry',
+  defense: 'pinecone',
+  chance:  'blueberry',
 };
 
 const STAT_MAX = 100;
@@ -46,15 +69,17 @@ const DISMISS_THRESHOLD = 100;
 function StatRow({
   label,
   value,
+  boost,
   canUpgrade,
   onUpgrade,
 }: {
   label: string;
   value: number;
+  boost?: number;
   canUpgrade?: boolean;
   onUpgrade?: () => void;
 }) {
-  const pct = Math.min(value / STAT_MAX, 1);
+  const pct = Math.min((value + (boost ?? 0)) / STAT_MAX, 1);
   return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -66,7 +91,12 @@ function StatRow({
           ]}
         />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
+      <View style={styles.statValueRow}>
+        <Text style={styles.statValue}>{value}</Text>
+        {(boost ?? 0) > 0 && (
+          <Text style={styles.statBoost}> +{boost}</Text>
+        )}
+      </View>
       {canUpgrade && (
         <TouchableOpacity onPress={onUpgrade} activeOpacity={0.75} style={styles.statPlusWrap}>
           <Image source={PLUS_BTN} style={styles.statPlusBtn} resizeMode="contain" />
@@ -89,10 +119,13 @@ export default function ChampionDrawer({
   onRevive,
   onHeal,
   onSpendStat,
+  onBoost,
+  onMissionExpire,
 }: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
+  const [pendingBoost, setPendingBoost] = useState<BoostType | null>(null);
 
   useEffect(() => {
     if (champion) translateY.setValue(0);
@@ -198,27 +231,103 @@ export default function ChampionDrawer({
         {/* Champion name */}
         <Text style={styles.champName}>{champion.name}</Text>
 
-        {/* Champion image */}
-        <View style={styles.imageFrame}>
-          {meta.image && (
-            <Image
-              source={meta.image}
-              style={styles.champImage}
-              resizeMode="contain"
-            />
-          )}
+        {/* Champion image + boost buttons */}
+        <View style={styles.imageAndBoostRow}>
+          <View style={styles.imageFrame}>
+            {meta.image && (
+              <Image
+                source={meta.image}
+                style={styles.champImage}
+                resizeMode="contain"
+              />
+            )}
+            {/* Active boost badges on image corners */}
+            {(champion.boost_hp ?? 0) > 0 && (
+              <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
+                <Heart size={12} color="#fff" strokeWidth={2} fill="#fff" />
+              </View>
+            )}
+            {(champion.boost_defense ?? 0) > 0 && (
+              <View style={[styles.boostBadge, styles.boostBadgeBottomLeft]}>
+                <Shield size={12} color="#fff" strokeWidth={2} />
+              </View>
+            )}
+            {(champion.boost_chance ?? 0) > 0 && (
+              <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
+                <Zap size={12} color="#fff" strokeWidth={2} fill="#fff" />
+              </View>
+            )}
+          </View>
+
+          {/* Boost buttons */}
+          <View style={styles.boostBtns}>
+            {(Object.keys(BOOST_META) as BoostType[]).map((type) => {
+              const bm = BOOST_META[type];
+              const resKey = BOOST_RESOURCE[type];
+              const isActive = (champion[bm.boostCol] as number ?? 0) > 0;
+              const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
+              const disabled = isActive || !canAfford;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.boostBtn, isActive && styles.boostBtnActive, disabled && !isActive && styles.boostBtnDisabled]}
+                  onPress={() => !disabled && setPendingBoost(type)}
+                  activeOpacity={0.75}
+                >
+                  {type === 'hp' && <Heart size={11} color={isActive ? "#fff" : "#c0392b"} strokeWidth={2} fill={isActive ? "#fff" : "#c0392b"} />}
+                  {type === 'defense' && <Shield size={11} color={isActive ? "#fff" : "#4a7c3f"} strokeWidth={2} />}
+                  {type === 'chance' && <Zap size={11} color={isActive ? "#fff" : "#8a5cc7"} strokeWidth={2} fill={isActive ? "#fff" : "#8a5cc7"} />}
+                  <Text style={[styles.boostBtnLabel, isActive && styles.boostBtnLabelActive]}>{bm.label}</Text>
+                  {!isActive && (
+                    <Text style={[styles.boostBtnCost, !canAfford && styles.boostBtnCostRed]}>
+                      {bm.costEmoji}×{bm.cost}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
+
+        {/* Boost confirmation modal */}
+        {pendingBoost && champion && (
+          <CustomModal
+            visible={true}
+            onClose={() => setPendingBoost(null)}
+            onConfirm={() => {
+              onBoost?.(champion, pendingBoost);
+              setPendingBoost(null);
+            }}
+            title={t("boostConfirmTitle")}
+            confirmDisabled={
+              (resources?.[BOOST_RESOURCE[pendingBoost]] ?? 0) < BOOST_META[pendingBoost].cost
+            }
+          >
+            <View style={styles.boostModalBody}>
+              <Text style={styles.boostModalEffect}>{BOOST_META[pendingBoost].label}</Text>
+              <Text style={styles.boostModalCost}>
+                {t("upgradeCost")}: {BOOST_META[pendingBoost].costEmoji} ×{BOOST_META[pendingBoost].cost}
+              </Text>
+              <Text style={styles.boostModalNote}>{t("boostActiveUntil")}</Text>
+            </View>
+          </CustomModal>
+        )}
 
         {/* HP Bar */}
         {(() => {
-          const hpPct = champion.max_hp > 0 ? champion.current_hp / champion.max_hp : 0;
+          const boostHp = champion.boost_hp ?? 0;
+          const effectiveMaxHp = champion.max_hp + boostHp;
+          const hpPct = effectiveMaxHp > 0 ? champion.current_hp / effectiveMaxHp : 0;
           const hpColor = hpPct > 0.6 ? "#2d8a3e" : hpPct > 0.3 ? "#d4a017" : "#c0392b";
           return (
             <View style={styles.hpSection}>
               <View style={styles.hpLabelRow}>
                 <HeartPulse size={14} color={hpColor} strokeWidth={2.5} />
                 <Text style={[styles.hpTitle, { color: hpColor }]}>
-                  {champion.current_hp} / {champion.max_hp} HP
+                  {champion.current_hp} / {champion.max_hp}
+                  {boostHp > 0 && (
+                    <Text style={styles.hpBoost}> +{boostHp}</Text>
+                  )} HP
                 </Text>
               </View>
               <View style={styles.hpBarTrack}>
@@ -258,12 +367,14 @@ export default function ChampionDrawer({
         <StatRow
           label={t("defense")}
           value={champion.defense}
+          boost={champion.boost_defense || undefined}
           canUpgrade={champion.stat_points > 0}
           onUpgrade={() => setPendingStat('defense')}
         />
         <StatRow
           label={t("chance")}
           value={champion.chance}
+          boost={champion.boost_chance || undefined}
           canUpgrade={champion.stat_points > 0}
           onUpgrade={() => setPendingStat('chance')}
         />
@@ -352,7 +463,7 @@ export default function ChampionDrawer({
                   <View style={styles.onMissionInner}>
                     <Text style={styles.onMissionText}>{t("onMission")}</Text>
                     {activeRunEndsAt && (
-                      <CountdownTimer endsAt={activeRunEndsAt} style={styles.onMissionTimer} />
+                      <CountdownTimer endsAt={activeRunEndsAt} style={styles.onMissionTimer} onExpire={onMissionExpire} />
                     )}
                   </View>
                 </View>
@@ -365,9 +476,10 @@ export default function ChampionDrawer({
             </View>
 
             {/* Heal button — only when injured and not on mission */}
-            {!isOnMission && champion.current_hp < champion.max_hp && (
+            {!isOnMission && champion.current_hp < (champion.max_hp + (champion.boost_hp ?? 0)) && (
               (() => {
-                const healCost = Math.ceil((champion.max_hp - champion.current_hp) / 35);
+                const effectiveMax = champion.max_hp + (champion.boost_hp ?? 0);
+                const healCost = Math.ceil((effectiveMax - champion.current_hp) / 35);
                 const canHeal = (resources?.strawberry ?? 0) >= healCost;
                 return (
                   <TouchableOpacity
@@ -509,8 +621,13 @@ const styles = StyleSheet.create({
     color: "#3a1e00",
     marginBottom: 12,
   },
+  imageAndBoostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 12,
+  },
   imageFrame: {
-    alignSelf: "center",
     width: 148,
     height: 148,
     backgroundColor: "#ede0c4",
@@ -519,7 +636,6 @@ const styles = StyleSheet.create({
     borderColor: "#c8a96e",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
     shadowColor: "#b8893a",
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -529,6 +645,94 @@ const styles = StyleSheet.create({
   champImage: {
     width: 128,
     height: 128,
+  },
+  boostBadge: {
+    position: "absolute",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#3a1e00",
+    borderWidth: 2,
+    borderColor: "#f5e9cc",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+  boostBadgeTopLeft: {
+    top: -7,
+    left: -7,
+    backgroundColor: "#c0392b",
+  },
+  boostBadgeBottomLeft: {
+    bottom: -7,
+    left: -7,
+    backgroundColor: "#4a7c3f",
+  },
+  boostBadgeTopRight: {
+    top: -7,
+    right: -7,
+    backgroundColor: "#8a5cc7",
+  },
+  boostBtns: {
+    flex: 1,
+    gap: 8,
+  },
+  boostBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  boostBtnActive: {
+    backgroundColor: "#3a1e00",
+    borderColor: "#6a3e00",
+  },
+  boostBtnDisabled: {
+    opacity: 0.45,
+  },
+  boostBtnLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#3a1e00",
+    flex: 1,
+  },
+  boostBtnLabelActive: {
+    color: "#f5c842",
+  },
+  boostBtnCost: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#6a4a20",
+  },
+  boostBtnCostRed: {
+    color: "#c0392b",
+  },
+  boostModalBody: {
+    gap: 8,
+  },
+  boostModalEffect: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#3a1e00",
+    textAlign: "center",
+  },
+  boostModalCost: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#7a5a30",
+    textAlign: "center",
+  },
+  boostModalNote: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9a8060",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   hpSection: {
     marginBottom: 12,
@@ -543,6 +747,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: 0.3,
+  },
+  hpBoost: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#8a5cc7",
   },
   hpBarTrack: {
     height: 10,
@@ -612,12 +821,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#c0392b",
     borderRadius: 4,
   },
+  statValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    minWidth: 44,
+    justifyContent: "flex-end",
+  },
   statValue: {
-    width: 30,
-    textAlign: "right",
     fontSize: 14,
     fontWeight: "700",
     color: "#3a1e00",
+  },
+  statBoost: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#8a5cc7",
   },
   statPlusWrap: {
     width: 28,

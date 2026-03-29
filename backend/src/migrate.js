@@ -143,6 +143,11 @@ async function migrate() {
     await query(`UPDATE player_resources SET pinecone_cap   = 10 WHERE pinecone_cap   = 15`);
     await query(`UPDATE player_resources SET blueberry_cap  = 10 WHERE blueberry_cap  = 15`);
 
+    // Combat boosts (cleared after each battle)
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS boost_hp INT DEFAULT 0`);
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS boost_defense INT DEFAULT 0`);
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS boost_chance INT DEFAULT 0`);
+
     // XP reward per dungeon
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS xp_reward INT DEFAULT 20`);
 

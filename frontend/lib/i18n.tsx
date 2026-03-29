@@ -108,6 +108,15 @@ const translations = {
     upgradeCapacityTitle: "Upgrade Capacity?",
     upgradeCapacityInfo: "Max storage +2",
     farmerStorageFull: "Storage Full",
+
+    // Combat boosts
+    boostHp: "+10 HP",
+    boostDefense: "+5 Defense",
+    boostChance: "+5 Chance",
+    boostConfirmTitle: "Apply Boost?",
+    boostActiveUntil: "Active until next battle",
+    boostAlreadyActive: "Already active",
+    boostSection: "BATTLE BOOSTS",
   },
   tr: {
     // App name
@@ -211,6 +220,15 @@ const translations = {
     upgradeCapacityTitle: "Kapasiteyi Artır?",
     upgradeCapacityInfo: "Maks depolama +2",
     farmerStorageFull: "Depo Dolu",
+
+    // Combat boosts
+    boostHp: "+10 Can",
+    boostDefense: "+5 Savunma",
+    boostChance: "+5 Şans",
+    boostConfirmTitle: "Boost Uygula?",
+    boostActiveUntil: "Bir sonraki savaşa kadar aktif",
+    boostAlreadyActive: "Zaten aktif",
+    boostSection: "SAVAŞ BOOSTLARI",
   },
 } as const;
 

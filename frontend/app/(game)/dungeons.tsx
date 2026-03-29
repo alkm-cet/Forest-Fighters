@@ -4,23 +4,49 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Modal,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../components/StyledText";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Swords, Shield, Zap, Trophy, HeartPulse } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import { useLanguage } from "../../lib/i18n";
 import { Dungeon, DungeonRun } from "../../types";
 import DungeonCard from "../../components/DungeonCard";
+import { CLASS_META } from "../../constants/resources";
+import CustomModal from "../../components/CustomModal";
 
 export default function DungeonsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { championId } = useLocalSearchParams<{ championId: string }>();
+  const {
+    championId,
+    championName,
+    championClass,
+    championAttack,
+    championDefense,
+    championChance,
+    championBoostDefense,
+    championBoostChance,
+    championCurrentHp,
+    championMaxHp,
+    championBoostHp,
+  } = useLocalSearchParams<{
+    championId: string;
+    championName: string;
+    championClass: string;
+    championAttack: string;
+    championDefense: string;
+    championChance: string;
+    championBoostDefense: string;
+    championBoostChance: string;
+    championCurrentHp: string;
+    championMaxHp: string;
+    championBoostHp: string;
+  }>();
 
   const [dungeons, setDungeons] = useState<Dungeon[]>([]);
   const [runs, setRuns] = useState<DungeonRun[]>([]);
@@ -45,7 +71,7 @@ export default function DungeonsScreen() {
       setDungeons(dungeonsRes.data);
       setRuns(runsRes.data);
     } catch {
-      // silent — user sees empty state
+      // silent
     }
   }
 
@@ -59,9 +85,7 @@ export default function DungeonsScreen() {
       return;
     }
     try {
-      await api.post(`/api/dungeons/${dungeon.id}/enter`, {
-        champion_id: championId,
-      });
+      await api.post(`/api/dungeons/${dungeon.id}/enter`, { champion_id: championId });
       await loadData();
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to enter dungeon");
@@ -78,82 +102,120 @@ export default function DungeonsScreen() {
     }
   }
 
-  // A champion is "busy" if it has an active run — disable enter for other dungeons if same champion
   const championIsBusy = runs.some(
     (r) => r.champion_id === championId && r.status === "active"
   );
 
+  const classMeta = CLASS_META[championClass ?? ""] ?? { image: null, color: "#888" };
+  const atk = parseInt(championAttack ?? "0");
+  const def = parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0");
+  const chc = parseInt(championChance ?? "0") + parseInt(championBoostChance ?? "0");
+  const boostDef = parseInt(championBoostDefense ?? "0");
+  const boostChc = parseInt(championBoostChance ?? "0");
+  const currentHp = parseInt(championCurrentHp ?? "0");
+  const maxHp = parseInt(championMaxHp ?? "0");
+  const boostHp = parseInt(championBoostHp ?? "0");
+  const effectiveMaxHp = maxHp + boostHp;
+  const hpPct = effectiveMaxHp > 0 ? currentHp / effectiveMaxHp : 0;
+  const hpColor = hpPct > 0.6 ? "#4caf50" : hpPct > 0.3 ? "#f39c12" : "#e57373";
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ChevronLeft size={28} color="#a8e6a3" strokeWidth={2} />
-          </TouchableOpacity>
-          <Text style={styles.title}>{t("dungeons")}</Text>
-          <View style={styles.backBtn} />
-        </View>
-
-        {/* Dungeon list */}
-        <ScrollView
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {dungeons.length === 0 ? (
-            <Text style={styles.empty}>{t("noDungeons")}</Text>
-          ) : (
-            dungeons.map((dungeon) => {
-              const run = getRunForDungeon(dungeon.id);
-              const isExpired = run && new Date(run.ends_at) <= new Date();
-              // Disable entering if champion is busy AND this dungeon has no active run for this champion
-              const enterDisabled =
-                championIsBusy && (!run || run.champion_id !== championId);
-
-              return (
-                <DungeonCard
-                  key={dungeon.id}
-                  dungeon={dungeon}
-                  activeRun={run}
-                  onEnter={handleEnter}
-                  onClaim={handleClaim}
-                  disabled={enterDisabled}
-                />
-              );
-            })
-          )}
-        </ScrollView>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ChevronLeft size={26} color="#b0c4de" strokeWidth={2.5} />
+        </TouchableOpacity>
+        <Text style={styles.title}>{t("dungeons")}</Text>
+        <View style={styles.backBtn} />
       </View>
 
-      {/* Claim result modal */}
-      <Modal
-        visible={claimResult !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setClaimResult(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {claimResult?.winner === "champion" ? t("victory") : t("defeat")}
-            </Text>
-            <Text style={styles.modalSub}>{t("missionComplete")}</Text>
-            {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
-              <Text style={styles.modalReward}>
-                +{claimResult.rewardAmount} {claimResult.rewardResource}
+      {/* Sticky champion strip */}
+      {championName ? (
+        <View style={styles.champStrip}>
+          {classMeta.image && (
+            <Image source={classMeta.image} style={styles.champImage} resizeMode="contain" />
+          )}
+          <View style={styles.champRight}>
+            <View style={styles.champInfo}>
+              <Text style={styles.champName}>{championName}</Text>
+              <Text style={[styles.champClass, { color: classMeta.color }]}>
+                {championClass?.toUpperCase()}
               </Text>
-            ) : (
-              <Text style={styles.modalNoReward}>No reward this time.</Text>
-            )}
-            <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => setClaimResult(null)}
-            >
-              <Text style={styles.modalBtnText}>OK</Text>
-            </TouchableOpacity>
+            </View>
+            <View style={styles.champStats}>
+              <View style={styles.champStatPill}>
+                <Swords size={10} color="#e57373" strokeWidth={2.5} />
+                <Text style={styles.champStatVal}>{atk}</Text>
+              </View>
+              <View style={styles.champStatPill}>
+                <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
+                <Text style={[styles.champStatVal, boostDef > 0 && styles.champStatBoosted]}>{def}</Text>
+              </View>
+              <View style={styles.champStatPill}>
+                <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
+                <Text style={[styles.champStatVal, boostChc > 0 && styles.champStatBoosted]}>{chc}%</Text>
+              </View>
+              <View style={styles.champStatPill}>
+                <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
+                <Text style={[styles.champStatVal, { color: hpColor }]}>
+                  {currentHp}/{maxHp}
+                  {boostHp > 0 && <Text style={styles.champStatBoosted}> +{boostHp}</Text>}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
-      </Modal>
+      ) : null}
+
+      {/* Dungeon list */}
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {dungeons.length === 0 ? (
+          <Text style={styles.empty}>{t("noDungeons")}</Text>
+        ) : (
+          dungeons.map((dungeon) => {
+            const run = getRunForDungeon(dungeon.id);
+            const enterDisabled = championIsBusy && (!run || run.champion_id !== championId);
+            return (
+              <DungeonCard
+                key={dungeon.id}
+                dungeon={dungeon}
+                activeRun={run}
+                onEnter={handleEnter}
+                onClaim={handleClaim}
+                disabled={enterDisabled}
+              />
+            );
+          })
+        )}
+      </ScrollView>
+
+      {/* Claim result modal */}
+      <CustomModal
+        visible={claimResult !== null}
+        onClose={() => setClaimResult(null)}
+        onConfirm={() => setClaimResult(null)}
+        title={claimResult?.winner === "champion" ? t("victory") : t("defeat")}
+        confirmText="OK"
+        cancelText={t("cancelBtn")}
+      >
+        <View style={styles.resultBody}>
+          <Text style={styles.resultSub}>{t("missionComplete")}</Text>
+          {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
+            <View style={styles.resultRewardRow}>
+              <Trophy size={18} color="#ffd54f" strokeWidth={2} fill="#ffd54f" />
+              <Text style={styles.resultReward}>
+                +{claimResult.rewardAmount} {claimResult.rewardResource}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.resultNoReward}>No reward this time.</Text>
+          )}
+        </View>
+      </CustomModal>
     </SafeAreaView>
   );
 }
@@ -161,82 +223,114 @@ export default function DungeonsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#1a3d1a",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
+    backgroundColor: "#353b48",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
-    marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   backBtn: {
-    width: 44,
+    width: 40,
   },
   title: {
-    color: "#fff",
+    color: "#ecf0f1",
     fontSize: 20,
     fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  champStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2c3347",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#3e4a62",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  champImage: {
+    width: 48,
+    height: 48,
+  },
+  champInfo: {
+    gap: 2,
+  },
+  champName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#ecf0f1",
+  },
+  champClass: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  champRight: {
+    flex: 1,
+    gap: 6,
+  },
+  champStats: {
+    flexDirection: "row",
+    gap: 5,
+  },
+  champStatPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#1e2433",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#3e4a62",
+  },
+  champStatVal: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#b0c4de",
+  },
+  champStatBoosted: {
+    color: "#ce93d8",
   },
   listContent: {
+    paddingHorizontal: 16,
     paddingBottom: 32,
   },
   empty: {
-    color: "#a8e6a3",
+    color: "#7f8c9a",
     textAlign: "center",
-    marginTop: 40,
-    fontSize: 16,
+    marginTop: 60,
+    fontSize: 15,
   },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
+  resultBody: {
     alignItems: "center",
-    padding: 32,
+    gap: 8,
+    paddingBottom: 4,
   },
-  modalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 28,
+  resultSub: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#7a5a30",
+  },
+  resultRewardRow: {
+    flexDirection: "row",
     alignItems: "center",
-    width: "100%",
+    gap: 8,
   },
-  modalTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#3a2a10",
-    marginBottom: 4,
-  },
-  modalSub: {
-    fontSize: 14,
-    color: "#7a6040",
-    marginBottom: 16,
-  },
-  modalReward: {
+  resultReward: {
     fontSize: 20,
     fontWeight: "800",
     color: "#4a7c3f",
-    marginBottom: 20,
   },
-  modalNoReward: {
-    fontSize: 15,
+  resultNoReward: {
+    fontSize: 14,
     color: "#c0392b",
-    marginBottom: 20,
-  },
-  modalBtn: {
-    backgroundColor: "#4a7c3f",
-    borderRadius: 12,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-  },
-  modalBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fff",
+    fontWeight: "600",
   },
 });

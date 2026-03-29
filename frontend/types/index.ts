@@ -23,6 +23,9 @@ export type Champion = {
   current_hp: number;
   is_deployed: boolean;
   stat_points: number;
+  boost_hp: number;
+  boost_defense: number;
+  boost_chance: number;
 };
 
 export type Farmer = {

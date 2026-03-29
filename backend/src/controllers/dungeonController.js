@@ -97,6 +97,7 @@ async function claimRun(req, res) {
   try {
     const runRows = await query(
       `SELECT dr.*, c.attack, c.defense, c.chance, c.max_hp, c.level, c.xp, c.xp_to_next_level,
+              c.boost_hp, c.boost_defense, c.boost_chance,
               d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward
        FROM dungeon_runs dr
@@ -119,7 +120,12 @@ async function claimRun(req, res) {
       return res.status(400).json({ error: 'Dungeon run has not finished yet' });
     }
 
-    const attacker = { attack: run.attack, defense: run.defense, chance: run.chance, max_hp: run.max_hp };
+    const attacker = {
+      attack: run.attack,
+      defense: run.defense + (run.boost_defense || 0),
+      chance: run.chance + (run.boost_chance || 0),
+      max_hp: run.max_hp + (run.boost_hp || 0),
+    };
     const defender = { attack: run.enemy_attack, defense: run.enemy_defense, chance: run.enemy_chance, max_hp: run.enemy_hp };
     const result = simulateCombat(attacker, defender);
 
@@ -150,10 +156,12 @@ async function claimRun(req, res) {
       }
     }
 
-    // Update champion: HP + XP + level + stat points (1 per level gained)
+    // Update champion: HP + XP + level + stat points + clear boosts
+    // Cap current_hp at max_hp since boost_hp is being cleared
+    const finalHp = Math.min(result.attackerHpLeft, run.max_hp);
     await query(
-      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5 WHERE id = $6',
-      [result.attackerHpLeft, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
+      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5, boost_hp = 0, boost_defense = 0, boost_chance = 0 WHERE id = $6',
+      [finalHp, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
     );
 
     if (rewardAmount > 0) {

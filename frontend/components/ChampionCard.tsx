@@ -1,7 +1,7 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { useState, useEffect } from "react";
 import { Text } from "./StyledText";
-import { Heart } from "lucide-react-native";
+import { Heart, Shield, Zap } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
@@ -58,9 +58,17 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
       <View style={styles.statsRow}>
         <StatCell label={t("atk")} value={String(champion.attack)} />
         <View style={styles.statDivider} />
-        <StatCell label={t("def")} value={String(champion.defense)} />
+        <StatCell
+          label={t("def")}
+          value={String(champion.defense + (champion.boost_defense ?? 0))}
+          boosted={(champion.boost_defense ?? 0) > 0}
+        />
         <View style={styles.statDivider} />
-        <StatCell label={t("chc")} value={`${champion.chance}%`} />
+        <StatCell
+          label={t("chc")}
+          value={`${champion.chance + (champion.boost_chance ?? 0)}%`}
+          boosted={(champion.boost_chance ?? 0) > 0}
+        />
       </View>
 
       {/* Cat image */}
@@ -72,6 +80,21 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
             resizeMode="contain"
           />
         ) : null}
+        {(champion.boost_hp ?? 0) > 0 && (
+          <View style={[styles.boostBadge, styles.badgeTopLeft]}>
+            <Heart size={9} color="#fff" strokeWidth={2} fill="#fff" />
+          </View>
+        )}
+        {(champion.boost_defense ?? 0) > 0 && (
+          <View style={[styles.boostBadge, styles.badgeBottomLeft]}>
+            <Shield size={9} color="#fff" strokeWidth={2} />
+          </View>
+        )}
+        {(champion.boost_chance ?? 0) > 0 && (
+          <View style={[styles.boostBadge, styles.badgeTopRight]}>
+            <Zap size={9} color="#fff" strokeWidth={2} fill="#fff" />
+          </View>
+        )}
       </View>
 
       {/* Class name */}
@@ -89,11 +112,11 @@ export default function ChampionCard({ champion, activeRunEndsAt, onPress }: Pro
   );
 }
 
-function StatCell({ label, value }: { label: string; value: string }) {
+function StatCell({ label, value, boosted }: { label: string; value: string; boosted?: boolean }) {
   return (
     <View style={styles.statCell}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, boosted && styles.statValueBoosted]}>{value}</Text>
     </View>
   );
 }
@@ -141,12 +164,42 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#3a2a10",
   },
+  statValueBoosted: {
+    color: "#8a5cc7",
+  },
 
   imageWrapper: {
     width: "100%",
     height: 90,
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  boostBadge: {
+    position: "absolute",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: "#f5edd8",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+  badgeTopLeft: {
+    top: 2,
+    left: 6,
+    backgroundColor: "#c0392b",
+  },
+  badgeBottomLeft: {
+    bottom: 2,
+    left: 6,
+    backgroundColor: "#4a7c3f",
+  },
+  badgeTopRight: {
+    top: 2,
+    right: 6,
+    backgroundColor: "#8a5cc7",
   },
   catImage: {
     width: 80,

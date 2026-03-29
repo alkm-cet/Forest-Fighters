@@ -89,6 +89,7 @@ export default function MainScreen() {
   } | null>(null);
   const [showFarmers, setShowFarmers] = useState(false);
   const [error, setError] = useState(false);
+  const [missionTick, setMissionTick] = useState(0);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -271,11 +272,23 @@ export default function MainScreen() {
           router.push("/(game)/pvp");
         }}
         onDungeon={() => {
-          const championId = selectedChampion?.id;
+          const champ = selectedChampion;
           setSelectedChampion(null);
           router.push({
             pathname: "/(game)/dungeons",
-            params: { championId },
+            params: {
+              championId: champ?.id,
+              championName: champ?.name,
+              championClass: champ?.class,
+              championAttack: String(champ?.attack ?? 0),
+              championDefense: String(champ?.defense ?? 0),
+              championChance: String(champ?.chance ?? 0),
+              championBoostDefense: String(champ?.boost_defense ?? 0),
+              championBoostChance: String(champ?.boost_chance ?? 0),
+              championCurrentHp: String(champ?.current_hp ?? 0),
+              championMaxHp: String(champ?.max_hp ?? 0),
+              championBoostHp: String(champ?.boost_hp ?? 0),
+            },
           });
         }}
         claimableRun={
@@ -317,6 +330,19 @@ export default function MainScreen() {
             api.get("/api/champions").then((r) => setChampions(r.data));
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
+          }
+        }}
+        onMissionExpire={() => setMissionTick((t) => t + 1)}
+        onBoost={async (champion, type) => {
+          try {
+            const res = await api.post(`/api/champions/${champion.id}/boost`, { type });
+            setResources(res.data.resources);
+            setChampions((prev) =>
+              prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
+            );
+            setSelectedChampion(res.data.champion);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Boost başarısız");
           }
         }}
         onSpendStat={async (champion, stat) => {
