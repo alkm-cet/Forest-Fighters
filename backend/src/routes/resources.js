@@ -14,10 +14,10 @@ const RESOURCE_CAP_START = 10;
 const RESOURCE_CAP_MAX   = 100;
 const RESOURCE_CAP_STEP  = 2;
 
-// Cost formula: tiers of 20 capacity, +2 per tier starting at 2
-// cap 10–28: cost 2 | cap 30–48: cost 4 | ... | cap 90–98: cost 10
+// Cost formula: +1 per upgrade level, starting at 2
+// cap 10→12: cost 2 | cap 12→14: cost 3 | cap 14→16: cost 4 | ...
 function getCapUpgradeCost(currentCap) {
-  return Math.floor((currentCap - RESOURCE_CAP_START) / 20) * 2 + 2;
+  return Math.ceil((currentCap - RESOURCE_CAP_START) / 2 + 2);
 }
 
 router.get('/', authMiddleware, async (req, res) => {

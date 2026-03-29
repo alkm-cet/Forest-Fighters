@@ -21,7 +21,12 @@
       "Bash(npm run:*)",
       "Bash(find '/Users/alikemalcetindere/Desktop/Forest Fighters' -maxdepth 3 -name *.webp -o -name background*)",
       "Bash(ls:*)",
-      "Bash(find /Users/alikemalcetindere/Desktop/Forest Fighters/backend -not -path */node_modules/* -type d)"
+      "Bash(find /Users/alikemalcetindere/Desktop/Forest Fighters/backend -not -path */node_modules/* -type d)",
+      "Bash(cp \"Fredoka-Light.ttf\" \"fredoka_light.ttf\")",
+      "Bash(cp \"Fredoka-Regular.ttf\" \"fredoka_regular.ttf\")",
+      "Bash(cp \"Fredoka-Medium.ttf\" \"fredoka_medium.ttf\")",
+      "Bash(cp \"Fredoka-SemiBold.ttf\" \"fredoka_semibold.ttf\")",
+      "Bash(cp \"Fredoka-Bold.ttf\" \"fredoka_bold.ttf\")"
     ]
   }
 }

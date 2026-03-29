@@ -23,7 +23,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import music from "../../lib/music";
 import { useLanguage } from "../../lib/i18n";
-import { Resources, ResourceKey, Champion, Farmer, Player, DungeonRun } from "../../types";
+import {
+  Resources,
+  ResourceKey,
+  Champion,
+  Farmer,
+  Player,
+  DungeonRun,
+} from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -140,15 +147,21 @@ export default function MainScreen() {
           resources={resources}
           onUpgrade={(resource) => {
             const CAP_COSTS: Record<ResourceKey, [ResourceKey, ResourceKey]> = {
-              strawberry: ["pinecone",   "blueberry"],
-              pinecone:   ["strawberry", "blueberry"],
-              blueberry:  ["strawberry", "pinecone"],
+              strawberry: ["pinecone", "blueberry"],
+              pinecone: ["strawberry", "blueberry"],
+              blueberry: ["strawberry", "pinecone"],
             };
             const capKey = `${resource}_cap` as keyof Resources;
-            const currentCap = resources[capKey] as number ?? 15;
-            const cost = Math.floor((currentCap - 10) / 20) * 2 + 2;
+            const currentCap = (resources[capKey] as number) ?? 15;
+            const cost = Math.ceil((currentCap - 10) / 2 + 2);
             const [costRes1, costRes2] = CAP_COSTS[resource];
-            setCapUpgradeConfirm({ resource, currentCap, cost, costRes1, costRes2 });
+            setCapUpgradeConfirm({
+              resource,
+              currentCap,
+              cost,
+              costRes1,
+              costRes2,
+            });
           }}
         />
 
@@ -399,70 +412,115 @@ export default function MainScreen() {
       >
         <View style={styles.capModalOverlay}>
           <View style={styles.capModalCard}>
-            {capUpgradeConfirm && (() => {
-              const { resource, currentCap, cost, costRes1, costRes2 } = capUpgradeConfirm;
-              const meta = RESOURCE_META[resource];
-              const meta1 = RESOURCE_META[costRes1];
-              const meta2 = RESOURCE_META[costRes2];
-              const canAfford =
-                resources[costRes1] >= cost && resources[costRes2] >= cost;
-              return (
-                <>
-                  <Text style={styles.capModalTitle}>{t("upgradeCapacityTitle")}</Text>
-                  {/* Resource icon + cap change */}
-                  <View style={styles.capModalResourceRow}>
-                    <Image source={meta.image} style={styles.capModalResIcon} resizeMode="contain" />
-                    <Text style={styles.capModalCapChange}>
-                      {currentCap}
-                      <Text style={styles.capModalArrow}> → </Text>
-                      <Text style={styles.capModalNewCap}>{currentCap + 3}</Text>
+            {capUpgradeConfirm &&
+              (() => {
+                const { resource, currentCap, cost, costRes1, costRes2 } =
+                  capUpgradeConfirm;
+                const meta = RESOURCE_META[resource];
+                const meta1 = RESOURCE_META[costRes1];
+                const meta2 = RESOURCE_META[costRes2];
+                const canAfford =
+                  resources[costRes1] >= cost && resources[costRes2] >= cost;
+                return (
+                  <>
+                    <Text style={styles.capModalTitle}>
+                      {t("upgradeCapacityTitle")}
                     </Text>
-                  </View>
-                  <Text style={styles.capModalInfo}>{t("upgradeCapacityInfo")}</Text>
-                  {/* Cost row */}
-                  <View style={styles.capModalCostRow}>
-                    <View style={styles.capModalCostItem}>
-                      <Image source={meta1.image} style={styles.capModalCostIcon} resizeMode="contain" />
-                      <Text style={[styles.capModalCostText, resources[costRes1] < cost && styles.capModalCostLow]}>
-                        ×{cost}
+                    {/* Resource icon + cap change */}
+                    <View style={styles.capModalResourceRow}>
+                      <Image
+                        source={meta.image}
+                        style={styles.capModalResIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.capModalCapChange}>
+                        {currentCap}
+                        <Text style={styles.capModalArrow}> → </Text>
+                        <Text style={styles.capModalNewCap}>
+                          {currentCap + 2}
+                        </Text>
                       </Text>
                     </View>
-                    <Text style={styles.capModalPlus}>+</Text>
-                    <View style={styles.capModalCostItem}>
-                      <Image source={meta2.image} style={styles.capModalCostIcon} resizeMode="contain" />
-                      <Text style={[styles.capModalCostText, resources[costRes2] < cost && styles.capModalCostLow]}>
-                        ×{cost}
-                      </Text>
+                    <Text style={styles.capModalInfo}>
+                      {t("upgradeCapacityInfo")}
+                    </Text>
+                    {/* Cost row */}
+                    <View style={styles.capModalCostRow}>
+                      <View style={styles.capModalCostItem}>
+                        <Image
+                          source={meta1.image}
+                          style={styles.capModalCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.capModalCostText,
+                            resources[costRes1] < cost &&
+                              styles.capModalCostLow,
+                          ]}
+                        >
+                          ×{cost}
+                        </Text>
+                      </View>
+                      <Text style={styles.capModalPlus}>+</Text>
+                      <View style={styles.capModalCostItem}>
+                        <Image
+                          source={meta2.image}
+                          style={styles.capModalCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.capModalCostText,
+                            resources[costRes2] < cost &&
+                              styles.capModalCostLow,
+                          ]}
+                        >
+                          ×{cost}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  {/* Buttons */}
-                  <View style={styles.capModalBtns}>
-                    <TouchableOpacity
-                      style={styles.capModalCancelBtn}
-                      onPress={() => setCapUpgradeConfirm(null)}
-                    >
-                      <Text style={styles.capModalCancelText}>{t("cancelBtn")}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.capModalConfirmBtn, !canAfford && styles.capModalConfirmDisabled]}
-                      activeOpacity={canAfford ? 0.75 : 1}
-                      onPress={async () => {
-                        if (!canAfford) return;
-                        setCapUpgradeConfirm(null);
-                        try {
-                          const res = await api.post("/api/resources/upgrade-capacity", { resource });
-                          setResources(res.data);
-                        } catch (err: any) {
-                          alert(err.response?.data?.error ?? "Kapasite artırılamadı");
-                        }
-                      }}
-                    >
-                      <Text style={styles.capModalConfirmText}>{t("confirmUpgradeBtn")}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              );
-            })()}
+                    {/* Buttons */}
+                    <View style={styles.capModalBtns}>
+                      <TouchableOpacity
+                        style={styles.capModalCancelBtn}
+                        onPress={() => setCapUpgradeConfirm(null)}
+                      >
+                        <Text style={styles.capModalCancelText}>
+                          {t("cancelBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.capModalConfirmBtn,
+                          !canAfford && styles.capModalConfirmDisabled,
+                        ]}
+                        activeOpacity={canAfford ? 0.75 : 1}
+                        onPress={async () => {
+                          if (!canAfford) return;
+                          setCapUpgradeConfirm(null);
+                          try {
+                            const res = await api.post(
+                              "/api/resources/upgrade-capacity",
+                              { resource },
+                            );
+                            setResources(res.data);
+                          } catch (err: any) {
+                            alert(
+                              err.response?.data?.error ??
+                                "Kapasite artırılamadı",
+                            );
+                          }
+                        }}
+                      >
+                        <Text style={styles.capModalConfirmText}>
+                          {t("confirmUpgradeBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                );
+              })()}
           </View>
         </View>
       </Modal>

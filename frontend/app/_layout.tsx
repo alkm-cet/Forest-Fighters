@@ -37,11 +37,11 @@ function AuthGuard() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    "Fredoka-Light": require("../assets/fonts/Fredoka/static/Fredoka-Light.ttf"),
-    "Fredoka-Regular": require("../assets/fonts/Fredoka/static/Fredoka-Regular.ttf"),
-    "Fredoka-Medium": require("../assets/fonts/Fredoka/static/Fredoka-Medium.ttf"),
-    "Fredoka-SemiBold": require("../assets/fonts/Fredoka/static/Fredoka-SemiBold.ttf"),
-    "Fredoka-Bold": require("../assets/fonts/Fredoka/static/Fredoka-Bold.ttf"),
+    "Fredoka-Light": require("../assets/fonts/Fredoka/static/fredoka_light.ttf"),
+    "Fredoka-Regular": require("../assets/fonts/Fredoka/static/fredoka_regular.ttf"),
+    "Fredoka-Medium": require("../assets/fonts/Fredoka/static/fredoka_medium.ttf"),
+    "Fredoka-SemiBold": require("../assets/fonts/Fredoka/static/fredoka_semibold.ttf"),
+    "Fredoka-Bold": require("../assets/fonts/Fredoka/static/fredoka_bold.ttf"),
   });
 
   const onLayoutRootView = useCallback(async () => {
