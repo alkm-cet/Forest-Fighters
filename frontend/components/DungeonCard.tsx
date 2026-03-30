@@ -6,25 +6,32 @@ import {
   ImageBackground,
 } from "react-native";
 import { Text } from "./StyledText";
-import { Gift, Star, Swords, Shield, Zap } from "lucide-react-native";
+import {
+  Gift,
+  Star,
+  Swords,
+  Shield,
+  Zap,
+  HeartPulse,
+} from "lucide-react-native";
 import { Dungeon, DungeonRun } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
 import CountdownTimer from "./CountdownTimer";
 import CustomButton from "./CustomButton";
 
-const CARD_BG = require("../assets/icons/dungeon-card-bg.png");
-const ENEMY_BOX_BG = require("../assets/icons/dungeon-enemy-info-box.png");
-const REWARD_BOX_BG = require("../assets/icons/dungeon-reward-box-bg.png");
-const ROCK_BG = require("../assets/icons/rock.png");
+const CARD_BG = require("../assets/dungeon/dungeon-card-bg.png");
+const ENEMY_BOX_BG = require("../assets/dungeon/dungeon-enemy-info-box.png");
+const REWARD_BOX_BG = require("../assets/dungeon/dungeon-reward-box-bg.png");
+const ROCK_BG = require("../assets/dungeon/rock.png");
 
 const ENEMY_IMAGES: Record<string, ReturnType<typeof require>> = {
-  skeleton: require("../assets/icons/skeleton.png"),
-  orc: require("../assets/icons/orc.png"),
-  troll: require("../assets/icons/troll.png"),
-  slime: require("../assets/icons/slime.png"),
-  goblin: require("../assets/icons/goblin.png"),
-  "dark mage": require("../assets/icons/dark-mage.png"),
+  skeleton: require("../assets/dungeon/skeleton.png"),
+  orc: require("../assets/dungeon/orc.png"),
+  troll: require("../assets/dungeon/troll.png"),
+  slime: require("../assets/dungeon/slime.png"),
+  goblin: require("../assets/dungeon/goblin.png"),
+  "dark mage": require("../assets/dungeon/dark-mage.png"),
 };
 
 type Props = {
@@ -114,6 +121,10 @@ export default function DungeonCard({
                   <Zap size={10} color="#8a6c2a" strokeWidth={2.5} />
                   <Text style={styles.statText}>{dungeon.enemy_chance}%</Text>
                 </View>
+              </View>
+              <View style={styles.hpRow}>
+                <HeartPulse size={10} color="#c0392b" strokeWidth={2.5} />
+                <Text style={styles.hpText}>{dungeon.enemy_hp} HP</Text>
               </View>
             </View>
           </ImageBackground>
@@ -258,8 +269,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   enemyImg: {
-    width: 70,
-    height: 70,
+    width: 60,
+    height: 60,
   },
   enemyName: {
     fontSize: 18,
@@ -281,6 +292,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#3d2a10",
+  },
+  hpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  hpText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#c0392b",
   },
   rewardLabel: {
     fontSize: 13,

@@ -159,17 +159,20 @@ export default function MainScreen() {
     try {
       const res = await api.get("/api/pvp/battles");
       if (res.data.length > 0) {
-        setPvpResult(res.data[0]);
-        setPvpPendingChampionId(null);
-        setPvpBattleEndsAt(null);
-        setResultBanner(false);
-        // Refresh resources and champions
+        // Refresh data first
         const [champRes, resRes] = await Promise.all([
           api.get("/api/champions"),
           api.get("/api/resources"),
         ]);
         setChampions(champRes.data);
         setResources(resRes.data);
+        setPvpPendingChampionId(null);
+        setPvpBattleEndsAt(null);
+        setResultBanner(false);
+        // Close drawer first so the result modal doesn't appear behind it
+        setSelectedChampion(null);
+        // Small delay to let the drawer dismiss before opening result modal
+        setTimeout(() => setPvpResult(res.data[0]), 350);
       }
     } catch {
       // silent

@@ -208,6 +208,17 @@ async function attackPvp(req, res) {
          WHERE player_id = $4`,
         [transfers.strawberry, transfers.pinecone, transfers.blueberry, winnerId]
       );
+      // Refresh bot resources so they never run dry
+      if (opponent.is_bot) {
+        await query(
+          `UPDATE player_resources SET
+            strawberry = GREATEST(strawberry, 20),
+            pinecone   = GREATEST(pinecone,   20),
+            blueberry  = GREATEST(blueberry,  20)
+           WHERE player_id = $1`,
+          [opponent.id]
+        );
+      }
     }
 
     // ── Defender champion last_defender ────────────────────────────────────────

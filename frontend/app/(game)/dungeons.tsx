@@ -28,6 +28,7 @@ import { CLASS_META } from "../../constants/resources";
 import CustomModal from "../../components/CustomModal";
 
 const DUNGEON_BG = require("../../assets/dungeon-screen-bg.png");
+const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.png");
 
 export default function DungeonsScreen() {
   const router = useRouter();
@@ -163,60 +164,88 @@ export default function DungeonsScreen() {
 
         {/* Sticky champion strip */}
         {championName ? (
-          <View style={styles.champStrip}>
-            {classMeta.image && (
-              <Image
-                source={classMeta.image}
-                style={styles.champImage}
-                resizeMode="contain"
-              />
-            )}
-            <View style={styles.champRight}>
-              <View style={styles.champInfo}>
-                <Text style={styles.champName}>{championName}</Text>
-                <Text style={[styles.champClass, { color: classMeta.color }]}>
-                  {championClass?.toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.champStats}>
-                <View style={styles.champStatPill}>
-                  <Swords size={10} color="#e57373" strokeWidth={2.5} />
-                  <Text style={styles.champStatVal}>{atk}</Text>
-                </View>
-                <View style={styles.champStatPill}>
-                  <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
-                  <Text
-                    style={[
-                      styles.champStatVal,
-                      boostDef > 0 && styles.champStatBoosted,
-                    ]}
-                  >
-                    {def}
+          <ImageBackground
+            source={CHAMP_CARD_BG}
+            style={styles.champCardBg}
+            resizeMode="stretch"
+          >
+            <View style={styles.champCardContent}>
+              {/* Champion image — left */}
+              {classMeta.image && (
+                <Image
+                  source={classMeta.image}
+                  style={styles.champImage}
+                  resizeMode="contain"
+                />
+              )}
+
+              {/* Info — right */}
+              <View style={styles.champRight}>
+                {/* Name + class */}
+                <View style={styles.champNameRow}>
+                  <Text style={styles.champName}>{championName}</Text>
+                  <Text style={[styles.champClass, { color: classMeta.color }]}>
+                    {championClass?.toUpperCase()}
                   </Text>
                 </View>
-                <View style={styles.champStatPill}>
-                  <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
-                  <Text
-                    style={[
-                      styles.champStatVal,
-                      boostChc > 0 && styles.champStatBoosted,
-                    ]}
-                  >
-                    {chc}%
-                  </Text>
-                </View>
-                <View style={styles.champStatPill}>
-                  <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
-                  <Text style={[styles.champStatVal, { color: hpColor }]}>
-                    {currentHp}/{maxHp}
+
+                {/* HP bar */}
+                <View style={styles.champHpRow}>
+                  <HeartPulse size={11} color={hpColor} strokeWidth={2.5} />
+                  <View style={styles.champHpTrack}>
+                    <View
+                      style={[
+                        styles.champHpFill,
+                        {
+                          width: `${Math.round(hpPct * 100)}%` as any,
+                          backgroundColor: hpColor,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.champHpVal, { color: hpColor }]}>
+                    {currentHp}/{effectiveMaxHp}
                     {boostHp > 0 && (
                       <Text style={styles.champStatBoosted}> +{boostHp}</Text>
                     )}
                   </Text>
                 </View>
+
+                {/* Stat pills */}
+                <View style={styles.champStats}>
+                  <View style={styles.champStatPill}>
+                    <Swords size={10} color="#e57373" strokeWidth={2.5} />
+                    <Text style={styles.champStatLabel}>ATK</Text>
+                    <Text style={styles.champStatVal}>{atk}</Text>
+                  </View>
+                  <View style={styles.champStatPill}>
+                    <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
+                    <Text style={styles.champStatLabel}>DEF</Text>
+                    <Text
+                      style={[
+                        styles.champStatVal,
+                        boostDef > 0 && styles.champStatBoosted,
+                      ]}
+                    >
+                      {def}
+                    </Text>
+                  </View>
+                  <View style={styles.champStatPill}>
+                    <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
+                    <Text style={styles.champStatLabel}>CHC</Text>
+                    <Text
+                      style={[
+                        styles.champStatVal,
+                        boostChc > 0 && styles.champStatBoosted,
+                      ]}
+                    >
+                      {chc}%
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
-          </View>
+          </ImageBackground>
         ) : null}
 
         {/* Dungeon list */}
@@ -259,7 +288,12 @@ export default function DungeonsScreen() {
           <View style={styles.resultBody}>
             {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
               <View style={styles.resultRewardRow}>
-                <Trophy size={18} color="#ffd54f" strokeWidth={2} fill="#ffd54f" />
+                <Trophy
+                  size={18}
+                  color="#ffd54f"
+                  strokeWidth={2}
+                  fill="#ffd54f"
+                />
                 <Text style={styles.resultReward}>
                   +{claimResult.rewardAmount} {claimResult.rewardResource}
                 </Text>
@@ -277,17 +311,28 @@ export default function DungeonsScreen() {
             )}
             {/* Battle log */}
             {(claimResult?.log?.length ?? 0) > 0 && (
-              <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.logScroll}
+                showsVerticalScrollIndicator={false}
+              >
                 {claimResult!.log.map((entry: any, i: number) => {
                   const isChamp = entry.actor === "attacker";
-                  const newRound = i === 0 || claimResult!.log[i - 1]?.round !== entry.round;
+                  const newRound =
+                    i === 0 || claimResult!.log[i - 1]?.round !== entry.round;
                   return (
                     <View key={i}>
                       {newRound && (
-                        <Text style={styles.logRound}>— Tur {entry.round + 1} —</Text>
+                        <Text style={styles.logRound}>
+                          — Tur {entry.round + 1} —
+                        </Text>
                       )}
                       <View style={styles.logRow}>
-                        <Text style={[styles.logActor, isChamp ? styles.logChamp : styles.logEnemy]}>
+                        <Text
+                          style={[
+                            styles.logActor,
+                            isChamp ? styles.logChamp : styles.logEnemy,
+                          ]}
+                        >
                           {isChamp ? "⚔️ Şampiyon" : "👹 Düşman"}
                         </Text>
                         <Text style={styles.logDmg}>
@@ -295,7 +340,10 @@ export default function DungeonsScreen() {
                           {entry.atkBoosted ? " 💥" : ""}
                         </Text>
                         <Text style={styles.logHp}>
-                          {isChamp ? entry.defenderHpAfter : entry.attackerHpAfter} HP
+                          {isChamp
+                            ? entry.defenderHpAfter
+                            : entry.attackerHpAfter}{" "}
+                          HP
                         </Text>
                       </View>
                     </View>
@@ -334,39 +382,63 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  champStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#2c3347",
+  champCardBg: {
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: "#3e4a62",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 10,
+  },
+  champCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 40,
+    paddingTop: 26,
+    paddingBottom: 26,
+    gap: 12,
   },
   champImage: {
-    width: 48,
-    height: 48,
+    width: 72,
+    height: 72,
   },
-  champInfo: {
+  champRight: {
+    flex: 1,
+    gap: 7,
+  },
+  champNameRow: {
     gap: 2,
   },
   champName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
-    color: "#ecf0f1",
+    color: "#3a2a10",
+    textShadowColor: "rgba(255,255,255,0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   champClass: {
     fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
-  champRight: {
+  champHpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  champHpTrack: {
     flex: 1,
-    gap: 6,
+    height: 6,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  champHpFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  champHpVal: {
+    fontSize: 10,
+    fontWeight: "700",
+    minWidth: 48,
+    textAlign: "right",
   },
   champStats: {
     flexDirection: "row",
@@ -376,20 +448,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "#1e2433",
+    backgroundColor: "rgba(0,0,0,0.18)",
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "#3e4a62",
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  champStatLabel: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "rgba(58,42,16,0.7)",
+    letterSpacing: 0.5,
   },
   champStatVal: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#b0c4de",
+    color: "#3a2a10",
   },
   champStatBoosted: {
-    color: "#ce93d8",
+    color: "#7a30c0",
   },
   listContent: {
     paddingHorizontal: 16,
