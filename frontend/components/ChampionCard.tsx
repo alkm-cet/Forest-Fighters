@@ -1,7 +1,7 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { useState, useEffect } from "react";
 import { Text } from "./StyledText";
-import { Heart, Shield, Zap } from "lucide-react-native";
+import { Heart, Shield, Zap, X } from "lucide-react-native";
 import { Champion } from "../types";
 import { CLASS_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
@@ -32,6 +32,8 @@ export default function ChampionCard({
   const [isExpired, setIsExpired] = useState(
     () => !!activeRunEndsAt && new Date(activeRunEndsAt) <= new Date(),
   );
+  const isDead = champion.current_hp <= 0;
+
   const [pvpExpired, setPvpExpired] = useState(
     () => !!pvpBattleEndsAt && new Date(pvpBattleEndsAt) <= new Date(),
   );
@@ -51,6 +53,7 @@ export default function ChampionCard({
         styles.card,
         isDefender && styles.cardDefender,
         isDefender && { opacity: 0.8 },
+        isDead && styles.cardDead,
       ]}
       activeOpacity={0.85}
       onPress={() => onPress?.(champion)}
@@ -155,6 +158,11 @@ export default function ChampionCard({
             />
           </View>
         )}
+        {isDead && (
+          <View style={styles.deadBadge}>
+            <X size={28} color="#fff" strokeWidth={3} />
+          </View>
+        )}
       </View>
 
       {/* Class name */}
@@ -215,6 +223,20 @@ const styles = StyleSheet.create({
   cardDefender: {
     borderColor: "#4a7c3f",
     borderWidth: 2.5,
+  },
+  cardDead: {
+    opacity: 0.45,
+    borderColor: "#c0392b",
+  },
+  deadBadge: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#c0392b",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
   },
   defenderShieldCenter: {
     position: "absolute",

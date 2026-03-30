@@ -16,7 +16,8 @@ function getLeague(trophies) {
 }
 
 function calcTransfer(loserAmt, winnerAmt, winnerCap) {
-  if (loserAmt <= 0) return 0;
+  // No transfer if loser has 0 or exactly 1 of this resource
+  if (loserAmt <= 1) return 0;
   let steal = Math.floor(loserAmt * 0.10);
   if (steal < 1) steal = 1;
   steal = Math.min(steal, 15);
@@ -36,7 +37,8 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
   // ±30 real players
   const real30 = await query(
     `SELECT * FROM players
-     WHERE id != $1 AND is_bot = FALSE AND defender_champion_id IS NOT NULL
+     WHERE id != $1 AND is_bot = FALSE AND pvp_unlocked = TRUE
+       AND defender_champion_id IS NOT NULL
        AND trophies BETWEEN $2 AND $3
        AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())`,
     [playerId, attTrophies - 30, attTrophies + 30]
@@ -46,7 +48,8 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
   // ±60
   const real60 = await query(
     `SELECT * FROM players
-     WHERE id != $1 AND is_bot = FALSE AND defender_champion_id IS NOT NULL
+     WHERE id != $1 AND is_bot = FALSE AND pvp_unlocked = TRUE
+       AND defender_champion_id IS NOT NULL
        AND trophies BETWEEN $2 AND $3
        AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())`,
     [playerId, attTrophies - 60, attTrophies + 60]
@@ -179,9 +182,7 @@ async function attackPvp(req, res) {
 
     // ── Update trophies ────────────────────────────────────────────────────────
     await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, attDelta, playerId]);
-    if (!opponent.is_bot) {
-      await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, defDelta, opponent.id]);
-    }
+    await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, defDelta, opponent.id]);
 
     // ── Resource transfer ──────────────────────────────────────────────────────
     const loserResRows  = await query('SELECT strawberry, pinecone, blueberry FROM player_resources WHERE player_id = $1', [loserId]);
@@ -194,19 +195,11 @@ async function attackPvp(req, res) {
       for (const r of ['strawberry', 'pinecone', 'blueberry']) {
         transfers[r] = calcTransfer(l[r] || 0, w[r] || 0, w[`${r}_cap`] || 10);
       }
-      if (loserId === playerId || !opponent.is_bot) {
-        if (loserId === playerId) {
-          await query(
-            `UPDATE player_resources SET strawberry = strawberry - $1, pinecone = pinecone - $2, blueberry = blueberry - $3 WHERE player_id = $4`,
-            [transfers.strawberry, transfers.pinecone, transfers.blueberry, loserId]
-          );
-        } else if (!opponent.is_bot) {
-          await query(
-            `UPDATE player_resources SET strawberry = strawberry - $1, pinecone = pinecone - $2, blueberry = blueberry - $3 WHERE player_id = $4`,
-            [transfers.strawberry, transfers.pinecone, transfers.blueberry, loserId]
-          );
-        }
-      }
+      // Always deduct from loser — including bots (seeded resources decrease)
+      await query(
+        `UPDATE player_resources SET strawberry = GREATEST(0, strawberry - $1), pinecone = GREATEST(0, pinecone - $2), blueberry = GREATEST(0, blueberry - $3) WHERE player_id = $4`,
+        [transfers.strawberry, transfers.pinecone, transfers.blueberry, loserId]
+      );
       await query(
         `UPDATE player_resources SET
           strawberry = LEAST(strawberry + $1, strawberry_cap),
@@ -275,6 +268,18 @@ async function getPvpStatus(req, res) {
     );
     const { trophies, defender_champion_id } = playerRow[0];
 
+    const lv3Rows = await query(
+      'SELECT 1 FROM champions WHERE player_id = $1 AND level >= 3 LIMIT 1',
+      [playerId]
+    );
+    const pvp_unlocked = lv3Rows.length > 0;
+    // Keep the DB column in sync (best-effort — column may not exist yet if migration hasn't run)
+    if (pvp_unlocked) {
+      try {
+        await query('UPDATE players SET pvp_unlocked = TRUE WHERE id = $1 AND pvp_unlocked = FALSE', [playerId]);
+      } catch (_) { /* column not migrated yet — safe to ignore */ }
+    }
+
     const pendingRows = await query(
       `SELECT b.id, b.result_available_at, b.attacker_champion_id, opp.username AS opponent_name
        FROM pvp_battles b
@@ -287,6 +292,7 @@ async function getPvpStatus(req, res) {
     res.json({
       trophies,
       league: getLeague(trophies),
+      pvp_unlocked: !!pvp_unlocked,
       defender_champion_id: defender_champion_id || null,
       pending_battle: pendingRows.length ? {
         battleId:              pendingRows[0].id,
@@ -384,6 +390,12 @@ async function setDefender(req, res) {
   if (!champion_id) return res.status(400).json({ error: 'champion_id is required' });
 
   try {
+    const lv3Check = await query(
+      'SELECT 1 FROM champions WHERE player_id = $1 AND level >= 3 LIMIT 1',
+      [playerId]
+    );
+    if (!lv3Check.length) return res.status(400).json({ error: 'PvP is locked. Level a champion to 3 first.' });
+
     const champRows = await query('SELECT * FROM champions WHERE id = $1 AND player_id = $2', [champion_id, playerId]);
     if (!champRows.length) return res.status(404).json({ error: 'Champion not found' });
     const champ = champRows[0];

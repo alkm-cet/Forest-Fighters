@@ -170,6 +170,16 @@ async function migrate() {
     // champions: last_defender flag
     await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS last_defender BOOLEAN DEFAULT FALSE`);
 
+    // players: pvp_unlocked — true when player has at least one level 3+ champion
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_unlocked BOOLEAN DEFAULT FALSE`);
+    // Backfill for existing players who already have a level 3+ champion
+    await query(`
+      UPDATE players p SET pvp_unlocked = TRUE
+      WHERE EXISTS (
+        SELECT 1 FROM champions c WHERE c.player_id = p.id AND c.level >= 3
+      )
+    `);
+
     // pvp_battles: new columns
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'`);
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS result_available_at TIMESTAMPTZ`);

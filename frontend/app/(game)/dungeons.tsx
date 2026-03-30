@@ -64,6 +64,10 @@ export default function DungeonsScreen() {
     winner: "champion" | "enemy";
     rewardResource: string;
     rewardAmount: number;
+    log: any[];
+    xpGained: number;
+    levelsGained: number;
+    newLevel: number;
   } | null>(null);
 
   useFocusEffect(
@@ -109,8 +113,8 @@ export default function DungeonsScreen() {
   async function handleClaim(run: DungeonRun) {
     try {
       const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
-      setClaimResult(res.data);
       await loadData();
+      setClaimResult(res.data);
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to claim reward");
     }
@@ -253,21 +257,51 @@ export default function DungeonsScreen() {
           cancelText={t("cancelBtn")}
         >
           <View style={styles.resultBody}>
-            <Text style={styles.resultSub}>{t("missionComplete")}</Text>
             {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
               <View style={styles.resultRewardRow}>
-                <Trophy
-                  size={18}
-                  color="#ffd54f"
-                  strokeWidth={2}
-                  fill="#ffd54f"
-                />
+                <Trophy size={18} color="#ffd54f" strokeWidth={2} fill="#ffd54f" />
                 <Text style={styles.resultReward}>
                   +{claimResult.rewardAmount} {claimResult.rewardResource}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.resultNoReward}>No reward this time.</Text>
+              <Text style={styles.resultNoReward}>Bu sefer ödül yok</Text>
+            )}
+            {(claimResult?.xpGained ?? 0) > 0 && (
+              <Text style={styles.resultXp}>+{claimResult!.xpGained} XP</Text>
+            )}
+            {(claimResult?.levelsGained ?? 0) > 0 && (
+              <Text style={styles.resultLevelUp}>
+                ⬆️ SEVİYE ATLADI! LV {claimResult!.newLevel}
+              </Text>
+            )}
+            {/* Battle log */}
+            {(claimResult?.log?.length ?? 0) > 0 && (
+              <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false}>
+                {claimResult!.log.map((entry: any, i: number) => {
+                  const isChamp = entry.actor === "attacker";
+                  const newRound = i === 0 || claimResult!.log[i - 1]?.round !== entry.round;
+                  return (
+                    <View key={i}>
+                      {newRound && (
+                        <Text style={styles.logRound}>— Tur {entry.round + 1} —</Text>
+                      )}
+                      <View style={styles.logRow}>
+                        <Text style={[styles.logActor, isChamp ? styles.logChamp : styles.logEnemy]}>
+                          {isChamp ? "⚔️ Şampiyon" : "👹 Düşman"}
+                        </Text>
+                        <Text style={styles.logDmg}>
+                          {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
+                          {entry.atkBoosted ? " 💥" : ""}
+                        </Text>
+                        <Text style={styles.logHp}>
+                          {isChamp ? entry.defenderHpAfter : entry.attackerHpAfter} HP
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             )}
           </View>
         </CustomModal>
@@ -391,5 +425,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#c0392b",
     fontWeight: "600",
+  },
+  resultXp: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4a7c3f",
+    marginTop: 4,
+  },
+  resultLevelUp: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#d4a017",
+    marginTop: 4,
+  },
+  logScroll: {
+    maxHeight: 180,
+    marginTop: 10,
+    width: "100%",
+  },
+  logRound: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+    textAlign: "center",
+    marginVertical: 4,
+    letterSpacing: 1,
+  },
+  logRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    backgroundColor: "#f0e4c8",
+    borderRadius: 6,
+    marginBottom: 2,
+  },
+  logActor: {
+    fontSize: 12,
+    fontWeight: "700",
+    flex: 1,
+  },
+  logChamp: {
+    color: "#2d5a24",
+  },
+  logEnemy: {
+    color: "#c0392b",
+  },
+  logDmg: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#3a2a10",
+    minWidth: 50,
+    textAlign: "center",
+  },
+  logHp: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7a5a30",
+    minWidth: 45,
+    textAlign: "right",
   },
 });

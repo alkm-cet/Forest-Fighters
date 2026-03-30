@@ -97,6 +97,7 @@ export default function MainScreen() {
   const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
   const [pvpTrophies, setPvpTrophies] = useState<number>(10);
   const [pvpLeague, setPvpLeague] = useState<string>("Bronz");
+  const [pvpUnlocked, setPvpUnlocked] = useState<boolean>(false);
   const [pvpPendingChampionId, setPvpPendingChampionId] = useState<string | null>(null);
   const [pvpBattleEndsAt, setPvpBattleEndsAt] = useState<string | null>(null);
   const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
@@ -124,6 +125,7 @@ export default function MainScreen() {
         setPvpDefenderId(r.data.defender_champion_id ?? null);
         setPvpTrophies(r.data.trophies ?? 10);
         setPvpLeague(r.data.league ?? "Bronz");
+        setPvpUnlocked(r.data.pvp_unlocked ?? false);
         const pending = r.data.pending_battle;
         if (pending) {
           setPvpPendingChampionId(pending.attacker_champion_id ?? null);
@@ -437,6 +439,7 @@ export default function MainScreen() {
         defenderChampionId={pvpDefenderId}
         pvpTrophies={pvpTrophies}
         pvpLeague={pvpLeague}
+        pvpUnlocked={pvpUnlocked}
         isPvpBattle={pvpPendingChampionId === selectedChampion?.id}
         pvpBattleEndsAt={pvpPendingChampionId === selectedChampion?.id ? pvpBattleEndsAt ?? undefined : undefined}
         onViewPvpResult={handleViewPvpResult}
@@ -482,9 +485,8 @@ export default function MainScreen() {
           setSelectedChampion(null);
           try {
             const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
-            setClaimResult(res.data);
-            // Refresh champions (HP updated) and resources and runs
-            Promise.all([
+            // Refresh all state before showing modal so UI is consistent when modal closes
+            await Promise.all([
               api.get("/api/resources").then((r) => setResources(r.data)),
               api.get("/api/champions").then((r) => setChampions(r.data)),
               api.get("/api/dungeons/runs").then((r) => {
@@ -495,6 +497,7 @@ export default function MainScreen() {
                 setRunMap(map);
               }),
             ]).catch(() => {});
+            setClaimResult(res.data);
           } catch (err: any) {
             setClaimResult({
               winner: "enemy",

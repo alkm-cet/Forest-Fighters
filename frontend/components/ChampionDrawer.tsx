@@ -64,6 +64,7 @@ type Props = {
   onMissionExpire?: () => void;
   onSetDefender?: (champion: Champion) => void;
   defenderChampionId?: string | null;
+  pvpUnlocked?: boolean;
   pvpTrophies?: number;
   pvpLeague?: string;
   isPvpBattle?: boolean;
@@ -176,6 +177,7 @@ export default function ChampionDrawer({
   onMissionExpire,
   onSetDefender,
   defenderChampionId,
+  pvpUnlocked,
   pvpTrophies,
   pvpLeague,
   isPvpBattle,
@@ -425,6 +427,7 @@ export default function ChampionDrawer({
           <ScrollView
             showsVerticalScrollIndicator={false}
             bounces={false}
+            style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
             onScroll={(e) => {
               contentScrollY.current = e.nativeEvent.contentOffset.y;
             }}
@@ -922,7 +925,9 @@ export default function ChampionDrawer({
                 {onSetDefender &&
                   !isDefenderChamp &&
                   (() => {
+                    const pvpLocked = !pvpUnlocked;
                     const isDisabled =
+                      pvpLocked ||
                       champion.last_defender ||
                       champion.is_deployed ||
                       champion.current_hp <= 0;
@@ -946,9 +951,11 @@ export default function ChampionDrawer({
                             isDisabled && styles.defenderBtnTextDim,
                           ]}
                         >
-                          {champion.last_defender
-                            ? t("defenderCooldown")
-                            : t("setDefender")}
+                          {pvpLocked
+                            ? "PvP Lv3 Gerekli"
+                            : champion.last_defender
+                              ? t("defenderCooldown")
+                              : t("setDefender")}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -1023,7 +1030,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 36,
     paddingTop: 8,
-    maxHeight: SCREEN_HEIGHT * 0.82,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -1495,6 +1501,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 20,
+    paddingBottom: 12,
   },
   btnFlex: {
     flex: 1,

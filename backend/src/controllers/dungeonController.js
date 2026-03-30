@@ -164,6 +164,11 @@ async function claimRun(req, res) {
       [finalHp, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
     );
 
+    // Unlock PvP for this player if any champion reached level 3
+    if (newLevel >= 3) {
+      await query('UPDATE players SET pvp_unlocked = TRUE WHERE id = $1 AND pvp_unlocked = FALSE', [playerId]);
+    }
+
     if (rewardAmount > 0) {
       const rewardCapCol = `${rewardResource}_cap`;
       await query(
