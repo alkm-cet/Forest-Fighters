@@ -9,19 +9,19 @@ export const RESOURCE_META: Record<
 > = {
   strawberry: {
     image: require("../assets/resource-images/strawberry.webp"),
-    catImage: require("../assets/cats/strawberry-cat.png"),
+    catImage: require("../assets/cats/strawberry-cat.webp"),
     label: "Strawberry",
     color: "#e8534a",
   },
   pinecone: {
     image: require("../assets/resource-images/pinecone.webp"),
-    catImage: require("../assets/cats/pinecone-cat.png"),
+    catImage: require("../assets/cats/pinecone-cat.webp"),
     label: "Pinecone",
     color: "#5a8a3c",
   },
   blueberry: {
     image: require("../assets/resource-images/blueberry.webp"),
-    catImage: require("../assets/cats/blueberry-cat.png"),
+    catImage: require("../assets/cats/blueberry-cat.webp"),
     label: "Blueberry",
     color: "#5b6bbf",
   },

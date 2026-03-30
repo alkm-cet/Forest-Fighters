@@ -20,18 +20,18 @@ import { useLanguage } from "../lib/i18n";
 import CountdownTimer from "./CountdownTimer";
 import CustomButton from "./CustomButton";
 
-const CARD_BG = require("../assets/dungeon/dungeon-card-bg.png");
-const ENEMY_BOX_BG = require("../assets/dungeon/dungeon-enemy-info-box.png");
-const REWARD_BOX_BG = require("../assets/dungeon/dungeon-reward-box-bg.png");
-const ROCK_BG = require("../assets/dungeon/rock.png");
+const CARD_BG = require("../assets/dungeon/dungeon-card-bg.webp");
+const ENEMY_BOX_BG = require("../assets/dungeon/dungeon-enemy-info-box.webp");
+const REWARD_BOX_BG = require("../assets/dungeon/dungeon-reward-box-bg.webp");
+const ROCK_BG = require("../assets/dungeon/rock.webp");
 
 const ENEMY_IMAGES: Record<string, ReturnType<typeof require>> = {
-  skeleton: require("../assets/dungeon/skeleton.png"),
-  orc: require("../assets/dungeon/orc.png"),
-  troll: require("../assets/dungeon/troll.png"),
-  slime: require("../assets/dungeon/slime.png"),
-  goblin: require("../assets/dungeon/goblin.png"),
-  "dark mage": require("../assets/dungeon/dark-mage.png"),
+  skeleton: require("../assets/dungeon/skeleton.webp"),
+  orc: require("../assets/dungeon/orc.webp"),
+  troll: require("../assets/dungeon/troll.webp"),
+  slime: require("../assets/dungeon/slime.webp"),
+  goblin: require("../assets/dungeon/goblin.webp"),
+  "dark mage": require("../assets/dungeon/dark-mage.webp"),
 };
 
 type Props = {

@@ -27,8 +27,8 @@ import DungeonCard from "../../components/DungeonCard";
 import { CLASS_META } from "../../constants/resources";
 import CustomModal from "../../components/CustomModal";
 
-const DUNGEON_BG = require("../../assets/dungeon-screen-bg.png");
-const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.png");
+const DUNGEON_BG = require("../../assets/dungeon/dungeon-screen-bg.webp");
+const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
 
 export default function DungeonsScreen() {
   const router = useRouter();
