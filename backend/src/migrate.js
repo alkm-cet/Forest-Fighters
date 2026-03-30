@@ -151,13 +151,27 @@ async function migrate() {
     // XP reward per dungeon
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS xp_reward INT DEFAULT 20`);
 
+    // duration_seconds — allows sub-minute dungeon durations (overrides duration_minutes when set)
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS duration_seconds INT`);
+
     // Seed xp_reward values for existing dungeons (safe to run multiple times — only updates 0s)
-    await query(`UPDATE dungeons SET xp_reward = 10  WHERE name = '[TEST] Quick Cave'   AND xp_reward = 20`);
-    await query(`UPDATE dungeons SET xp_reward = 20  WHERE name = 'Whispering Woods'   AND xp_reward = 20`);
-    await query(`UPDATE dungeons SET xp_reward = 40  WHERE name = 'Mossy Ruins'        AND xp_reward = 20`);
-    await query(`UPDATE dungeons SET xp_reward = 60  WHERE name = 'Troll Bridge'       AND xp_reward = 20`);
-    await query(`UPDATE dungeons SET xp_reward = 80  WHERE name = 'Orcish Camp'        AND xp_reward = 20`);
-    await query(`UPDATE dungeons SET xp_reward = 120 WHERE name = 'Dark Sanctum'       AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 10  WHERE name = '[TEST] Quick Cave'      AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 5   WHERE name = '[TEST] Quick Cave 30s'  AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 20  WHERE name = 'Whispering Woods'       AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 40  WHERE name = 'Mossy Ruins'            AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 60  WHERE name = 'Troll Bridge'           AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 80  WHERE name = 'Orcish Camp'            AND xp_reward = 20`);
+    await query(`UPDATE dungeons SET xp_reward = 120 WHERE name = 'Dark Sanctum'           AND xp_reward = 20`);
+
+    // Insert [TEST] Quick Cave 30s — idempotent
+    await query(`
+      INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp, duration_minutes, duration_seconds, reward_resource, reward_amount, xp_reward)
+      SELECT '[TEST] Quick Cave 30s', 'A brutal 30-second test run. Good luck.', 'Troll',
+             40, 30, 50, 250,
+             0, 30,
+             'pinecone', 5, 5
+      WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = '[TEST] Quick Cave 30s')
+    `);
 
     // ── PvP system ──────────────────────────────────────────────────────────────
 

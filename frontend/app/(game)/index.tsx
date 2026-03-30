@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Sprout,
   Swords,
+  Trophy,
 } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -198,6 +199,10 @@ export default function MainScreen() {
             <Text style={styles.playerName}>
               {player ? player.username : t("appName")}
             </Text>
+            <View style={styles.trophyPill}>
+              <Trophy size={11} color="#ffd54f" strokeWidth={2.5} fill="#ffd54f" />
+              <Text style={styles.trophyCount}>{pvpTrophies}</Text>
+            </View>
           </View>
           <TouchableOpacity
             onPress={() => router.push("/(game)/settings")}
@@ -927,6 +932,20 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  trophyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  trophyCount: {
+    color: "#ffd54f",
+    fontSize: 12,
+    fontWeight: "800",
   },
   settingsBtn: {
     backgroundColor: "rgba(0,0,0,0.35)",
