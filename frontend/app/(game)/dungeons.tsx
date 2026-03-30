@@ -6,10 +6,18 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ImageBackground,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../components/StyledText";
-import { ChevronLeft, Swords, Shield, Zap, Trophy, HeartPulse } from "lucide-react-native";
+import {
+  ChevronLeft,
+  Swords,
+  Shield,
+  Zap,
+  Trophy,
+  HeartPulse,
+} from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
@@ -18,6 +26,8 @@ import { Dungeon, DungeonRun } from "../../types";
 import DungeonCard from "../../components/DungeonCard";
 import { CLASS_META } from "../../constants/resources";
 import CustomModal from "../../components/CustomModal";
+
+const DUNGEON_BG = require("../../assets/dungeon-screen-bg.png");
 
 export default function DungeonsScreen() {
   const router = useRouter();
@@ -59,7 +69,7 @@ export default function DungeonsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, []),
   );
 
   async function loadData() {
@@ -76,7 +86,9 @@ export default function DungeonsScreen() {
   }
 
   function getRunForDungeon(dungeonId: string): DungeonRun | undefined {
-    return runs.find((r) => r.dungeon_id === dungeonId && r.status === "active");
+    return runs.find(
+      (r) => r.dungeon_id === dungeonId && r.status === "active",
+    );
   }
 
   async function handleEnter(dungeon: Dungeon) {
@@ -85,7 +97,9 @@ export default function DungeonsScreen() {
       return;
     }
     try {
-      await api.post(`/api/dungeons/${dungeon.id}/enter`, { champion_id: championId });
+      await api.post(`/api/dungeons/${dungeon.id}/enter`, {
+        champion_id: championId,
+      });
       await loadData();
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to enter dungeon");
@@ -103,13 +117,18 @@ export default function DungeonsScreen() {
   }
 
   const championIsBusy = runs.some(
-    (r) => r.champion_id === championId && r.status === "active"
+    (r) => r.champion_id === championId && r.status === "active",
   );
 
-  const classMeta = CLASS_META[championClass ?? ""] ?? { image: null, color: "#888" };
+  const classMeta = CLASS_META[championClass ?? ""] ?? {
+    image: null,
+    color: "#888",
+  };
   const atk = parseInt(championAttack ?? "0");
-  const def = parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0");
-  const chc = parseInt(championChance ?? "0") + parseInt(championBoostChance ?? "0");
+  const def =
+    parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0");
+  const chc =
+    parseInt(championChance ?? "0") + parseInt(championBoostChance ?? "0");
   const boostDef = parseInt(championBoostDefense ?? "0");
   const boostChc = parseInt(championBoostChance ?? "0");
   const currentHp = parseInt(championCurrentHp ?? "0");
@@ -120,110 +139,150 @@ export default function DungeonsScreen() {
   const hpColor = hpPct > 0.6 ? "#4caf50" : hpPct > 0.3 ? "#f39c12" : "#e57373";
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={26} color="#b0c4de" strokeWidth={2.5} />
-        </TouchableOpacity>
-        <Text style={styles.title}>{t("dungeons")}</Text>
-        <View style={styles.backBtn} />
-      </View>
+    <ImageBackground
+      source={DUNGEON_BG}
+      style={styles.dungeonBg}
+      resizeMode="stretch"
+    >
+      <SafeAreaView style={styles.safe}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <ChevronLeft size={26} color="#b0c4de" strokeWidth={2.5} />
+          </TouchableOpacity>
+          <Text style={styles.title}>{t("dungeons")}</Text>
+          <View style={styles.backBtn} />
+        </View>
 
-      {/* Sticky champion strip */}
-      {championName ? (
-        <View style={styles.champStrip}>
-          {classMeta.image && (
-            <Image source={classMeta.image} style={styles.champImage} resizeMode="contain" />
-          )}
-          <View style={styles.champRight}>
-            <View style={styles.champInfo}>
-              <Text style={styles.champName}>{championName}</Text>
-              <Text style={[styles.champClass, { color: classMeta.color }]}>
-                {championClass?.toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.champStats}>
-              <View style={styles.champStatPill}>
-                <Swords size={10} color="#e57373" strokeWidth={2.5} />
-                <Text style={styles.champStatVal}>{atk}</Text>
-              </View>
-              <View style={styles.champStatPill}>
-                <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
-                <Text style={[styles.champStatVal, boostDef > 0 && styles.champStatBoosted]}>{def}</Text>
-              </View>
-              <View style={styles.champStatPill}>
-                <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
-                <Text style={[styles.champStatVal, boostChc > 0 && styles.champStatBoosted]}>{chc}%</Text>
-              </View>
-              <View style={styles.champStatPill}>
-                <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
-                <Text style={[styles.champStatVal, { color: hpColor }]}>
-                  {currentHp}/{maxHp}
-                  {boostHp > 0 && <Text style={styles.champStatBoosted}> +{boostHp}</Text>}
+        {/* Sticky champion strip */}
+        {championName ? (
+          <View style={styles.champStrip}>
+            {classMeta.image && (
+              <Image
+                source={classMeta.image}
+                style={styles.champImage}
+                resizeMode="contain"
+              />
+            )}
+            <View style={styles.champRight}>
+              <View style={styles.champInfo}>
+                <Text style={styles.champName}>{championName}</Text>
+                <Text style={[styles.champClass, { color: classMeta.color }]}>
+                  {championClass?.toUpperCase()}
                 </Text>
+              </View>
+              <View style={styles.champStats}>
+                <View style={styles.champStatPill}>
+                  <Swords size={10} color="#e57373" strokeWidth={2.5} />
+                  <Text style={styles.champStatVal}>{atk}</Text>
+                </View>
+                <View style={styles.champStatPill}>
+                  <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
+                  <Text
+                    style={[
+                      styles.champStatVal,
+                      boostDef > 0 && styles.champStatBoosted,
+                    ]}
+                  >
+                    {def}
+                  </Text>
+                </View>
+                <View style={styles.champStatPill}>
+                  <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
+                  <Text
+                    style={[
+                      styles.champStatVal,
+                      boostChc > 0 && styles.champStatBoosted,
+                    ]}
+                  >
+                    {chc}%
+                  </Text>
+                </View>
+                <View style={styles.champStatPill}>
+                  <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
+                  <Text style={[styles.champStatVal, { color: hpColor }]}>
+                    {currentHp}/{maxHp}
+                    {boostHp > 0 && (
+                      <Text style={styles.champStatBoosted}> +{boostHp}</Text>
+                    )}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {/* Dungeon list */}
-      <ScrollView
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {dungeons.length === 0 ? (
-          <Text style={styles.empty}>{t("noDungeons")}</Text>
-        ) : (
-          dungeons.map((dungeon) => {
-            const run = getRunForDungeon(dungeon.id);
-            const enterDisabled = championIsBusy && (!run || run.champion_id !== championId);
-            return (
-              <DungeonCard
-                key={dungeon.id}
-                dungeon={dungeon}
-                activeRun={run}
-                onEnter={handleEnter}
-                onClaim={handleClaim}
-                disabled={enterDisabled}
-              />
-            );
-          })
-        )}
-      </ScrollView>
-
-      {/* Claim result modal */}
-      <CustomModal
-        visible={claimResult !== null}
-        onClose={() => setClaimResult(null)}
-        onConfirm={() => setClaimResult(null)}
-        title={claimResult?.winner === "champion" ? t("victory") : t("defeat")}
-        confirmText="OK"
-        cancelText={t("cancelBtn")}
-      >
-        <View style={styles.resultBody}>
-          <Text style={styles.resultSub}>{t("missionComplete")}</Text>
-          {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
-            <View style={styles.resultRewardRow}>
-              <Trophy size={18} color="#ffd54f" strokeWidth={2} fill="#ffd54f" />
-              <Text style={styles.resultReward}>
-                +{claimResult.rewardAmount} {claimResult.rewardResource}
-              </Text>
-            </View>
+        {/* Dungeon list */}
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {dungeons.length === 0 ? (
+            <Text style={styles.empty}>{t("noDungeons")}</Text>
           ) : (
-            <Text style={styles.resultNoReward}>No reward this time.</Text>
+            dungeons.map((dungeon) => {
+              const run = getRunForDungeon(dungeon.id);
+              const enterDisabled =
+                championIsBusy && (!run || run.champion_id !== championId);
+              return (
+                <DungeonCard
+                  key={dungeon.id}
+                  dungeon={dungeon}
+                  activeRun={run}
+                  onEnter={handleEnter}
+                  onClaim={handleClaim}
+                  disabled={enterDisabled}
+                />
+              );
+            })
           )}
-        </View>
-      </CustomModal>
-    </SafeAreaView>
+        </ScrollView>
+
+        {/* Claim result modal */}
+        <CustomModal
+          visible={claimResult !== null}
+          onClose={() => setClaimResult(null)}
+          onConfirm={() => setClaimResult(null)}
+          title={
+            claimResult?.winner === "champion" ? t("victory") : t("defeat")
+          }
+          confirmText="OK"
+          cancelText={t("cancelBtn")}
+        >
+          <View style={styles.resultBody}>
+            <Text style={styles.resultSub}>{t("missionComplete")}</Text>
+            {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
+              <View style={styles.resultRewardRow}>
+                <Trophy
+                  size={18}
+                  color="#ffd54f"
+                  strokeWidth={2}
+                  fill="#ffd54f"
+                />
+                <Text style={styles.resultReward}>
+                  +{claimResult.rewardAmount} {claimResult.rewardResource}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.resultNoReward}>No reward this time.</Text>
+            )}
+          </View>
+        </CustomModal>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  dungeonBg: {
+    width: "100%",
+    flex: 1,
+  },
   safe: {
     flex: 1,
-    backgroundColor: "#353b48",
   },
   header: {
     flexDirection: "row",

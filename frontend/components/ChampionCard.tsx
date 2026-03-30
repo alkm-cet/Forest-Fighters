@@ -50,7 +50,7 @@ export default function ChampionCard({
       style={[
         styles.card,
         isDefender && styles.cardDefender,
-        isDefender && { opacity: 0.7 },
+        isDefender && { opacity: 0.8 },
       ]}
       activeOpacity={0.85}
       onPress={() => onPress?.(champion)}
@@ -121,22 +121,38 @@ export default function ChampionCard({
         ) : null}
         {(champion.boost_hp ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeTopLeft]}>
-            <Heart size={9} color="#fff" strokeWidth={2} fill="#fff" />
+            <Image
+              source={require("../assets/icons/heart.png")}
+              style={styles.boostImage}
+              resizeMode="contain"
+            />
           </View>
         )}
         {(champion.boost_defense ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeBottomLeft]}>
-            <Shield size={9} color="#fff" strokeWidth={2} />
+            <Image
+              source={require("../assets/icons/shield.png")}
+              style={styles.boostImage}
+              resizeMode="contain"
+            />
           </View>
         )}
         {(champion.boost_chance ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeTopRight]}>
-            <Zap size={9} color="#fff" strokeWidth={2} fill="#fff" />
+            <Image
+              source={require("../assets/icons/lightning.png")}
+              style={styles.boostImage}
+              resizeMode="contain"
+            />
           </View>
         )}
         {isDefender && (
           <View style={styles.defenderShieldCenter}>
-            <Shield size={32} color="#4a7c3f" fill="#4a7c3f" strokeWidth={2} />
+            <Image
+              source={require("../assets/icons/shield.png")}
+              style={styles.shieldImage}
+              resizeMode="contain"
+            />
           </View>
         )}
       </View>
@@ -205,7 +221,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     opacity: 1,
   },
-
+  shieldImage: {
+    width: 60,
+    height: 60,
+  },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -253,8 +272,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: "#f5edd8",
+    borderWidth: 1,
+    backgroundColor: "#b2bec3",
+    borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 5,
@@ -262,22 +282,22 @@ const styles = StyleSheet.create({
   badgeTopLeft: {
     top: 2,
     left: 6,
-    backgroundColor: "#c0392b",
   },
   badgeBottomLeft: {
     bottom: 2,
     left: 6,
-    backgroundColor: "#4a7c3f",
   },
   badgeTopRight: {
     top: 2,
     right: 6,
-    backgroundColor: "#8a5cc7",
   },
   badgeBottomRight: {
     bottom: 2,
     right: 6,
-    backgroundColor: "#2e6da4",
+  },
+  boostImage: {
+    width: 10,
+    height: 10,
   },
   catImage: {
     width: 80,

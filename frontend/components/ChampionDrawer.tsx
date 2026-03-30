@@ -9,7 +9,10 @@ import {
   Animated,
   PanResponder,
   ScrollView,
+  Dimensions,
 } from "react-native";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 import { Text } from "./StyledText";
 import {
   X,
@@ -181,6 +184,7 @@ export default function ChampionDrawer({
 }: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
+  const contentScrollY = useRef(0);
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
   const [pendingBoost, setPendingBoost] = useState<BoostType | null>(null);
   const [historyTab, setHistoryTab] = useState(false);
@@ -221,7 +225,9 @@ export default function ChampionDrawer({
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+        contentScrollY.current === 0 &&
+        gs.dy > 8 &&
+        Math.abs(gs.dy) > Math.abs(gs.dx),
       onPanResponderMove: (_, gs) => {
         if (gs.dy > 0) translateY.setValue(gs.dy);
       },
@@ -416,7 +422,14 @@ export default function ChampionDrawer({
         )}
 
         {!historyTab && (
-          <>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            onScroll={(e) => {
+              contentScrollY.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
             {/* XP progress bar */}
             <View style={styles.xpRow}>
               <View style={styles.xpBarTrack}>
@@ -455,19 +468,31 @@ export default function ChampionDrawer({
                 {/* Active boost badges on image corners */}
                 {(champion.boost_hp ?? 0) > 0 && (
                   <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
-                    <Heart size={12} color="#fff" strokeWidth={2} fill="#fff" />
+                    <Image
+                      source={require("../assets/icons/heart.png")}
+                      style={styles.boostBtnCostIcon}
+                      resizeMode="contain"
+                    />
                   </View>
                 )}
                 {(champion.boost_defense ?? 0) > 0 && (
                   <View
                     style={[styles.boostBadge, styles.boostBadgeBottomLeft]}
                   >
-                    <Shield size={12} color="#fff" strokeWidth={2} />
+                    <Image
+                      source={require("../assets/icons/shield.png")}
+                      style={styles.boostBtnCostIcon}
+                      resizeMode="contain"
+                    />
                   </View>
                 )}
                 {(champion.boost_chance ?? 0) > 0 && (
                   <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
-                    <Zap size={12} color="#fff" strokeWidth={2} fill="#fff" />
+                    <Image
+                      source={require("../assets/icons/lightning.png")}
+                      style={styles.boostBtnCostIcon}
+                      resizeMode="contain"
+                    />
                   </View>
                 )}
               </View>
@@ -524,8 +549,17 @@ export default function ChampionDrawer({
                       </Text>
                       {!isActive && (
                         <View style={styles.boostBtnCostRow}>
-                          <Image source={bm.costImage} style={styles.boostBtnCostIcon} resizeMode="contain" />
-                          <Text style={[styles.boostBtnCost, !canAfford && styles.boostBtnCostRed]}>
+                          <Image
+                            source={bm.costImage}
+                            style={styles.boostBtnCostIcon}
+                            resizeMode="contain"
+                          />
+                          <Text
+                            style={[
+                              styles.boostBtnCost,
+                              !canAfford && styles.boostBtnCostRed,
+                            ]}
+                          >
                             ×{bm.cost}
                           </Text>
                         </View>
@@ -556,9 +590,17 @@ export default function ChampionDrawer({
                     {BOOST_META[pendingBoost].label}
                   </Text>
                   <View style={styles.boostModalCostRow}>
-                    <Text style={styles.boostModalCost}>{t("upgradeCost")}: </Text>
-                    <Image source={BOOST_META[pendingBoost].costImage} style={styles.boostModalCostIcon} resizeMode="contain" />
-                    <Text style={styles.boostModalCost}>×{BOOST_META[pendingBoost].cost}</Text>
+                    <Text style={styles.boostModalCost}>
+                      {t("upgradeCost")}:{" "}
+                    </Text>
+                    <Image
+                      source={BOOST_META[pendingBoost].costImage}
+                      style={styles.boostModalCostIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.boostModalCost}>
+                      ×{BOOST_META[pendingBoost].cost}
+                    </Text>
                   </View>
                   <Text style={styles.boostModalNote}>
                     {t("boostActiveUntil")}
@@ -779,7 +821,12 @@ export default function ChampionDrawer({
                     {/* === Normal button row === */}
                     <View style={styles.btnRow}>
                       {!isOnMission && !claimableRun && (
-                        <View style={[styles.btnFlex, isDefenderChamp && styles.btnDefenderDim]}>
+                        <View
+                          style={[
+                            styles.btnFlex,
+                            isDefenderChamp && styles.btnDefenderDim,
+                          ]}
+                        >
                           <PvpBattleButton
                             onPress={() =>
                               isDefenderChamp
@@ -908,7 +955,7 @@ export default function ChampionDrawer({
                   })()}
               </>
             )}
-          </>
+          </ScrollView>
         )}
 
         {/* Defender warning modal */}
@@ -976,6 +1023,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 36,
     paddingTop: 8,
+    maxHeight: SCREEN_HEIGHT * 0.82,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -1128,7 +1176,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "#3a1e00",
+    backgroundColor: "#b2bec3",
     borderWidth: 2,
     borderColor: "#f5e9cc",
     alignItems: "center",
@@ -1138,17 +1186,14 @@ const styles = StyleSheet.create({
   boostBadgeTopLeft: {
     top: -7,
     left: -7,
-    backgroundColor: "#c0392b",
   },
   boostBadgeBottomLeft: {
     bottom: -7,
     left: -7,
-    backgroundColor: "#4a7c3f",
   },
   boostBadgeTopRight: {
     top: -7,
     right: -7,
-    backgroundColor: "#8a5cc7",
   },
   boostBtns: {
     flex: 1,
