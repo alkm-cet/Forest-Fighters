@@ -39,6 +39,9 @@ type OpponentInfo = {
   };
   opponentTrophies: number;
   opponentLeague: string;
+  preview_strawberry: number;
+  preview_pinecone: number;
+  preview_blueberry: number;
 };
 
 type Phase = "searching" | "found" | "fighting";
@@ -65,6 +68,8 @@ export default function PvpScreen() {
     championChance,
     championMaxHp,
     championCurrentHp,
+    myTrophies,
+    myLeague,
   } = useLocalSearchParams<{
     championId: string;
     championName: string;
@@ -75,6 +80,8 @@ export default function PvpScreen() {
     championMaxHp: string;
     championCurrentHp: string;
     championLevel: string;
+    myTrophies: string;
+    myLeague: string;
   }>();
 
   const [phase, setPhase] = useState<Phase>("searching");
@@ -149,6 +156,9 @@ export default function PvpScreen() {
   const hpPct = maxHp > 0 ? hp / maxHp : 0;
   const hpColor = hpPct > 0.6 ? "#4caf50" : hpPct > 0.3 ? "#f39c12" : "#e57373";
 
+  const myLeagueLabel = myLeague ?? "Bronz";
+  const myLeagueColor = LEAGUE_COLORS[myLeagueLabel] ?? "#cd7f32";
+
   const myMeta = CLASS_META[championClass ?? ""] ?? {
     image: null,
     color: "#888",
@@ -221,6 +231,8 @@ export default function PvpScreen() {
                   hpColor={hpColor}
                   label="SEN"
                   labelColor="#81c784"
+                  trophyLabel={myLeagueLabel}
+                  trophyColor={myLeagueColor}
                 />
               </View>
             )}
@@ -257,6 +269,31 @@ export default function PvpScreen() {
                       <View style={styles.vsBadge}>
                         <Text style={styles.vsText}>VS</Text>
                       </View>
+
+                      {/* Loot preview */}
+                      {(opponent.preview_strawberry > 0 || opponent.preview_pinecone > 0 || opponent.preview_blueberry > 0) && (
+                        <View style={styles.lootRow}>
+                          <Text style={styles.lootLabel}>Kazanılacak:</Text>
+                          {opponent.preview_strawberry > 0 && (
+                            <View style={styles.lootPill}>
+                              <Image source={require("../../assets/resource-images/strawberry.webp")} style={styles.lootIcon} />
+                              <Text style={[styles.lootVal, { color: "#e8534a" }]}>+{opponent.preview_strawberry}</Text>
+                            </View>
+                          )}
+                          {opponent.preview_pinecone > 0 && (
+                            <View style={styles.lootPill}>
+                              <Image source={require("../../assets/resource-images/pinecone.webp")} style={styles.lootIcon} />
+                              <Text style={[styles.lootVal, { color: "#5a8a3c" }]}>+{opponent.preview_pinecone}</Text>
+                            </View>
+                          )}
+                          {opponent.preview_blueberry > 0 && (
+                            <View style={styles.lootPill}>
+                              <Image source={require("../../assets/resource-images/blueberry.webp")} style={styles.lootIcon} />
+                              <Text style={[styles.lootVal, { color: "#5b6bbf" }]}>+{opponent.preview_blueberry}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
 
                       {/* Opponent */}
                       <ChampionCard
@@ -598,6 +635,21 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   vsText: { fontSize: 13, fontWeight: "900", color: "#fff" },
+
+  lootRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lootLabel: { fontSize: 12, fontWeight: "700", color: "#aab0be", marginRight: 2 },
+  lootPill: { flexDirection: "row", alignItems: "center", gap: 4 },
+  lootIcon: { width: 16, height: 16, resizeMode: "contain" },
+  lootVal: { fontSize: 13, fontWeight: "800" },
 
   actionRow: { flexDirection: "row", gap: 12, marginTop: 20 },
   reSearchBtnStyle: { flex: 1 },

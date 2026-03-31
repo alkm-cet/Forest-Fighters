@@ -136,6 +136,12 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
       `UPDATE player_resources SET ${farmer.resource_type} = ${farmer.resource_type} + $1 WHERE player_id = $2`,
       [collectible, playerId]
     );
+    // Fill pvp_storage (loot pool) when resources are earned, capped at 500
+    const storageCol = `pvp_storage_${farmer.resource_type}`;
+    await query(
+      `UPDATE players SET ${storageCol} = LEAST(${storageCol} + $1, 500) WHERE id = $2`,
+      [collectible, playerId]
+    );
     await query(
       'UPDATE farmers SET last_collected_at = $1 WHERE id = $2',
       [newLastCollected, farmerId]

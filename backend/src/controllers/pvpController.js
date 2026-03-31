@@ -15,14 +15,13 @@ function getLeague(trophies) {
   return 'Bronz';
 }
 
-function calcTransfer(loserAmt, winnerAmt, winnerCap) {
-  // No transfer if loser has 0 or exactly 1 of this resource
-  if (loserAmt <= 1) return 0;
-  let steal = Math.floor(loserAmt * 0.10);
+// Loot is calculated from the loser's pvp_storage (snapshot at battle creation).
+// Winner cap is enforced separately in the SQL UPDATE via LEAST(..., cap).
+function calcTransfer(loserStorage) {
+  if (loserStorage <= 0) return 0;
+  let steal = Math.floor(loserStorage * 0.10);
   if (steal < 1) steal = 1;
-  steal = Math.min(steal, 15);
-  const winnerRemaining = winnerCap - winnerAmt;
-  return Math.max(0, Math.min(steal, winnerRemaining));
+  return Math.min(steal, 15);
 }
 
 // Shared matchmaking logic — finds an eligible opponent and their defender champion.
@@ -93,6 +92,13 @@ async function findOpponent(req, res) {
     if (!defChampRows.length) return res.status(400).json({ error: 'Defender has no valid champion' });
     const defChamp = defChampRows[0];
 
+    // Compute loot preview from opponent's pvp_storage
+    const oppStorageRows = await query(
+      'SELECT pvp_storage_strawberry, pvp_storage_pinecone, pvp_storage_blueberry FROM players WHERE id = $1',
+      [opponent.id]
+    );
+    const opp = oppStorageRows[0] ?? {};
+
     res.json({
       opponentId:            opponent.id,
       opponentName:          opponent.username,
@@ -105,8 +111,11 @@ async function findOpponent(req, res) {
         chance:  defChamp.chance,
         max_hp:  defChamp.max_hp,
       },
-      opponentTrophies: opponent.trophies,
-      opponentLeague:   getLeague(opponent.trophies),
+      opponentTrophies:    opponent.trophies,
+      opponentLeague:      getLeague(opponent.trophies),
+      preview_strawberry:  calcTransfer(opp.pvp_storage_strawberry || 0),
+      preview_pinecone:    calcTransfer(opp.pvp_storage_pinecone   || 0),
+      preview_blueberry:   calcTransfer(opp.pvp_storage_blueberry  || 0),
     });
   } catch (err) {
     console.error('findOpponent error:', err);
@@ -180,46 +189,20 @@ async function attackPvp(req, res) {
     const attDelta = attackerWon ? WIN_TROPHIES  : -LOSE_TROPHIES;
     const defDelta = attackerWon ? -LOSE_TROPHIES : WIN_TROPHIES;
 
-    // ── Update trophies ────────────────────────────────────────────────────────
-    await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, attDelta, playerId]);
-    await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, defDelta, opponent.id]);
-
-    // ── Resource transfer ──────────────────────────────────────────────────────
-    const loserResRows  = await query('SELECT strawberry, pinecone, blueberry FROM player_resources WHERE player_id = $1', [loserId]);
-    const winnerResRows = await query('SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1', [winnerId]);
-
-    const transfers = { strawberry: 0, pinecone: 0, blueberry: 0 };
-    if (loserResRows.length && winnerResRows.length) {
-      const l = loserResRows[0];
-      const w = winnerResRows[0];
-      for (const r of ['strawberry', 'pinecone', 'blueberry']) {
-        transfers[r] = calcTransfer(l[r] || 0, w[r] || 0, w[`${r}_cap`] || 10);
-      }
-      // Always deduct from loser — including bots (seeded resources decrease)
-      await query(
-        `UPDATE player_resources SET strawberry = GREATEST(0, strawberry - $1), pinecone = GREATEST(0, pinecone - $2), blueberry = GREATEST(0, blueberry - $3) WHERE player_id = $4`,
-        [transfers.strawberry, transfers.pinecone, transfers.blueberry, loserId]
-      );
-      await query(
-        `UPDATE player_resources SET
-          strawberry = LEAST(strawberry + $1, strawberry_cap),
-          pinecone   = LEAST(pinecone   + $2, pinecone_cap),
-          blueberry  = LEAST(blueberry  + $3, blueberry_cap)
-         WHERE player_id = $4`,
-        [transfers.strawberry, transfers.pinecone, transfers.blueberry, winnerId]
-      );
-      // Refresh bot resources so they never run dry
-      if (opponent.is_bot) {
-        await query(
-          `UPDATE player_resources SET
-            strawberry = GREATEST(strawberry, 20),
-            pinecone   = GREATEST(pinecone,   20),
-            blueberry  = GREATEST(blueberry,  20)
-           WHERE player_id = $1`,
-          [opponent.id]
-        );
-      }
-    }
+    // ── Snapshot loot from loser's pvp_storage ─────────────────────────────────
+    // Trophies and resources are NOT applied here — they are applied when the
+    // player views the result (GET /api/pvp/battles). The computed amounts are
+    // stored in pvp_battles and applied exactly once at result reveal time.
+    const loserStorageRows = await query(
+      'SELECT pvp_storage_strawberry, pvp_storage_pinecone, pvp_storage_blueberry FROM players WHERE id = $1',
+      [loserId]
+    );
+    const ls = loserStorageRows[0] ?? {};
+    const transfers = {
+      strawberry: calcTransfer(ls.pvp_storage_strawberry || 0),
+      pinecone:   calcTransfer(ls.pvp_storage_pinecone   || 0),
+      blueberry:  calcTransfer(ls.pvp_storage_blueberry  || 0),
+    };
 
     // ── Defender champion last_defender ────────────────────────────────────────
     await query('UPDATE champions SET last_defender = FALSE WHERE player_id = $1', [opponent.id]);
@@ -325,7 +308,9 @@ async function getBattles(req, res) {
     const battles = await query(
       `SELECT b.*,
          att.username   AS attacker_name,
+         att.is_bot     AS attacker_is_bot,
          def.username   AS defender_name,
+         def.is_bot     AS defender_is_bot,
          att_c.name     AS attacker_champion_name,
          att_c.class    AS attacker_champion_class,
          def_c.name     AS defender_champion_name,
@@ -343,6 +328,7 @@ async function getBattles(req, res) {
     );
 
     for (const b of battles) {
+      // Transition to resolved — this runs exactly once (query only finds pending battles)
       await query(
         `UPDATE pvp_battles SET
            status = 'resolved',
@@ -351,10 +337,65 @@ async function getBattles(req, res) {
          WHERE id = $2`,
         [playerId, b.id]
       );
-      // Free attacker champion
-      if (b.attacker_id === playerId) {
-        await query('UPDATE champions SET is_deployed = FALSE WHERE id = $1', [b.attacker_champion_id]);
+
+      const loserId  = b.winner_id === b.attacker_id ? b.defender_id : b.attacker_id;
+      const winnerId = b.winner_id;
+      const loserIsBot = b.winner_id === b.attacker_id ? b.defender_is_bot : b.attacker_is_bot;
+
+      // Apply trophy changes
+      await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, b.attacker_trophies_delta, b.attacker_id]);
+      await query('UPDATE players SET trophies = GREATEST($1, trophies + $2) WHERE id = $3', [TROPHY_FLOOR, b.defender_trophies_delta, b.defender_id]);
+
+      // Apply resource transfers
+      // Deduct from loser's pvp_storage (loot pool)
+      await query(
+        `UPDATE players SET
+           pvp_storage_strawberry = GREATEST(0, pvp_storage_strawberry - $1),
+           pvp_storage_pinecone   = GREATEST(0, pvp_storage_pinecone   - $2),
+           pvp_storage_blueberry  = GREATEST(0, pvp_storage_blueberry  - $3)
+         WHERE id = $4`,
+        [b.transferred_strawberry, b.transferred_pinecone, b.transferred_blueberry, loserId]
+      );
+      // Deduct from loser's real resources (clamped at 0 — never goes negative)
+      await query(
+        `UPDATE player_resources SET
+           strawberry = GREATEST(0, strawberry - $1),
+           pinecone   = GREATEST(0, pinecone   - $2),
+           blueberry  = GREATEST(0, blueberry  - $3)
+         WHERE player_id = $4`,
+        [b.transferred_strawberry, b.transferred_pinecone, b.transferred_blueberry, loserId]
+      );
+      // Add to winner's real resources (capped at storage cap)
+      await query(
+        `UPDATE player_resources SET
+           strawberry = LEAST(strawberry + $1, strawberry_cap),
+           pinecone   = LEAST(pinecone   + $2, pinecone_cap),
+           blueberry  = LEAST(blueberry  + $3, blueberry_cap)
+         WHERE player_id = $4`,
+        [b.transferred_strawberry, b.transferred_pinecone, b.transferred_blueberry, winnerId]
+      );
+      // Refresh bot resources so they never run dry
+      if (loserIsBot) {
+        await query(
+          `UPDATE player_resources SET
+             strawberry = GREATEST(strawberry, 20),
+             pinecone   = GREATEST(pinecone,   20),
+             blueberry  = GREATEST(blueberry,  20)
+           WHERE player_id = $1`,
+          [loserId]
+        );
+        await query(
+          `UPDATE players SET
+             pvp_storage_strawberry = GREATEST(pvp_storage_strawberry, 30),
+             pvp_storage_pinecone   = GREATEST(pvp_storage_pinecone,   30),
+             pvp_storage_blueberry  = GREATEST(pvp_storage_blueberry,  30)
+           WHERE id = $1`,
+          [loserId]
+        );
       }
+
+      // Free attacker champion
+      await query('UPDATE champions SET is_deployed = FALSE WHERE id = $1', [b.attacker_champion_id]);
     }
 
     res.json(battles);

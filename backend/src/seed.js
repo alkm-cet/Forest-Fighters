@@ -91,6 +91,10 @@ async function seed() {
           'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, 30, 30, 30)',
           [botId]
         );
+        await query(
+          'UPDATE players SET pvp_storage_strawberry = 30, pvp_storage_pinecone = 30, pvp_storage_blueberry = 30 WHERE id = $1',
+          [botId]
+        );
 
         const champIds = [];
         for (const c of bot.champions) {

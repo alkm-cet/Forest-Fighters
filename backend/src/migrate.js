@@ -207,6 +207,24 @@ async function migrate() {
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS combat_log JSONB`);
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS revenge_used BOOLEAN DEFAULT FALSE`);
 
+    // pvp_storage — loot pool for PvP (separate from spendable resources)
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_storage_strawberry INT DEFAULT 0`);
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_storage_pinecone    INT DEFAULT 0`);
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_storage_blueberry   INT DEFAULT 0`);
+    // Backfill bots: seed their pvp_storage from their current player_resources so they have lootable resources
+    await query(`
+      UPDATE players p SET
+        pvp_storage_strawberry = LEAST(COALESCE(pr.strawberry, 30), 500),
+        pvp_storage_pinecone   = LEAST(COALESCE(pr.pinecone,   30), 500),
+        pvp_storage_blueberry  = LEAST(COALESCE(pr.blueberry,  30), 500)
+      FROM player_resources pr
+      WHERE pr.player_id = p.id
+        AND p.is_bot = TRUE
+        AND p.pvp_storage_strawberry = 0
+        AND p.pvp_storage_pinecone   = 0
+        AND p.pvp_storage_blueberry  = 0
+    `);
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

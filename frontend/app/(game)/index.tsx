@@ -380,6 +380,8 @@ export default function MainScreen() {
               championMaxHp:   String(champion.max_hp),
               championCurrentHp: String(champion.current_hp),
               championLevel:   String(champion.level),
+              myTrophies:      String(pvpTrophies ?? 10),
+              myLeague:        pvpLeague ?? "Bronz",
             },
           });
         }}

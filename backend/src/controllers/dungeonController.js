@@ -175,6 +175,12 @@ async function claimRun(req, res) {
         `UPDATE player_resources SET ${rewardResource} = LEAST(${rewardResource} + $1, ${rewardCapCol}) WHERE player_id = $2`,
         [rewardAmount, playerId]
       );
+      // Fill pvp_storage (loot pool) when resources are earned, capped at 500
+      const storageCol = `pvp_storage_${rewardResource}`;
+      await query(
+        `UPDATE players SET ${storageCol} = LEAST(${storageCol} + $1, 500) WHERE id = $2`,
+        [rewardAmount, playerId]
+      );
     }
 
     res.json({ winner, rewardResource, rewardAmount, log: result.log, xpGained, levelsGained, newLevel });
