@@ -1,5 +1,11 @@
 import { useRef, useEffect } from "react";
-import { View, StyleSheet, Dimensions, Animated } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Animated,
+  TouchableWithoutFeedback,
+} from "react-native";
 import { Champion, Farmer } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 
@@ -7,15 +13,20 @@ const { width: SCREEN_W } = Dimensions.get("window");
 
 const ASSETS = {
   fire: require("../assets/home-assets/fire.png"),
-  warrior: require("../assets/cats/warrior-cat.webp"),
-  archer: require("../assets/cats/archer-cat.webp"),
-  mage: require("../assets/cats/mage-cat.webp"),
+  warrior:        require("../assets/cats/warrior-cat.webp"),
+  warrior_closed: require("../assets/cats/warrior-cat-closed-eyes.png"),
+  archer:         require("../assets/cats/archer-cat.webp"),
+  archer_closed:  require("../assets/cats/archer-cat-closed-eyes.png"),
+  mage:           require("../assets/cats/mage-cat.webp"),
+  mage_closed:    require("../assets/cats/mage-cat-closed-eyes.png"),
 };
 
 type Props = {
   champions: Champion[];
   farmers?: Farmer[];
   showFarmers?: boolean;
+  closedEyesCat?: string | null;
+  onCatPress?: (championClass: string) => void;
 };
 
 // Shared slot geometry — farmer cats render at the exact same position as champion cats
@@ -52,6 +63,8 @@ export default function CampfireScene({
   champions,
   farmers = [],
   showFarmers = false,
+  closedEyesCat = null,
+  onCatPress,
 }: Props) {
   const championOpacity = useRef(
     new Animated.Value(showFarmers ? 0 : 1),
@@ -89,15 +102,21 @@ export default function CampfireScene({
   return (
     <View
       style={[styles.scene, { width: W, height: 300 }]}
-      pointerEvents="none"
+      pointerEvents="box-none"
     >
       {/* ── Left slot: Warrior ↔ Strawberry ── */}
       {warrior && (
-        <Animated.Image
-          source={ASSETS.warrior}
-          style={[styles.cat, SLOTS.left, { opacity: championOpacity }]}
-          resizeMode="contain"
-        />
+        <TouchableWithoutFeedback onPress={() => onCatPress?.("Warrior")}>
+          <Animated.Image
+            source={
+              closedEyesCat === "Warrior"
+                ? ASSETS.warrior_closed
+                : ASSETS.warrior
+            }
+            style={[styles.cat, SLOTS.left, { opacity: championOpacity }]}
+            resizeMode="contain"
+          />
+        </TouchableWithoutFeedback>
       )}
       {farmerByType["strawberry"] && (
         <Animated.Image
@@ -109,11 +128,17 @@ export default function CampfireScene({
 
       {/* ── Center slot: Archer ↔ Pinecone ── */}
       {archer && (
-        <Animated.Image
-          source={ASSETS.archer}
-          style={[styles.cat, SLOTS.center, { opacity: championOpacity }]}
-          resizeMode="contain"
-        />
+        <TouchableWithoutFeedback onPress={() => onCatPress?.("Archer")}>
+          <Animated.Image
+            source={
+              closedEyesCat === "Archer"
+                ? ASSETS.archer_closed
+                : ASSETS.archer
+            }
+            style={[styles.cat, SLOTS.center, { opacity: championOpacity }]}
+            resizeMode="contain"
+          />
+        </TouchableWithoutFeedback>
       )}
       {farmerByType["pinecone"] && (
         <Animated.Image
@@ -125,15 +150,19 @@ export default function CampfireScene({
 
       {/* ── Right slot: Mage ↔ Blueberry (mirrored) ── */}
       {mage && (
-        <Animated.Image
-          source={ASSETS.mage}
-          style={[
-            styles.cat,
-            SLOTS.right,
-            { opacity: championOpacity, transform: [{ scaleX: -1 }] },
-          ]}
-          resizeMode="contain"
-        />
+        <TouchableWithoutFeedback onPress={() => onCatPress?.("Mage")}>
+          <Animated.Image
+            source={
+              closedEyesCat === "Mage" ? ASSETS.mage_closed : ASSETS.mage
+            }
+            style={[
+              styles.cat,
+              SLOTS.right,
+              { opacity: championOpacity, transform: [{ scaleX: -1 }] },
+            ]}
+            resizeMode="contain"
+          />
+        </TouchableWithoutFeedback>
       )}
       {farmerByType["blueberry"] && (
         <Animated.Image

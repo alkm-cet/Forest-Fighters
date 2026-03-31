@@ -98,6 +98,10 @@ export default function MainScreen() {
   const [resultBanner, setResultBanner] = useState(false);
   const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
   const [pvpTrophies, setPvpTrophies] = useState<number>(10);
+  const [closedEyesCat, setClosedEyesCat] = useState<string | null>(null);
+  const closedEyesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const catClickRef = useRef<{ champClass: string; count: number } | null>(null);
+  const catClickResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pvpLeague, setPvpLeague] = useState<string>("Bronz");
   const [pvpUnlocked, setPvpUnlocked] = useState<boolean>(false);
   const [pvpPendingChampionId, setPvpPendingChampionId] = useState<string | null>(null);
@@ -155,6 +159,32 @@ export default function MainScreen() {
       disconnectSocket();
     };
   }, [player?.id]);
+
+  function handleCatPress(champClass: string) {
+    // Track consecutive clicks on the same cat
+    const prev = catClickRef.current;
+    const count = prev?.champClass === champClass ? prev.count + 1 : 1;
+    catClickRef.current = { champClass, count };
+
+    // Reset click counter after 3 seconds of inactivity
+    if (catClickResetTimer.current) clearTimeout(catClickResetTimer.current);
+    catClickResetTimer.current = setTimeout(() => {
+      catClickRef.current = null;
+    }, 3000);
+
+    // Play angry meow on 3rd+ consecutive click, otherwise random
+    const MEOW_KEYS = ["MEOW_1", "MEOW_2", "MEOW_3"] as const;
+    const sfxKey =
+      count >= 3
+        ? "MEOW_ANGRY"
+        : MEOW_KEYS[Math.floor(Math.random() * MEOW_KEYS.length)];
+    music.sfx(sfxKey);
+
+    // Show closed-eyes image, reset after 1.5s
+    setClosedEyesCat(champClass);
+    if (closedEyesTimer.current) clearTimeout(closedEyesTimer.current);
+    closedEyesTimer.current = setTimeout(() => setClosedEyesCat(null), 1500);
+  }
 
   async function handleViewPvpResult() {
     try {
@@ -277,6 +307,8 @@ export default function MainScreen() {
               champions={champions}
               farmers={farmers}
               showFarmers={showFarmers}
+              closedEyesCat={closedEyesCat}
+              onCatPress={handleCatPress}
             />
           )}
         </View>

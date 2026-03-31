@@ -6,6 +6,12 @@ const SOUNDS = {
 
   // Sound effects
   COLLECT: require("../assets/music/collect-sound.mp3"),
+
+  // Cat meow sounds
+  MEOW_1:     require("../assets/music/cat-meow/meow-1.mp3"),
+  MEOW_2:     require("../assets/music/cat-meow/meow-2.mp3"),
+  MEOW_3:     require("../assets/music/cat-meow/meow-3.mp3"),
+  MEOW_ANGRY: require("../assets/music/cat-meow/meow-angry.mp3"),
 } as const;
 
 export type SoundKey = keyof typeof SOUNDS;
