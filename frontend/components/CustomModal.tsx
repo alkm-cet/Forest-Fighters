@@ -16,6 +16,7 @@ type Props = {
   title: string;
   confirmText?: string;
   cancelText?: string;
+  hideCancel?: boolean;
   confirmDisabled?: boolean;
   children?: React.ReactNode;
 };
@@ -27,6 +28,7 @@ export default function CustomModal({
   title,
   confirmText,
   cancelText,
+  hideCancel,
   confirmDisabled,
   children,
 }: Props) {
@@ -58,15 +60,17 @@ export default function CustomModal({
           {children}
 
           <View style={styles.btnRow}>
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={onClose}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelText}>
-                {cancelText ?? t("cancelBtn")}
-              </Text>
-            </TouchableOpacity>
+            {!hideCancel && (
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cancelText}>
+                  {cancelText ?? t("cancelBtn")}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.confirmBtn, confirmDisabled && styles.btnDisabled]}
               onPress={() => {

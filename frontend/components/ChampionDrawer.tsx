@@ -192,6 +192,7 @@ export default function ChampionDrawer({
   const [historyTab, setHistoryTab] = useState(false);
   const [history, setHistory] = useState<PvpBattle[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedBattle, setSelectedBattle] = useState<PvpBattle | null>(null);
   const [showDefenderWarning, setShowDefenderWarning] = useState(false);
   const [pvpBattleExpired, setPvpBattleExpired] = useState(
     () => !!pvpBattleEndsAt && new Date(pvpBattleEndsAt) <= new Date(),
@@ -346,8 +347,10 @@ export default function ChampionDrawer({
                 const won = battle.winner_id === battle.attacker_id;
                 const trophyDelta = battle.attacker_trophies_delta;
                 return (
-                  <View
+                  <TouchableOpacity
                     key={battle.id}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedBattle(battle)}
                     style={[
                       styles.historyItem,
                       won ? styles.historyItemWin : styles.historyItemLose,
@@ -416,7 +419,7 @@ export default function ChampionDrawer({
                     <Text style={styles.historyDate}>
                       {new Date(battle.fought_at).toLocaleDateString()}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -507,7 +510,7 @@ export default function ChampionDrawer({
                   const resKey = BOOST_RESOURCE[type];
                   const isActive = ((champion[bm.boostCol] as number) ?? 0) > 0;
                   const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
-                  const disabled = isActive || !canAfford || !!isPvpBattle;
+                  const disabled = isActive || !canAfford || !!isPvpBattle || !!isOnMission;
                   return (
                     <TouchableOpacity
                       key={type}
@@ -1012,6 +1015,84 @@ export default function ChampionDrawer({
           </Modal>
         )}
       </Animated.View>
+
+      {/* Battle log modal */}
+      <CustomModal
+        visible={selectedBattle !== null}
+        onClose={() => setSelectedBattle(null)}
+        onConfirm={() => setSelectedBattle(null)}
+        title={selectedBattle
+          ? (selectedBattle.winner_id === selectedBattle.attacker_id ? "⚔️ Zafer!" : "💀 Yenilgi")
+          : ""}
+        confirmText="Kapat"
+        hideCancel
+      >
+        {selectedBattle && (() => {
+          const won = selectedBattle.winner_id === selectedBattle.attacker_id;
+          const tDelta = selectedBattle.attacker_trophies_delta;
+          return (
+            <>
+              {/* Summary header */}
+              <View style={styles.logSummary}>
+                <Text style={styles.logSummaryVs}>
+                  <Text style={styles.logSummaryAtk}>{selectedBattle.attacker_name}</Text>
+                  {"  vs  "}
+                  <Text style={styles.logSummaryDef}>{selectedBattle.defender_name}</Text>
+                </Text>
+                <View style={styles.logSummaryRow}>
+                  <Trophy size={11} color={tDelta >= 0 ? "#d4a017" : "#c0392b"} strokeWidth={2} />
+                  <Text style={[styles.logSummaryVal, { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" }]}>
+                    {tDelta >= 0 ? "+" : ""}{tDelta} kupa
+                  </Text>
+                  {(["strawberry", "pinecone", "blueberry"] as const).map((r) => {
+                    const amt = (selectedBattle as any)[`transferred_${r}`] ?? 0;
+                    if (amt === 0) return null;
+                    return (
+                      <View key={r} style={styles.logSummaryRes}>
+                        <Image source={RESOURCE_META[r].image} style={styles.logSummaryResIcon} resizeMode="contain" />
+                        <Text style={[styles.logSummaryVal, { color: won ? "#4a7c3f" : "#c0392b" }]}>
+                          {won ? "+" : "-"}{amt}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Log entries */}
+              <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
+                  <Text style={styles.historyEmpty}>Savaş günlüğü bulunamadı.</Text>
+                ) : (
+                  selectedBattle.combat_log.map((entry: any, i: number) => {
+                    const isAtk = entry.actor === "attacker";
+                    const newRound = i === 0 || selectedBattle.combat_log[i - 1]?.round !== entry.round;
+                    return (
+                      <View key={i}>
+                        {newRound && (
+                          <Text style={styles.logRound}>— Tur {entry.round + 1} —</Text>
+                        )}
+                        <View style={styles.logRow}>
+                          <Text style={[styles.logActor, isAtk ? styles.logChamp : styles.logEnemy]}>
+                            {isAtk ? `⚔️ ${selectedBattle.attacker_name}` : `🛡️ ${selectedBattle.defender_name}`}
+                          </Text>
+                          <Text style={styles.logDmg}>
+                            {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
+                            {entry.isCrit ? " 💥" : ""}
+                          </Text>
+                          <Text style={styles.logHp}>
+                            {isAtk ? entry.defenderHpAfter : entry.attackerHpAfter} HP
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </>
+          );
+        })()}
+      </CustomModal>
     </Modal>
   );
 }
@@ -1720,4 +1801,44 @@ const styles = StyleSheet.create({
   historyResIcon: { width: 14, height: 14 },
   historyResAmt: { fontSize: 11, fontWeight: "700" },
   historyDate: { fontSize: 10, color: "#9a7040", marginTop: 2 },
+  logSummary: {
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+    marginBottom: 8,
+  },
+  logSummaryVs: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#3a2a10",
+    textAlign: "center",
+  },
+  logSummaryAtk: { color: "#2d5a24", fontWeight: "800" },
+  logSummaryDef: { color: "#c0392b", fontWeight: "800" },
+  logSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+  },
+  logSummaryVal: { fontSize: 12, fontWeight: "800" },
+  logSummaryRes: { flexDirection: "row", alignItems: "center", gap: 3 },
+  logSummaryResIcon: { width: 16, height: 16 },
+  logScroll: { maxHeight: 220, marginTop: 10, width: "100%" },
+  logRound: {
+    fontSize: 11, fontWeight: "700", color: "#9a7040",
+    textAlign: "center", marginVertical: 4, letterSpacing: 1,
+  },
+  logRow: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingVertical: 3, paddingHorizontal: 6,
+    backgroundColor: "#f0e4c8", borderRadius: 6, marginBottom: 2,
+  },
+  logActor: { fontSize: 12, fontWeight: "700", flex: 1 },
+  logChamp: { color: "#2d5a24" },
+  logEnemy: { color: "#c0392b" },
+  logDmg: { fontSize: 12, fontWeight: "800", color: "#3a2a10", minWidth: 50, textAlign: "center" },
+  logHp: { fontSize: 11, fontWeight: "600", color: "#7a5a30", minWidth: 45, textAlign: "right" },
 });

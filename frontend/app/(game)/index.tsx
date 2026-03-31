@@ -93,6 +93,7 @@ export default function MainScreen() {
   const [showFarmers, setShowFarmers] = useState(false);
   const [error, setError] = useState(false);
   const [missionTick, setMissionTick] = useState(0);
+  const [expiredRunChampions, setExpiredRunChampions] = useState<Set<string>>(new Set());
   const [attackedBanner, setAttackedBanner] = useState<string | null>(null);
   const [resultBanner, setResultBanner] = useState(false);
   const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
@@ -405,7 +406,8 @@ export default function MainScreen() {
         claimableRun={
           selectedChampion &&
           runMap[selectedChampion.id] &&
-          new Date(runMap[selectedChampion.id].ends_at) <= new Date()
+          (new Date(runMap[selectedChampion.id].ends_at) <= new Date() ||
+            expiredRunChampions.has(selectedChampion.id))
             ? runMap[selectedChampion.id]
             : undefined
         }
@@ -413,13 +415,15 @@ export default function MainScreen() {
           !!(
             selectedChampion &&
             runMap[selectedChampion.id] &&
-            new Date(runMap[selectedChampion.id].ends_at) > new Date()
+            new Date(runMap[selectedChampion.id].ends_at) > new Date() &&
+            !expiredRunChampions.has(selectedChampion.id)
           )
         }
         activeRunEndsAt={
           selectedChampion &&
           runMap[selectedChampion.id] &&
-          new Date(runMap[selectedChampion.id].ends_at) > new Date()
+          new Date(runMap[selectedChampion.id].ends_at) > new Date() &&
+          !expiredRunChampions.has(selectedChampion.id)
             ? runMap[selectedChampion.id].ends_at
             : undefined
         }
@@ -443,7 +447,12 @@ export default function MainScreen() {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
           }
         }}
-        onMissionExpire={() => setMissionTick((t) => t + 1)}
+        onMissionExpire={() => {
+          setMissionTick((t) => t + 1);
+          if (selectedChampion) {
+            setExpiredRunChampions((prev) => new Set([...prev, selectedChampion.id]));
+          }
+        }}
         defenderChampionId={pvpDefenderId}
         pvpTrophies={pvpTrophies}
         pvpLeague={pvpLeague}
@@ -491,6 +500,11 @@ export default function MainScreen() {
         }}
         onClaim={async (run) => {
           setSelectedChampion(null);
+          setExpiredRunChampions((prev) => {
+            const next = new Set(prev);
+            next.delete(run.champion_id);
+            return next;
+          });
           try {
             const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
             // Refresh all state before showing modal so UI is consistent when modal closes
@@ -895,6 +909,38 @@ export default function MainScreen() {
                       );
                     })}
                   </View>
+                  {/* Battle log */}
+                  {(pvpResult.combat_log?.length ?? 0) > 0 && (
+                    <ScrollView
+                      style={styles.pvpLogScroll}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled
+                    >
+                      {pvpResult.combat_log.map((entry: any, i: number) => {
+                        const isAtk = entry.actor === "attacker";
+                        const newRound = i === 0 || pvpResult.combat_log[i - 1]?.round !== entry.round;
+                        return (
+                          <View key={i}>
+                            {newRound && (
+                              <Text style={styles.pvpLogRound}>— Tur {entry.round + 1} —</Text>
+                            )}
+                            <View style={styles.pvpLogRow}>
+                              <Text style={[styles.pvpLogActor, isAtk ? styles.pvpLogChamp : styles.pvpLogEnemy]}>
+                                {isAtk ? `⚔️ ${pvpResult.attacker_champion_name}` : `🛡️ ${pvpResult.defender_champion_name}`}
+                              </Text>
+                              <Text style={styles.pvpLogDmg}>
+                                {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
+                                {entry.isCrit ? " 💥" : ""}
+                              </Text>
+                              <Text style={styles.pvpLogHp}>
+                                {isAtk ? entry.defenderHpAfter : entry.attackerHpAfter} HP
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
                   <TouchableOpacity style={styles.modalBtn} onPress={() => setPvpResult(null)}>
                     <Text style={styles.modalBtnText}>Kapat</Text>
                   </TouchableOpacity>
@@ -986,6 +1032,51 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontWeight: "800",
+  },
+  pvpLogScroll: {
+    maxHeight: 200,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  pvpLogRound: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+    textAlign: "center",
+    marginVertical: 4,
+    letterSpacing: 1,
+  },
+  pvpLogRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    backgroundColor: "#f0e4c8",
+    borderRadius: 6,
+    marginBottom: 2,
+  },
+  pvpLogActor: {
+    fontSize: 11,
+    fontWeight: "700",
+    flex: 1,
+  },
+  pvpLogChamp: { color: "#2d5a24" },
+  pvpLogEnemy: { color: "#c0392b" },
+  pvpLogDmg: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#3a2a10",
+    minWidth: 50,
+    textAlign: "center",
+  },
+  pvpLogHp: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7a5a30",
+    minWidth: 45,
+    textAlign: "right",
   },
   pvpResultBanner: {
     marginHorizontal: 16,
