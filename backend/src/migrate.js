@@ -249,6 +249,16 @@ async function migrate() {
     await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS progress_minutes FLOAT DEFAULT 0`);
     await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS pending_production INT DEFAULT 0`);
     await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS last_computed_at TIMESTAMP DEFAULT NOW()`);
+
+    // last_computed_ms: Unix timestamp in milliseconds (BIGINT) — replaces last_computed_at.
+    // Using a plain number eliminates all TIMESTAMP/TIMESTAMPTZ format and timezone parsing issues.
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS last_computed_ms BIGINT DEFAULT 0`);
+    // Backfill from last_computed_at (treat bare TIMESTAMP as UTC, multiply to ms)
+    await query(`
+      UPDATE player_animals
+         SET last_computed_ms = EXTRACT(EPOCH FROM last_computed_at AT TIME ZONE 'UTC') * 1000
+       WHERE last_computed_ms = 0 AND last_computed_at IS NOT NULL
+    `);
     console.log('Animals system migrated');
 
     console.log('Migration complete!');

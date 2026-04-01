@@ -64,13 +64,28 @@ export default function FarmerDrawer({
   const [timerRowWidth, setTimerRowWidth] = useState(0);
   const livePendingRef = useRef(0);
 
-  // Initialise / reset when drawer opens for a farmer
+  // Interpolate farmer snapshot forward to "now" using _fetched_at_ms.
+  function interpolate(f: Farmer) {
+    if (!f) return { timeLeft: 0, pending: 0 };
+    const elapsedSec  = f._fetched_at_ms ? (Date.now() - f._fetched_at_ms) / 1000 : 0;
+    const cycleSec    = f.interval_minutes * 60;
+    const maxCap      = getMaxCapacity(f.level);
+    const rawTimeLeft = Math.max(0, f.next_ready_in_seconds - elapsedSec);
+    const burned      = f.next_ready_in_seconds - rawTimeLeft; // seconds consumed since fetch
+    const extraCycles = cycleSec > 0 ? Math.floor((cycleSec - f.next_ready_in_seconds + burned) / cycleSec) : 0;
+    const pending     = Math.min(f.pending + extraCycles, maxCap);
+    const timeLeft    = rawTimeLeft <= 0 ? cycleSec - ((-rawTimeLeft) % cycleSec) : rawTimeLeft;
+    return { timeLeft: Math.round(timeLeft), pending };
+  }
+
+  // Reset when drawer opens; interpolate so timer is accurate even if snapshot is old.
   useEffect(() => {
     if (farmer) {
       translateY.setValue(0);
-      livePendingRef.current = farmer.pending;
-      setLivePending(farmer.pending);
-      setTimeLeft(farmer.next_ready_in_seconds);
+      const { timeLeft, pending } = interpolate(farmer);
+      livePendingRef.current = pending;
+      setLivePending(pending);
+      setTimeLeft(timeLeft);
     }
   }, [farmer?.id]);
 

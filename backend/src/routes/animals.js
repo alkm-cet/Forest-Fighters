@@ -7,15 +7,15 @@ const ANIMAL_MAX_LEVEL = 50;
 
 // Each feed unit adds this many minutes of "fuel" to the animal
 const MINUTES_PER_FEED = {
-  chicken: 5,   // 4 feeds = 20 min = 1 egg
-  sheep:   8,   // 4 feeds = 32 min ≈ 1 wool
-  cow:     10,  // 4 feeds = 40 min = 1 milk
+  chicken: 5,   // 4 feeds = 20 min = 1 egg  (L1)
+  sheep:   8,   // 4 feeds = 32 min = 1 wool (L1)
+  cow:     10,  // 4 feeds = 40 min = 1 milk (L1)
 };
 
 // Production interval (minutes per item) — scales faster with level
-// chicken: L1=20min  → L50=5min
-// sheep:   L1=32min  → L50=8min
-// cow:     L1=40min  → L50=10min
+// chicken: L1=20min → L50=5min
+// sheep:   L1=32min → L50=8min
+// cow:     L1=40min → L50=10min
 function getProduceInterval(animalType, level) {
   const L = Math.max(1, Math.min(ANIMAL_MAX_LEVEL, level));
   const base = { chicken: 20, sheep: 32, cow: 40 };
@@ -25,17 +25,21 @@ function getProduceInterval(animalType, level) {
   return b - (b - m) * (L - 1) / (ANIMAL_MAX_LEVEL - 1);
 }
 
-// Max pending capacity
+// Max pending production storage — starts at 10, +1 per level
 function getMaxCapacity(level) {
-  return 4 + level;
+  return 9 + level; // L1=10, L2=11, ...
 }
 
-// max_feed is stored in DB (default 30 feed units)
-function getMaxFuelMinutes(animalType, maxFeedUnits) {
-  return maxFeedUnits * MINUTES_PER_FEED[animalType];
+// Max feed units — starts at 10, +1 per level
+function getMaxFeed(level) {
+  return 9 + level; // L1=10, L2=11, ...
 }
 
-// Upgrade cost
+// Max fuel in minutes based on level
+function getMaxFuelMinutes(animalType, level) {
+  return getMaxFeed(level) * MINUTES_PER_FEED[animalType];
+}
+
 const UPGRADE_RESOURCES = {
   chicken: ['strawberry', 'pinecone'],
   sheep:   ['pinecone',   'blueberry'],
@@ -43,7 +47,6 @@ const UPGRADE_RESOURCES = {
 };
 function getUpgradeCost(level) { return level * 2; }
 
-// Storage upgrade for produced resources
 const STORAGE_UPGRADE_COST = {
   egg:  { res1: 'strawberry', res2: 'pinecone',   cost1: 20, cost2: 10 },
   wool: { res1: 'pinecone',   res2: 'blueberry',  cost1: 20, cost2: 10 },
@@ -58,28 +61,33 @@ const ANIMAL_CONFIGS = {
   cow:     { name: 'Cow',     consumeResource: 'blueberry',  produceResource: 'milk' },
 };
 
-const SELECT_COLS = 'id, animal_type, level, max_feed, fuel_remaining_minutes, progress_minutes, pending_production, last_computed_at';
+const SELECT_COLS = 'id, animal_type, level, fuel_remaining_minutes, progress_minutes, pending_production, last_computed_ms';
 
-// Pure function — advances animal state from last_computed_at to nowMs
+// Pure function — advances animal state from last_computed_ms to nowMs.
+// last_computed_ms is a plain Unix millisecond integer — no timezone parsing needed.
 function computeState(animal, nowMs) {
-  const level          = animal.level;
-  const produceInterval = getProduceInterval(animal.animal_type, level); // minutes
-  const lastComputed   = new Date(animal.last_computed_at ?? Date.now()).getTime();
-  const elapsedMin     = Math.max(0, (nowMs - lastComputed) / 60000);
+  const level           = animal.level;
+  const produceInterval = getProduceInterval(animal.animal_type, level);
 
-  const fuelRemaining  = parseFloat(animal.fuel_remaining_minutes) || 0;
-  const progressMin    = parseFloat(animal.progress_minutes)       || 0;
-  const existingPending = parseInt(animal.pending_production)      || 0;
+  const _parsed = parseInt(animal.last_computed_ms);
+  const lastComputedMs  = _parsed > 0 ? _parsed : nowMs;
+  const elapsedMin      = Math.max(0, (nowMs - lastComputedMs) / 60000);
 
-  // Animal can only run as long as it has fuel
-  const actualRunMin   = Math.min(elapsedMin, fuelRemaining);
-  const newFuel        = fuelRemaining - actualRunMin;
-  const totalProgress  = progressMin + actualRunMin;
-  const newCycles      = Math.floor(totalProgress / produceInterval);
-  const newProgress    = totalProgress % produceInterval;
-  const maxCap         = getMaxCapacity(level);
-  const newPending     = Math.min(existingPending + newCycles, maxCap);
-  const isRunning      = newFuel > 0;
+  const fuelRemaining   = parseFloat(animal.fuel_remaining_minutes) || 0;
+  const progressMin     = parseFloat(animal.progress_minutes)       || 0;
+  const existingPending = parseInt(animal.pending_production)       || 0;
+  const maxCap          = getMaxCapacity(level);
+
+  // Animal can only run while it has fuel AND production storage has space
+  const canRun       = fuelRemaining > 0 && existingPending < maxCap;
+  const actualRunMin = canRun ? Math.min(elapsedMin, fuelRemaining) : 0;
+  const newFuel      = fuelRemaining - actualRunMin;
+
+  const totalProgress = progressMin + actualRunMin;
+  const newCycles     = Math.floor(totalProgress / produceInterval);
+  const newProgress   = totalProgress % produceInterval;
+  const newPending    = Math.min(existingPending + newCycles, maxCap);
+  const isRunning     = newFuel > 0 && newPending < maxCap;
 
   // Seconds until next production (only meaningful if running)
   const remainingInCycleMin = produceInterval - newProgress;
@@ -94,34 +102,33 @@ function computeState(animal, nowMs) {
   };
 }
 
-// Commit computed state to DB — always call this before mutating
-async function commitState(animalId, state) {
+// Commit computed state to DB
+async function commitState(animalId, state, nowMs) {
   await query(
     `UPDATE player_animals
         SET fuel_remaining_minutes = $1,
             progress_minutes       = $2,
             pending_production     = $3,
-            last_computed_at       = NOW()
-      WHERE id = $4`,
-    [state.fuel_remaining_minutes, state.progress_minutes, state.pending_production, animalId]
+            last_computed_ms       = $4
+      WHERE id = $5`,
+    [state.fuel_remaining_minutes, state.progress_minutes, state.pending_production, nowMs, animalId]
   );
 }
 
-function buildAnimalResponse(a) {
-  const now   = Date.now();
-  const cfg   = ANIMAL_CONFIGS[a.animal_type];
-  const level = a.level;
-  const state = computeState(a, now);
+function buildAnimalResponse(a, nowMs = null) {
+  const now            = nowMs ?? Date.now();
+  const cfg            = ANIMAL_CONFIGS[a.animal_type];
+  const level          = a.level;
+  const state          = computeState(a, now);
   const minutesPerFeed = MINUTES_PER_FEED[a.animal_type];
-  const maxFeedUnits   = a.max_feed ?? 30;
-  const maxFuelMinutes = getMaxFuelMinutes(a.animal_type, maxFeedUnits);
+  const maxFeedUnits   = getMaxFeed(level);
+  const maxFuelMinutes = getMaxFuelMinutes(a.animal_type, level);
   const intervalMinutes = getProduceInterval(a.animal_type, level);
 
   return {
     id:          a.id,
     animal_type: a.animal_type,
     level,
-    // Display as integer feed units for the UI
     current_feed:           Math.floor(state.fuel_remaining_minutes / minutesPerFeed),
     max_feed:               maxFeedUnits,
     fuel_remaining_minutes: state.fuel_remaining_minutes,
@@ -138,7 +145,8 @@ function buildAnimalResponse(a) {
   };
 }
 
-// GET /api/animals — list all animals; auto-creates on first call
+// ─── GET /api/animals ─────────────────────────────────────────────────────────
+// List all animals; auto-create chicken/sheep/cow on first call
 router.get('/', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   try {
@@ -147,10 +155,12 @@ router.get('/', authMiddleware, async (req, res) => {
       [playerId]
     );
     if (rows.length === 0) {
+      const nowMs = Date.now();
       for (const animalType of ['chicken', 'cow', 'sheep']) {
         await query(
-          'INSERT INTO player_animals (player_id, animal_type, last_computed_at) VALUES ($1, $2, NOW())',
-          [playerId, animalType]
+          `INSERT INTO player_animals (player_id, animal_type, last_computed_ms)
+           VALUES ($1, $2, $3)`,
+          [playerId, animalType, nowMs]
         );
       }
       rows = await query(
@@ -158,14 +168,52 @@ router.get('/', authMiddleware, async (req, res) => {
         [playerId]
       );
     }
-    return res.json(rows.map(buildAnimalResponse));
+
+    // Compute state for every animal and commit it back to DB in parallel.
+    // This ensures last_computed_ms is always fresh, so any subsequent GET
+    // (e.g. after shake+reload) correctly advances the timer from where it left off.
+    const nowMs = Date.now();
+    const states = rows.map(a => ({ animal: a, state: computeState(a, nowMs) }));
+    await Promise.all(
+      states.map(({ animal, state }) => commitState(animal.id, state, nowMs))
+    );
+
+    // Build responses from the already-computed states — no re-fetch needed.
+    return res.json(states.map(({ animal, state }) => {
+      const cfg            = ANIMAL_CONFIGS[animal.animal_type];
+      const level          = animal.level;
+      const minutesPerFeed = MINUTES_PER_FEED[animal.animal_type];
+      const maxFeedUnits   = getMaxFeed(level);
+      const maxFuelMinutes = getMaxFuelMinutes(animal.animal_type, level);
+      const intervalMinutes = getProduceInterval(animal.animal_type, level);
+      return {
+        id:                     animal.id,
+        animal_type:            animal.animal_type,
+        level,
+        current_feed:           Math.floor(state.fuel_remaining_minutes / minutesPerFeed),
+        max_feed:               maxFeedUnits,
+        fuel_remaining_minutes: state.fuel_remaining_minutes,
+        max_fuel_minutes:       maxFuelMinutes,
+        progress_minutes:       state.progress_minutes,
+        pending:                state.pending_production,
+        next_ready_in_seconds:  state.next_ready_in_seconds,
+        interval_minutes:       intervalMinutes,
+        minutes_per_feed:       minutesPerFeed,
+        max_capacity:           getMaxCapacity(level),
+        is_running:             state.is_running,
+        consume_resource:       cfg.consumeResource,
+        produce_resource:       cfg.produceResource,
+      };
+    }));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch animals' });
   }
 });
 
-// POST /api/animals/:id/feed — feed +1 unit
+// ─── POST /api/animals/:id/feed ────────────────────────────────────────────────
+// Feed +1 unit: consumes 1 resource, adds MINUTES_PER_FEED minutes of fuel.
+// Does NOT reset progress — only adds fuel time.
 router.post('/:id/feed', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const animalId = req.params.id;
@@ -179,8 +227,9 @@ router.post('/:id/feed', authMiddleware, async (req, res) => {
     const animal         = rows[0];
     const cfg            = ANIMAL_CONFIGS[animal.animal_type];
     const minutesPerFeed = MINUTES_PER_FEED[animal.animal_type];
-    const maxFuelMinutes = getMaxFuelMinutes(animal.animal_type, animal.max_feed ?? 30);
-    const state          = computeState(animal, Date.now());
+    const nowMs          = Date.now();
+    const state          = computeState(animal, nowMs);
+    const maxFuelMinutes = getMaxFuelMinutes(animal.animal_type, animal.level);
 
     if (state.fuel_remaining_minutes + minutesPerFeed > maxFuelMinutes + 0.01) {
       return res.status(400).json({ error: 'Feed storage full' });
@@ -199,28 +248,28 @@ router.post('/:id/feed', authMiddleware, async (req, res) => {
       [playerId]
     );
 
-    // Commit computed state + add fuel
     await query(
       `UPDATE player_animals
           SET fuel_remaining_minutes = $1,
               progress_minutes       = $2,
               pending_production     = $3,
-              last_computed_at       = NOW()
-        WHERE id = $4`,
-      [state.fuel_remaining_minutes + minutesPerFeed, state.progress_minutes, state.pending_production, animalId]
+              last_computed_ms       = $4
+        WHERE id = $5`,
+      [state.fuel_remaining_minutes + minutesPerFeed, state.progress_minutes, state.pending_production, nowMs, animalId]
     );
 
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
-    return res.json({ animal: buildAnimalResponse(updated), resources: updatedRes });
+    return res.json({ animal: buildAnimalResponse(updated, nowMs), resources: updatedRes });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Feed failed' });
   }
 });
 
-// POST /api/animals/:id/feed-max — fill feed storage to capacity
+// ─── POST /api/animals/:id/feed-max ───────────────────────────────────────────
+// Fill feed storage to capacity in one call.
 router.post('/:id/feed-max', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const animalId = req.params.id;
@@ -234,11 +283,12 @@ router.post('/:id/feed-max', authMiddleware, async (req, res) => {
     const animal         = rows[0];
     const cfg            = ANIMAL_CONFIGS[animal.animal_type];
     const minutesPerFeed = MINUTES_PER_FEED[animal.animal_type];
-    const maxFuelMinutes = getMaxFuelMinutes(animal.animal_type, animal.max_feed ?? 30);
-    const state          = computeState(animal, Date.now());
+    const nowMs          = Date.now();
+    const state          = computeState(animal, nowMs);
+    const maxFuelMinutes = getMaxFuelMinutes(animal.animal_type, animal.level);
 
-    const fuelNeeded    = maxFuelMinutes - state.fuel_remaining_minutes;
-    const unitsNeeded   = Math.ceil(fuelNeeded / minutesPerFeed);
+    const fuelNeeded  = maxFuelMinutes - state.fuel_remaining_minutes;
+    const unitsNeeded = Math.ceil(fuelNeeded / minutesPerFeed);
 
     if (unitsNeeded <= 0) return res.status(400).json({ error: 'Feed storage already full' });
 
@@ -247,40 +297,46 @@ router.post('/:id/feed-max', authMiddleware, async (req, res) => {
       [playerId]
     );
     const available = resRows[0]?.[cfg.consumeResource] ?? 0;
-    if (available < unitsNeeded) {
-      return res.status(400).json({
-        error: `Not enough ${cfg.consumeResource} (need ${unitsNeeded}, have ${available})`,
-        needed: unitsNeeded, available,
-      });
+    if (available <= 0) {
+      return res.status(400).json({ error: `No ${cfg.consumeResource} available` });
     }
+
+    // requestedUnits is what the frontend UI showed the player they would spend.
+    // Cap at that value so stale server-side fuel state never charges more than the player agreed to.
+    const requestedUnits = parseInt(req.body?.requestedUnits) || unitsNeeded;
+    const actualUnits    = Math.min(unitsNeeded, requestedUnits, available);
+    const newFuelMinutes = Math.min(
+      state.fuel_remaining_minutes + actualUnits * minutesPerFeed,
+      maxFuelMinutes
+    );
 
     await query(
       `UPDATE player_resources SET ${cfg.consumeResource} = ${cfg.consumeResource} - $1 WHERE player_id = $2`,
-      [unitsNeeded, playerId]
+      [actualUnits, playerId]
     );
 
-    // Commit state + fill fuel to max
     await query(
       `UPDATE player_animals
           SET fuel_remaining_minutes = $1,
               progress_minutes       = $2,
               pending_production     = $3,
-              last_computed_at       = NOW()
-        WHERE id = $4`,
-      [maxFuelMinutes, state.progress_minutes, state.pending_production, animalId]
+              last_computed_ms       = $4
+        WHERE id = $5`,
+      [newFuelMinutes, state.progress_minutes, state.pending_production, nowMs, animalId]
     );
 
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
-    return res.json({ animal: buildAnimalResponse(updated), resources: updatedRes });
+    return res.json({ animal: buildAnimalResponse(updated, nowMs), resources: updatedRes });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Feed-max failed' });
   }
 });
 
-// POST /api/animals/:id/collect — collect pending produce
+// ─── POST /api/animals/:id/collect ────────────────────────────────────────────
+// Collect pending produce into player resource storage.
 router.post('/:id/collect', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const animalId = req.params.id;
@@ -293,7 +349,8 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
 
     const animal = rows[0];
     const cfg    = ANIMAL_CONFIGS[animal.animal_type];
-    const state  = computeState(animal, Date.now());
+    const nowMs  = Date.now();
+    const state  = computeState(animal, nowMs);
 
     if (state.pending_production === 0) {
       return res.status(400).json({ error: 'Nothing to collect yet' });
@@ -305,25 +362,26 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
       [playerId]
     );
     const currentAmount = resRows[0]?.[cfg.produceResource] ?? 0;
-    const cap           = resRows[0]?.[capCol] ?? 10;
+    const cap           = resRows[0]?.[capCol]              ?? 10;
     const freeSpace     = Math.max(0, cap - currentAmount);
 
     if (freeSpace === 0) return res.status(400).json({ error: 'Storage full' });
 
     const collectible = Math.min(state.pending_production, freeSpace);
 
-    // Commit state with pending reduced by what was collected
     await query(
       `UPDATE player_animals
           SET fuel_remaining_minutes = $1,
               progress_minutes       = $2,
               pending_production     = $3,
-              last_computed_at       = NOW()
-        WHERE id = $4`,
-      [state.fuel_remaining_minutes, state.progress_minutes, state.pending_production - collectible, animalId]
+              last_computed_ms       = $4
+        WHERE id = $5`,
+      [state.fuel_remaining_minutes, state.progress_minutes, state.pending_production - collectible, nowMs, animalId]
     );
     await query(
-      `UPDATE player_resources SET ${cfg.produceResource} = LEAST(${cfg.produceResource} + $1, ${capCol}) WHERE player_id = $2`,
+      `UPDATE player_resources
+          SET ${cfg.produceResource} = LEAST(${cfg.produceResource} + $1, ${capCol})
+        WHERE player_id = $2`,
       [collectible, playerId]
     );
 
@@ -331,10 +389,10 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
     return res.json({
-      collected:       collectible,
+      collected:        collectible,
       produce_resource: cfg.produceResource,
-      animal:          buildAnimalResponse(updated),
-      resources:       updatedRes,
+      animal:           buildAnimalResponse(updated, nowMs),
+      resources:        updatedRes,
     });
   } catch (err) {
     console.error(err);
@@ -342,7 +400,8 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/animals/:id/upgrade — level up an animal
+// ─── POST /api/animals/:id/upgrade ────────────────────────────────────────────
+// Level up an animal (increases speed, feed capacity, production capacity).
 router.post('/:id/upgrade', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const animalId = req.params.id;
@@ -369,9 +428,10 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
       });
     }
 
-    // Commit current state before level up (level change alters interval/capacity)
-    const state = computeState(animal, Date.now());
-    await commitState(animalId, state);
+    // Commit current state before level-up (level change alters interval/capacity)
+    const nowMs = Date.now();
+    const state = computeState(animal, nowMs);
+    await commitState(animalId, state, nowMs);
 
     await query(
       `UPDATE player_resources SET ${res1} = ${res1} - $1, ${res2} = ${res2} - $2 WHERE player_id = $3`,
@@ -382,14 +442,15 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
-    return res.json({ animal: buildAnimalResponse(updated), resources: updatedRes });
+    return res.json({ animal: buildAnimalResponse(updated, nowMs), resources: updatedRes });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Upgrade failed' });
   }
 });
 
-// POST /api/animals/upgrade-storage — upgrade egg/wool/milk storage cap
+// ─── POST /api/animals/upgrade-storage ────────────────────────────────────────
+// Upgrade egg/wool/milk player resource cap.
 router.post('/upgrade-storage', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const { resource } = req.body;

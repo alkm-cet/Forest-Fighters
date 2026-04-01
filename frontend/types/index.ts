@@ -26,7 +26,7 @@ export type Animal = {
   max_feed: number;            // max feed units (e.g. 30)
   fuel_remaining_minutes: number;
   max_fuel_minutes: number;
-  progress_minutes: number;    // progress into current production cycle
+  progress_minutes: number;    // progress into current production cycle at the moment of fetch
   pending: number;
   next_ready_in_seconds: number | null; // null when stopped
   interval_minutes: number;
@@ -35,6 +35,7 @@ export type Animal = {
   is_running: boolean;
   consume_resource: string;
   produce_resource: string;
+  _fetched_at_ms: number;      // client-side: Date.now() when this snapshot arrived
 };
 
 export type Champion = {
@@ -65,6 +66,7 @@ export type Farmer = {
   interval_minutes: number;
   pending: number;
   next_ready_in_seconds: number;
+  _fetched_at_ms: number;      // client-side: Date.now() when this snapshot arrived
 };
 
 export type Player = {

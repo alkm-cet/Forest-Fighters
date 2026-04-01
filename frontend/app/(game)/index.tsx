@@ -139,8 +139,19 @@ export default function MainScreen() {
         api.get("/api/auth/me").then((r) => setPlayer(r.data)),
         api.get("/api/resources").then((r) => setResources(r.data)),
         api.get("/api/champions").then((r) => setChampions(r.data)),
-        api.get("/api/farmers").then((r) => setFarmers(r.data)),
-        api.get("/api/animals").then((r) => setAnimals(r.data)),
+        api.get("/api/farmers").then((r) => {
+          const now = Date.now();
+          const stamped = r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now }));
+          setFarmers(stamped);
+        }),
+        api.get("/api/animals").then((r) => {
+          const now = Date.now();
+          const stamped = r.data.map((a: Animal) => ({ ...a, _fetched_at_ms: now }));
+          setAnimals(stamped);
+          setSelectedAnimal((prev) =>
+            prev ? (stamped.find((a: Animal) => a.id === prev.id) ?? prev) : null
+          );
+        }),
         api.get("/api/dungeons/runs").then((r) => {
           const map: Record<string, DungeonRun> = {};
           for (const run of r.data) {
@@ -636,7 +647,10 @@ export default function MainScreen() {
           try {
             const res = await api.post(`/api/farmers/${farmer.id}/collect`);
             setResources(res.data.resources);
-            api.get("/api/farmers").then((r) => setFarmers(r.data));
+            api.get("/api/farmers").then((r) => {
+              const now = Date.now();
+              setFarmers(r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now })));
+            });
             setSelectedFarmer(null);
             music.sfx("COLLECT");
             const idx = farmers.findIndex((f) => f.id === farmer.id);
@@ -654,11 +668,10 @@ export default function MainScreen() {
         onUpgrade={async (farmer) => {
           try {
             const res = await api.post(`/api/farmers/${farmer.id}/upgrade`);
+            const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setFarmers((prev) =>
-              prev.map((f) => (f.id === farmer.id ? res.data.farmer : f)),
-            );
-            setSelectedFarmer(res.data.farmer);
+            setFarmers((prev) => prev.map((f) => (f.id === farmer.id ? fresh : f)));
+            setSelectedFarmer(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Geliştirme başarısız");
           }
@@ -672,11 +685,10 @@ export default function MainScreen() {
         onUpgrade={async (animal) => {
           try {
             const res = await api.post(`/api/animals/${animal.id}/upgrade`);
+            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
-            );
-            setSelectedAnimal(res.data.animal);
+            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Upgrade failed");
           }
@@ -684,23 +696,21 @@ export default function MainScreen() {
         onFeed={async (animal) => {
           try {
             const res = await api.post(`/api/animals/${animal.id}/feed`);
+            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
-            );
-            setSelectedAnimal(res.data.animal);
+            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Feed failed");
           }
         }}
-        onFeedMax={async (animal) => {
+        onFeedMax={async (animal, requestedUnits) => {
           try {
-            const res = await api.post(`/api/animals/${animal.id}/feed-max`);
+            const res = await api.post(`/api/animals/${animal.id}/feed-max`, { requestedUnits });
+            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
-            );
-            setSelectedAnimal(res.data.animal);
+            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Feed max failed");
           }
@@ -708,11 +718,10 @@ export default function MainScreen() {
         onCollect={async (animal) => {
           try {
             const res = await api.post(`/api/animals/${animal.id}/collect`);
+            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
-            );
-            setSelectedAnimal(res.data.animal);
+            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setSelectedAnimal(fresh);
             music.sfx("COLLECT");
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");

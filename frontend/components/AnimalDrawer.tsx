@@ -25,7 +25,7 @@ const UPGRADE_RESOURCES: Record<string, [string, string]> = {
   cow:     ["blueberry",  "strawberry"],
 };
 function getUpgradeCost(level: number) { return level * 2; }
-function getMaxCapacity(level: number) { return 4 + level; }
+function getMaxCapacity(level: number) { return 9 + level; }
 
 function formatTime(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -47,7 +47,7 @@ type Props = {
   resources?: Resources;
   onClose: () => void;
   onFeed: (animal: Animal) => void;
-  onFeedMax: (animal: Animal) => void;
+  onFeedMax: (animal: Animal, requestedUnits: number) => void;
   onCollect: (animal: Animal) => void;
   onUpgrade: (animal: Animal) => void;
 };
@@ -73,16 +73,48 @@ export default function AnimalDrawer({
   const livePendingRef    = useRef(0);
   const liveFuelSecRef    = useRef(0);
 
+  // Interpolate animal snapshot forward to "now" using _fetched_at_ms.
+  // This makes the timer accurate regardless of how long the snapshot has been in memory
+  // (app backgrounded, drawer closed/reopened, etc.) — no extra network call needed.
+  function interpolate(a: Animal) {
+    const elapsedSec = a._fetched_at_ms ? (Date.now() - a._fetched_at_ms) / 1000 : 0;
+    const cycleSec   = a.interval_minutes * 60;
+    const maxCap     = getMaxCapacity(a.level);
+
+    const fuelSec     = Math.max(0, a.fuel_remaining_minutes * 60 - elapsedSec);
+    const actualRun   = a.fuel_remaining_minutes * 60 - fuelSec; // how much fuel actually burned
+    const rawProgress = a.progress_minutes * 60 + actualRun;
+    const extraCycles = cycleSec > 0 ? Math.floor(rawProgress / cycleSec) : 0;
+    const progressSec = cycleSec > 0 ? rawProgress % cycleSec : 0;
+    const pending     = Math.min(a.pending + extraCycles, maxCap);
+
+    return { fuelSec, progressSec, pending };
+  }
+
+  // Full reset when a different animal is opened, or the same animal is re-opened.
+  // Uses interpolation so the timer is accurate even if the snapshot is minutes old.
   useEffect(() => {
     if (animal) {
       translateY.setValue(0);
-      livePendingRef.current  = animal.pending;
-      liveFuelSecRef.current  = animal.fuel_remaining_minutes * 60;
-      setLivePending(animal.pending);
-      setLiveProgressSec(animal.progress_minutes * 60);
-      setLiveFuelSec(animal.fuel_remaining_minutes * 60);
+      const { fuelSec, progressSec, pending } = interpolate(animal);
+      livePendingRef.current = pending;
+      liveFuelSecRef.current = fuelSec;
+      setLivePending(pending);
+      setLiveProgressSec(progressSec);
+      setLiveFuelSec(fuelSec);
     }
   }, [animal?.id]);
+
+  // After any server response: re-interpolate from the fresh snapshot.
+  useEffect(() => {
+    if (!animal) return;
+    const { fuelSec, progressSec, pending } = interpolate(animal);
+    liveFuelSecRef.current = fuelSec;
+    livePendingRef.current = pending;
+    setLiveFuelSec(fuelSec);
+    setLivePending(pending);
+    setLiveProgressSec(progressSec);
+  }, [animal?.fuel_remaining_minutes, animal?.pending, animal?.progress_minutes, animal?._fetched_at_ms]);
 
   useEffect(() => { livePendingRef.current = livePending; }, [livePending]);
   useEffect(() => { liveFuelSecRef.current = liveFuelSec; }, [liveFuelSec]);
@@ -156,11 +188,15 @@ export default function AnimalDrawer({
   const produceCapFull   = freeProduceSpace === 0 && livePending > 0;
 
   // Feed (in integer units)
+  // liveFeedUnits: computed live from fuel seconds — ceil so a partially-consumed unit still counts as 1
+  const liveFeedUnits    = animal.minutes_per_feed > 0
+    ? Math.min(Math.ceil(liveFuelSec / 60 / animal.minutes_per_feed), animal.max_feed)
+    : 0;
   const availableFeed    = (resources?.[animal.consume_resource as keyof Resources] as number) ?? 0;
-  const feedNeededForMax = animal.max_feed - animal.current_feed;
-  const canFeedOne       = availableFeed >= 1 && animal.current_feed < animal.max_feed;
+  const feedNeededForMax = animal.max_feed - liveFeedUnits;
+  const canFeedOne       = availableFeed >= 1 && liveFeedUnits < animal.max_feed;
   const canFeedMax       = feedNeededForMax > 0 && availableFeed >= feedNeededForMax;
-  const feedPct          = animal.max_feed > 0 ? Math.min(animal.current_feed / animal.max_feed, 1) : 0;
+  const feedPct          = animal.max_feed > 0 ? Math.min(liveFeedUnits / animal.max_feed, 1) : 0;
 
   // Timer / progress bar
   const maxCap      = getMaxCapacity(animal.level);
@@ -309,7 +345,7 @@ export default function AnimalDrawer({
             <View style={[styles.feedBarFill, { width: `${feedPct * 100}%` as any, backgroundColor: consumeMeta?.color ?? meta.color }]} />
           </View>
           <Text style={styles.feedBarText}>
-            {animal.current_feed} / {animal.max_feed}
+            {liveFeedUnits} / {animal.max_feed}
           </Text>
         </View>
 
@@ -370,7 +406,7 @@ export default function AnimalDrawer({
       <CustomModal
         visible={showMaxConfirm}
         onClose={() => setShowMaxConfirm(false)}
-        onConfirm={() => { setShowMaxConfirm(false); onFeedMax(animal); }}
+        onConfirm={() => { setShowMaxConfirm(false); onFeedMax(animal, feedNeededForMax); }}
         title={`Feed ${meta.label}?`}
         confirmText="Confirm"
         confirmDisabled={!canFeedMax}
