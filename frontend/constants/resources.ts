@@ -58,7 +58,7 @@ export const ANIMAL_META: Record<
     label: "Chicken",
     consumeResource: "strawberry",
     produceResource: "egg",
-    color: "#e8a030",
+    color: "#e8534a",
     produceEmoji: "🥚",
   },
   sheep: {
@@ -66,7 +66,7 @@ export const ANIMAL_META: Record<
     label: "Sheep",
     consumeResource: "pinecone",
     produceResource: "wool",
-    color: "#b0b8c8",
+    color: "#5b6bbf",
     produceEmoji: "🧶",
   },
   cow: {
@@ -74,7 +74,7 @@ export const ANIMAL_META: Record<
     label: "Cow",
     consumeResource: "blueberry",
     produceResource: "milk",
-    color: "#d4a070",
+    color: "#e8c840",
     produceEmoji: "🥛",
   },
 };

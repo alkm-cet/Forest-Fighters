@@ -18,7 +18,10 @@ export default function AnimalCard({ animal, onPress }: Props) {
     produceEmoji: "?",
   };
   const consumeMeta = RESOURCE_META[animal.consume_resource];
-  const feedPct = animal.max_feed > 0 ? Math.min(animal.current_feed / animal.max_feed, 1) : 0;
+  const feedPct =
+    animal.max_feed > 0
+      ? Math.min(animal.current_feed / animal.max_feed, 1)
+      : 0;
 
   return (
     <TouchableOpacity
@@ -29,7 +32,9 @@ export default function AnimalCard({ animal, onPress }: Props) {
       {/* Pending badge */}
       {animal.pending > 0 && (
         <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
-          <Text style={styles.pendingText}>{meta.produceEmoji} {animal.pending}</Text>
+          <Text style={styles.pendingText}>
+            {meta.produceEmoji} {animal.pending}
+          </Text>
         </View>
       )}
 
@@ -37,7 +42,10 @@ export default function AnimalCard({ animal, onPress }: Props) {
       <View style={styles.statsRow}>
         <StatCell label={t("lvl")} value={String(animal.level)} />
         <View style={styles.statDivider} />
-        <StatCell label="FEED" value={`${animal.current_feed}/${animal.max_feed}`} />
+        <StatCell
+          label="FEED"
+          value={`${animal.current_feed}/${animal.max_feed}`}
+        />
       </View>
 
       {/* Animal image */}
@@ -57,7 +65,11 @@ export default function AnimalCard({ animal, onPress }: Props) {
       {/* Feed bar footer */}
       <View style={styles.feedRow}>
         {consumeMeta?.image ? (
-          <Image source={consumeMeta.image} style={styles.feedIcon} resizeMode="contain" />
+          <Image
+            source={consumeMeta.image}
+            style={styles.feedIcon}
+            resizeMode="contain"
+          />
         ) : null}
         <View style={styles.feedTrack}>
           <View
@@ -70,7 +82,9 @@ export default function AnimalCard({ animal, onPress }: Props) {
             ]}
           />
         </View>
-        <Text style={styles.feedValue}>{animal.current_feed}/{animal.max_feed}</Text>
+        <Text style={styles.feedValue}>
+          {animal.current_feed}/{animal.max_feed}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -98,7 +112,7 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     position: "absolute",
-    top: 6,
+    bottom: 45,
     right: 6,
     borderRadius: 10,
     paddingHorizontal: 6,
@@ -148,8 +162,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   animalImage: {
-    width: 72,
-    height: 72,
+    width: 62,
+    height: 62,
   },
   name: {
     fontSize: 13,

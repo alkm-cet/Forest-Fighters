@@ -21,11 +21,15 @@ const DISMISS_THRESHOLD = 100;
 
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
   chicken: ["strawberry", "pinecone"],
-  sheep:   ["pinecone",   "blueberry"],
-  cow:     ["blueberry",  "strawberry"],
+  sheep: ["pinecone", "blueberry"],
+  cow: ["blueberry", "strawberry"],
 };
-function getUpgradeCost(level: number) { return level * 2; }
-function getMaxCapacity(level: number) { return 9 + level; }
+function getUpgradeCost(level: number) {
+  return level * 2;
+}
+function getMaxCapacity(level: number) {
+  return 9 + level;
+}
 
 function formatTime(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -64,29 +68,31 @@ export default function AnimalDrawer({
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
   const [showMaxConfirm, setShowMaxConfirm] = useState(false);
-  const [timerRowWidth, setTimerRowWidth]   = useState(0);
+  const [timerRowWidth, setTimerRowWidth] = useState(0);
 
   // Live state: progress into current cycle (seconds) and fuel remaining (seconds)
-  const [livePending,     setLivePending]     = useState(0);
+  const [livePending, setLivePending] = useState(0);
   const [liveProgressSec, setLiveProgressSec] = useState(0);
-  const [liveFuelSec,     setLiveFuelSec]     = useState(0);
-  const livePendingRef    = useRef(0);
-  const liveFuelSecRef    = useRef(0);
+  const [liveFuelSec, setLiveFuelSec] = useState(0);
+  const livePendingRef = useRef(0);
+  const liveFuelSecRef = useRef(0);
 
   // Interpolate animal snapshot forward to "now" using _fetched_at_ms.
   // This makes the timer accurate regardless of how long the snapshot has been in memory
   // (app backgrounded, drawer closed/reopened, etc.) — no extra network call needed.
   function interpolate(a: Animal) {
-    const elapsedSec = a._fetched_at_ms ? (Date.now() - a._fetched_at_ms) / 1000 : 0;
-    const cycleSec   = a.interval_minutes * 60;
-    const maxCap     = getMaxCapacity(a.level);
+    const elapsedSec = a._fetched_at_ms
+      ? (Date.now() - a._fetched_at_ms) / 1000
+      : 0;
+    const cycleSec = a.interval_minutes * 60;
+    const maxCap = getMaxCapacity(a.level);
 
-    const fuelSec     = Math.max(0, a.fuel_remaining_minutes * 60 - elapsedSec);
-    const actualRun   = a.fuel_remaining_minutes * 60 - fuelSec; // how much fuel actually burned
+    const fuelSec = Math.max(0, a.fuel_remaining_minutes * 60 - elapsedSec);
+    const actualRun = a.fuel_remaining_minutes * 60 - fuelSec; // how much fuel actually burned
     const rawProgress = a.progress_minutes * 60 + actualRun;
     const extraCycles = cycleSec > 0 ? Math.floor(rawProgress / cycleSec) : 0;
     const progressSec = cycleSec > 0 ? rawProgress % cycleSec : 0;
-    const pending     = Math.min(a.pending + extraCycles, maxCap);
+    const pending = Math.min(a.pending + extraCycles, maxCap);
 
     return { fuelSec, progressSec, pending };
   }
@@ -114,18 +120,28 @@ export default function AnimalDrawer({
     setLiveFuelSec(fuelSec);
     setLivePending(pending);
     setLiveProgressSec(progressSec);
-  }, [animal?.fuel_remaining_minutes, animal?.pending, animal?.progress_minutes, animal?._fetched_at_ms]);
+  }, [
+    animal?.fuel_remaining_minutes,
+    animal?.pending,
+    animal?.progress_minutes,
+    animal?._fetched_at_ms,
+  ]);
 
-  useEffect(() => { livePendingRef.current = livePending; }, [livePending]);
-  useEffect(() => { liveFuelSecRef.current = liveFuelSec; }, [liveFuelSec]);
+  useEffect(() => {
+    livePendingRef.current = livePending;
+  }, [livePending]);
+  useEffect(() => {
+    liveFuelSecRef.current = liveFuelSec;
+  }, [liveFuelSec]);
 
   useEffect(() => {
     if (!animal) return;
     const cycleSec = animal.interval_minutes * 60;
-    const maxCap   = getMaxCapacity(animal.level);
+    const maxCap = getMaxCapacity(animal.level);
     const interval = setInterval(() => {
       // Stop ticking if no fuel or storage full
-      if (liveFuelSecRef.current <= 0 || livePendingRef.current >= maxCap) return;
+      if (liveFuelSecRef.current <= 0 || livePendingRef.current >= maxCap)
+        return;
 
       setLiveFuelSec((f) => Math.max(0, f - 1));
       setLiveProgressSec((p) => {
@@ -143,7 +159,9 @@ export default function AnimalDrawer({
   // Long-press feed
   const feedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
-    return () => { if (feedIntervalRef.current) clearInterval(feedIntervalRef.current); };
+    return () => {
+      if (feedIntervalRef.current) clearInterval(feedIntervalRef.current);
+    };
   }, []);
 
   const panResponder = useRef(
@@ -155,10 +173,18 @@ export default function AnimalDrawer({
       },
       onPanResponderRelease: (_, gs) => {
         if (gs.dy > DISMISS_THRESHOLD || gs.vy > 0.6) {
-          Animated.timing(translateY, { toValue: 800, duration: 180, useNativeDriver: true })
-            .start(() => onClose());
+          Animated.timing(translateY, {
+            toValue: 800,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => onClose());
         } else {
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start();
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 120,
+            friction: 10,
+          }).start();
         }
       },
     }),
@@ -166,51 +192,70 @@ export default function AnimalDrawer({
 
   if (!animal) return null;
 
-  const meta        = ANIMAL_META[animal.animal_type];
+  const meta = ANIMAL_META[animal.animal_type];
   const consumeMeta = RESOURCE_META[animal.consume_resource];
   const produceMeta = RESOURCE_META[animal.produce_resource];
 
   // Upgrade
   const [res1, res2] = UPGRADE_RESOURCES[animal.animal_type] ?? ["?", "?"];
-  const upgradeCost   = getUpgradeCost(animal.level);
-  const res1Meta      = RESOURCE_META[res1];
-  const res2Meta      = RESOURCE_META[res2];
-  const isMaxLevel    = animal.level >= 50;
-  const canUpgrade    = !isMaxLevel &&
-    (resources?.[res1 as keyof Resources] as number ?? 0) >= upgradeCost &&
-    (resources?.[res2 as keyof Resources] as number ?? 0) >= upgradeCost;
+  const upgradeCost = getUpgradeCost(animal.level);
+  const res1Meta = RESOURCE_META[res1];
+  const res2Meta = RESOURCE_META[res2];
+  const isMaxLevel = animal.level >= 50;
+  const canUpgrade =
+    !isMaxLevel &&
+    ((resources?.[res1 as keyof Resources] as number) ?? 0) >= upgradeCost &&
+    ((resources?.[res2 as keyof Resources] as number) ?? 0) >= upgradeCost;
 
   // Collect
-  const currentProduced  = (resources?.[animal.produce_resource as keyof Resources] as number) ?? 0;
-  const produceCap       = (resources?.[`${animal.produce_resource}_cap` as keyof Resources] as number) ?? 10;
+  const currentProduced =
+    (resources?.[animal.produce_resource as keyof Resources] as number) ?? 0;
+  const produceCap =
+    (resources?.[
+      `${animal.produce_resource}_cap` as keyof Resources
+    ] as number) ?? 10;
   const freeProduceSpace = Math.max(0, produceCap - currentProduced);
-  const collectible      = Math.min(livePending, freeProduceSpace);
-  const produceCapFull   = freeProduceSpace === 0 && livePending > 0;
+  const collectible = Math.min(livePending, freeProduceSpace);
+  const produceCapFull = freeProduceSpace === 0 && livePending > 0;
 
   // Feed (in integer units)
   // liveFeedUnits: computed live from fuel seconds — ceil so a partially-consumed unit still counts as 1
-  const liveFeedUnits    = animal.minutes_per_feed > 0
-    ? Math.min(Math.ceil(liveFuelSec / 60 / animal.minutes_per_feed), animal.max_feed)
-    : 0;
-  const availableFeed    = (resources?.[animal.consume_resource as keyof Resources] as number) ?? 0;
+  const liveFeedUnits =
+    animal.minutes_per_feed > 0
+      ? Math.min(
+          Math.ceil(liveFuelSec / 60 / animal.minutes_per_feed),
+          animal.max_feed,
+        )
+      : 0;
+  const availableFeed =
+    (resources?.[animal.consume_resource as keyof Resources] as number) ?? 0;
   const feedNeededForMax = animal.max_feed - liveFeedUnits;
-  const canFeedOne       = availableFeed >= 1 && liveFeedUnits < animal.max_feed;
-  const canFeedMax       = feedNeededForMax > 0 && availableFeed >= feedNeededForMax;
-  const feedPct          = animal.max_feed > 0 ? Math.min(liveFeedUnits / animal.max_feed, 1) : 0;
+  const canFeedOne = availableFeed >= 1 && liveFeedUnits < animal.max_feed;
+  const canFeedMax = feedNeededForMax > 0 && availableFeed >= feedNeededForMax;
+  const feedPct =
+    animal.max_feed > 0 ? Math.min(liveFeedUnits / animal.max_feed, 1) : 0;
 
   // Timer / progress bar
-  const maxCap      = getMaxCapacity(animal.level);
-  const isFull      = livePending >= maxCap;
-  const isStopped   = liveFuelSec <= 0;           // ran out of fuel
-  const cycleSec    = animal.interval_minutes * 60;
-  const progress    = (isFull || isStopped || cycleSec <= 0)
-    ? (isStopped ? liveProgressSec / cycleSec : 0)   // freeze bar where it stopped
-    : Math.min(liveProgressSec / cycleSec, 1);
-  const countdown   = Math.max(0, cycleSec - liveProgressSec);
+  const maxCap = getMaxCapacity(animal.level);
+  const isFull = livePending >= maxCap;
+  const isStopped = liveFuelSec <= 0; // ran out of fuel
+  const cycleSec = animal.interval_minutes * 60;
+  const progress =
+    isFull || isStopped || cycleSec <= 0
+      ? isStopped
+        ? liveProgressSec / cycleSec
+        : 0 // freeze bar where it stopped
+      : Math.min(liveProgressSec / cycleSec, 1);
+  const countdown = Math.max(0, cycleSec - liveProgressSec);
   const fuelMinLeft = liveFuelSec / 60;
 
   return (
-    <Modal visible={!!animal} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={!!animal}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
@@ -219,25 +264,62 @@ export default function AnimalDrawer({
         style={[styles.drawer, { transform: [{ translateY }] }]}
         {...panResponder.panHandlers}
       >
+        {/* CLOSE button */}
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={onClose}
+          activeOpacity={0.7}
+        >
+          <X size={14} color="#7a5230" strokeWidth={2.5} />
+        </TouchableOpacity>
+
         {/* ─── Top bar: level badge │ handle │ close ─── */}
         <View style={styles.topBar}>
           {/* Upgrade cost preview (left) */}
           {!isMaxLevel && (
             <View style={styles.upgradeMini}>
-              {res1Meta?.image && <Image source={res1Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />}
-              <Text style={[styles.upgradeMiniCost, (resources?.[res1 as keyof Resources] as number ?? 0) < upgradeCost && styles.costShort]}>
+              {res1Meta?.image && (
+                <Image
+                  source={res1Meta.image}
+                  style={styles.upgradeMiniIcon}
+                  resizeMode="contain"
+                />
+              )}
+              <Text
+                style={[
+                  styles.upgradeMiniCost,
+                  ((resources?.[res1 as keyof Resources] as number) ?? 0) <
+                    upgradeCost && styles.costShort,
+                ]}
+              >
                 ×{upgradeCost}
               </Text>
               <Text style={styles.upgradeMiniPlus}>+</Text>
-              {res2Meta?.image && <Image source={res2Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />}
-              <Text style={[styles.upgradeMiniCost, (resources?.[res2 as keyof Resources] as number ?? 0) < upgradeCost && styles.costShort]}>
+              {res2Meta?.image && (
+                <Image
+                  source={res2Meta.image}
+                  style={styles.upgradeMiniIcon}
+                  resizeMode="contain"
+                />
+              )}
+              <Text
+                style={[
+                  styles.upgradeMiniCost,
+                  ((resources?.[res2 as keyof Resources] as number) ?? 0) <
+                    upgradeCost && styles.costShort,
+                ]}
+              >
                 ×{upgradeCost}
               </Text>
               <Text style={styles.upgradeMiniArrow}>→</Text>
               <Text style={styles.upgradeMiniLevel}>LV {animal.level + 1}</Text>
             </View>
           )}
-          {isMaxLevel && <View style={styles.upgradeMini}><Text style={styles.upgradeMiniLevel}>MAX</Text></View>}
+          {isMaxLevel && (
+            <View style={styles.upgradeMini}>
+              <Text style={styles.upgradeMiniLevel}>MAX</Text>
+            </View>
+          )}
 
           {/* Handle (center) */}
           <View style={styles.handleWrap}>
@@ -252,16 +334,19 @@ export default function AnimalDrawer({
         </View>
 
         {/* Close button — below topBar so it never overlaps */}
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={14} color="#7a5230" strokeWidth={2.5} />
-        </TouchableOpacity>
 
         {/* Animal name */}
         <Text style={styles.animalName}>{meta.label}</Text>
 
         {/* Animal image */}
         <View style={styles.imageFrame}>
-          {meta.image && <Image source={meta.image} style={styles.animalImage} resizeMode="contain" />}
+          {meta.image && (
+            <Image
+              source={meta.image}
+              style={styles.animalImage}
+              resizeMode="contain"
+            />
+          )}
         </View>
 
         <View style={styles.divider} />
@@ -277,11 +362,14 @@ export default function AnimalDrawer({
             <Text style={styles.productionValue}>1</Text>
             <Text style={styles.productionSep}>/</Text>
             <Text style={styles.productionInterval}>
-              {Number(animal.interval_minutes).toFixed(1)} {t("perMin").replace("/ ", "")}
+              {Number(animal.interval_minutes).toFixed(1)}{" "}
+              {t("perMin").replace("/ ", "")}
             </Text>
           </View>
           {livePending > 0 && (
-            <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
+            <View
+              style={[styles.pendingBadge, { backgroundColor: meta.color }]}
+            >
               <Package size={12} color="#fff" strokeWidth={2} />
               <Text style={styles.pendingText}>
                 {livePending} / {maxCap} {t("pendingReady")}
@@ -296,14 +384,27 @@ export default function AnimalDrawer({
           onLayout={(e) => setTimerRowWidth(e.nativeEvent.layout.width)}
         >
           {!isFull && (
-            <View style={[
-              styles.nextReadyFill,
-              { width: timerRowWidth * progress, backgroundColor: isStopped ? "#b0a080" : meta.color },
-            ]} />
+            <View
+              style={[
+                styles.nextReadyFill,
+                {
+                  width: timerRowWidth * progress,
+                  backgroundColor: isStopped ? "#b0a080" : meta.color,
+                },
+              ]}
+            />
           )}
-          <Timer size={12} color={isFull ? "#c0392b" : isStopped ? "#b0805a" : "#9a7040"} strokeWidth={2} />
+          <Timer
+            size={12}
+            color={isFull ? "#c0392b" : isStopped ? "#b0805a" : "#9a7040"}
+            strokeWidth={2}
+          />
           <Text style={styles.nextReadyLabel}>
-            {isFull ? t("farmerStorageFull") : isStopped ? "Paused — add feed" : t("nextIn")}
+            {isFull
+              ? t("farmerStorageFull")
+              : isStopped
+                ? "Paused — add feed"
+                : t("nextIn")}
           </Text>
           {!isFull && !isStopped && (
             <Text style={styles.nextReadyTimer}>{formatTime(countdown)}</Text>
@@ -317,8 +418,8 @@ export default function AnimalDrawer({
             produceCapFull
               ? `${produceMeta?.label ?? animal.produce_resource} — ${t("farmerStorageFull")}`
               : collectible > 0
-              ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
-              : t("nothingToCollect")
+                ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
+                : t("nothingToCollect")
           }
           onClick={() => onCollect(animal)}
           bgColor={produceCapFull ? "#9a7040" : meta.color}
@@ -334,15 +435,30 @@ export default function AnimalDrawer({
           <Package size={12} color="#9a7040" strokeWidth={2} />
           <Text style={styles.sectionLabel}>FEED STORAGE</Text>
           <Text style={styles.availableFeedText}>
-            {availableFeed} {consumeMeta?.label ?? animal.consume_resource} available
+            {availableFeed} {consumeMeta?.label ?? animal.consume_resource}{" "}
+            available
           </Text>
         </View>
 
         {/* Feed bar */}
         <View style={styles.feedBarRow}>
-          {consumeMeta?.image && <Image source={consumeMeta.image} style={styles.feedBarIcon} resizeMode="contain" />}
+          {consumeMeta?.image && (
+            <Image
+              source={consumeMeta.image}
+              style={styles.feedBarIcon}
+              resizeMode="contain"
+            />
+          )}
           <View style={styles.feedBarTrack}>
-            <View style={[styles.feedBarFill, { width: `${feedPct * 100}%` as any, backgroundColor: consumeMeta?.color ?? meta.color }]} />
+            <View
+              style={[
+                styles.feedBarFill,
+                {
+                  width: `${feedPct * 100}%` as any,
+                  backgroundColor: consumeMeta?.color ?? meta.color,
+                },
+              ]}
+            />
           </View>
           <Text style={styles.feedBarText}>
             {liveFeedUnits} / {animal.max_feed}
@@ -351,9 +467,15 @@ export default function AnimalDrawer({
 
         {/* Remaining fuel time */}
         <View style={styles.feedTimeRow}>
-          <Timer size={11} color={isStopped ? "#b0805a" : "#9a7040"} strokeWidth={2} />
+          <Timer
+            size={11}
+            color={isStopped ? "#b0805a" : "#9a7040"}
+            strokeWidth={2}
+          />
           <Text style={styles.feedTimeLabel}>Fuel Remaining</Text>
-          <Text style={[styles.feedTimeValue, isStopped && { color: "#b0805a" }]}>
+          <Text
+            style={[styles.feedTimeValue, isStopped && { color: "#b0805a" }]}
+          >
             {liveFuelSec > 0 ? formatMinutes(fuelMinLeft) : "Empty — add feed"}
           </Text>
         </View>
@@ -369,20 +491,44 @@ export default function AnimalDrawer({
               feedIntervalRef.current = setInterval(() => onFeed(animal), 200);
             }}
             onPressOut={() => {
-              if (feedIntervalRef.current) { clearInterval(feedIntervalRef.current); feedIntervalRef.current = null; }
+              if (feedIntervalRef.current) {
+                clearInterval(feedIntervalRef.current);
+                feedIntervalRef.current = null;
+              }
             }}
             delayLongPress={300}
           >
-            <Text style={[styles.feedBtnText, !canFeedOne && styles.feedBtnTextDisabled]}>+1</Text>
-            {consumeMeta?.image && <Image source={consumeMeta.image} style={styles.feedBtnIcon} resizeMode="contain" />}
+            <Text
+              style={[
+                styles.feedBtnText,
+                !canFeedOne && styles.feedBtnTextDisabled,
+              ]}
+            >
+              +1
+            </Text>
+            {consumeMeta?.image && (
+              <Image
+                source={consumeMeta.image}
+                style={styles.feedBtnIcon}
+                resizeMode="contain"
+              />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.feedMaxBtn, !feedNeededForMax && styles.feedBtnDisabled]}
+            style={[
+              styles.feedMaxBtn,
+              !feedNeededForMax && styles.feedBtnDisabled,
+            ]}
             activeOpacity={0.7}
             onPress={() => setShowMaxConfirm(true)}
           >
-            <Text style={[styles.feedMaxBtnText, !feedNeededForMax && styles.feedBtnTextDisabled]}>
+            <Text
+              style={[
+                styles.feedMaxBtnText,
+                !feedNeededForMax && styles.feedBtnTextDisabled,
+              ]}
+            >
               MAX {feedNeededForMax > 0 ? `(${feedNeededForMax})` : ""}
             </Text>
           </TouchableOpacity>
@@ -393,7 +539,11 @@ export default function AnimalDrawer({
         {/* ─── Upgrade button (mirrors FarmerDrawer) ─── */}
         <CustomButton
           btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-          text={isMaxLevel ? `MAX LV ${animal.level}` : `${t("upgrade")} → LV ${animal.level + 1}`}
+          text={
+            isMaxLevel
+              ? `MAX LV ${animal.level}`
+              : `${t("upgrade")} → LV ${animal.level + 1}`
+          }
           onClick={() => onUpgrade(animal)}
           bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
           borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
@@ -406,20 +556,25 @@ export default function AnimalDrawer({
       <CustomModal
         visible={showMaxConfirm}
         onClose={() => setShowMaxConfirm(false)}
-        onConfirm={() => { setShowMaxConfirm(false); onFeedMax(animal, feedNeededForMax); }}
+        onConfirm={() => {
+          setShowMaxConfirm(false);
+          onFeedMax(animal, feedNeededForMax);
+        }}
         title={`Feed ${meta.label}?`}
         confirmText="Confirm"
         confirmDisabled={!canFeedMax}
       >
         <Text style={styles.modalBody}>
           This will use{" "}
-          <Text style={styles.modalCost}>{feedNeededForMax} {consumeMeta?.label ?? animal.consume_resource}</Text>
+          <Text style={styles.modalCost}>
+            {feedNeededForMax} {consumeMeta?.label ?? animal.consume_resource}
+          </Text>
           {"\n"}to fill the feed storage.
         </Text>
         {!canFeedMax && (
           <Text style={styles.modalWarning}>
-            Not enough {consumeMeta?.label ?? animal.consume_resource}{" "}
-            (have {availableFeed}, need {feedNeededForMax})
+            Not enough {consumeMeta?.label ?? animal.consume_resource} (have{" "}
+            {availableFeed}, need {feedNeededForMax})
           </Text>
         )}
       </CustomModal>
@@ -451,6 +606,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 4,
+    paddingTop: 12,
   },
   upgradeMini: {
     flexDirection: "row",
@@ -465,7 +621,7 @@ const styles = StyleSheet.create({
     color: "#3a2a10",
   },
   costShort: { color: "#c0392b" },
-  upgradeMiniPlus:  { fontSize: 11, color: "#9a7040", fontWeight: "700" },
+  upgradeMiniPlus: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
   upgradeMiniArrow: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
   handleWrap: { flex: 1, alignItems: "center" },
@@ -486,11 +642,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#c8a040",
     gap: 3,
-    flex: 1,
     justifyContent: "flex-end",
   },
   levelBadgeLabel: { fontSize: 10, fontWeight: "700", color: "#7a5020" },
-  levelBadgeNum:   { fontSize: 18, fontWeight: "900", color: "#3a1e00" },
+  levelBadgeNum: { fontSize: 18, fontWeight: "900", color: "#3a1e00" },
 
   // Close button — below topBar, right-aligned
   closeBtn: {
@@ -550,7 +705,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   productionValue: { fontSize: 20, fontWeight: "900", color: "#3a1e00" },
-  productionSep:   { fontSize: 14, color: "#9a7040" },
+  productionSep: { fontSize: 14, color: "#9a7040" },
   productionInterval: { fontSize: 12, fontWeight: "600", color: "#7a5030" },
   pendingBadge: {
     flexDirection: "row",
@@ -583,7 +738,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     opacity: 0.35,
   },
-  nextReadyLabel: { flex: 1, fontSize: 12, fontWeight: "700", color: "#7a5030" },
+  nextReadyLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#7a5030",
+  },
   nextReadyTimer: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
 
   actionBtn: { marginBottom: 2 },
@@ -611,7 +771,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   feedBarFill: { height: "100%", borderRadius: 5 },
-  feedBarText: { fontSize: 12, fontWeight: "700", color: "#3a1e00", minWidth: 50, textAlign: "right" },
+  feedBarText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#3a1e00",
+    minWidth: 50,
+    textAlign: "right",
+  },
   feedTimeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -649,14 +815,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 11,
   },
-  feedBtnDisabled:     { opacity: 0.4 },
-  feedBtnText:         { fontSize: 16, fontWeight: "900", color: "#fff" },
-  feedMaxBtnText:      { fontSize: 14, fontWeight: "900", color: "#fff" },
+  feedBtnDisabled: { opacity: 0.4 },
+  feedBtnText: { fontSize: 16, fontWeight: "900", color: "#fff" },
+  feedMaxBtnText: { fontSize: 14, fontWeight: "900", color: "#fff" },
   feedBtnTextDisabled: { color: "#fff" },
-  feedBtnIcon:         { width: 18, height: 18 },
+  feedBtnIcon: { width: 18, height: 18 },
 
   // ── Max feed modal ──
-  modalBody:    { fontSize: 14, fontWeight: "600", color: "#5a3a10", lineHeight: 22 },
-  modalCost:    { fontWeight: "900", color: "#3a1e00" },
-  modalWarning: { fontSize: 12, fontWeight: "700", color: "#c0392b", marginTop: 8 },
+  modalBody: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#5a3a10",
+    lineHeight: 22,
+  },
+  modalCost: { fontWeight: "900", color: "#3a1e00" },
+  modalWarning: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#c0392b",
+    marginTop: 8,
+  },
 });
