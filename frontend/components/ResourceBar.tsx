@@ -1,7 +1,7 @@
 import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "./StyledText";
-import { Resources, ResourceKey } from "../types";
-import { RESOURCE_META } from "../constants/resources";
+import { Resources, ResourceKey, AdvancedResourceKey } from "../types";
+import { RESOURCE_META, ANIMAL_META } from "../constants/resources";
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 
 const PLUS_BTN = require("../assets/plus-button-image.png");
@@ -9,80 +9,159 @@ const PLUS_BTN = require("../assets/plus-button-image.png");
 type Props = {
   resources: Resources;
   onUpgrade?: (resource: ResourceKey) => void;
+  onUpgradeAdvanced?: (resource: AdvancedResourceKey) => void;
 };
 
 type Entry = { key: ResourceKey; amount: number; cap: number };
 
-export default function ResourceBar({ resources, onUpgrade }: Props) {
+// Emoji icons for advanced resources (no image assets yet)
+const ADVANCED_RESOURCE_EMOJI: Record<string, string> = {
+  egg: "🥚",
+  wool: "🧶",
+  milk: "🥛",
+};
+
+export default function ResourceBar({
+  resources,
+  onUpgrade,
+  onUpgradeAdvanced,
+}: Props) {
   const { t } = useLanguage();
   const entries: Entry[] = [
     {
       key: "strawberry",
       amount: resources.strawberry,
-      cap: resources.strawberry_cap ?? 15,
+      cap: resources.strawberry_cap ?? 10,
     },
     {
       key: "pinecone",
       amount: resources.pinecone,
-      cap: resources.pinecone_cap ?? 15,
+      cap: resources.pinecone_cap ?? 10,
     },
     {
       key: "blueberry",
       amount: resources.blueberry,
-      cap: resources.blueberry_cap ?? 15,
+      cap: resources.blueberry_cap ?? 10,
     },
   ];
 
-  return (
-    <View style={styles.container}>
-      {entries.map(({ key, amount, cap }) => {
-        const meta = RESOURCE_META[key];
-        return (
-          <View key={key} style={styles.section}>
-            {/* Resource name */}
-            <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
+  const advancedEntries = [
+    {
+      key: "egg",
+      amount: resources.egg ?? 0,
+      cap: resources.egg_cap ?? 10,
+      producedBy: "chicken",
+    },
+    {
+      key: "wool",
+      amount: resources.wool ?? 0,
+      cap: resources.wool_cap ?? 10,
+      producedBy: "sheep",
+    },
+    {
+      key: "milk",
+      amount: resources.milk ?? 0,
+      cap: resources.milk_cap ?? 10,
+      producedBy: "cow",
+    },
+  ];
+  const hasAdvanced = advancedEntries.some((e) => e.amount > 0 || e.cap > 10);
 
-            {/* Row: image overlaps badge from the left */}
-            <View style={styles.row}>
-              {/* Resource image — rendered last so it sits on top */}
-              <Image
-                source={meta.image}
-                style={styles.resourceImage}
-                resizeMode="contain"
-              />
-              {/* Badge pulled left under the image */}
-              <View style={styles.amountBadge}>
-                <Text style={styles.amountText}>
-                  {amount}
-                  <Text style={styles.capText}>/{cap}</Text>
-                </Text>
-                {cap < 100 && (
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.plusWrap}
-                    onPress={() => onUpgrade?.(key)}
-                  >
-                    <Image
-                      source={PLUS_BTN}
-                      style={styles.plusBtn}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                )}
+  return (
+    <View style={styles.wrapper}>
+      {/* Row 1: Basic resources */}
+      <View style={styles.container}>
+        {entries.map(({ key, amount, cap }) => {
+          const meta = RESOURCE_META[key];
+          return (
+            <View key={key} style={styles.section}>
+              <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
+              <View style={styles.row}>
+                {meta.image ? (
+                  <Image
+                    source={meta.image}
+                    style={styles.resourceImage}
+                    resizeMode="contain"
+                  />
+                ) : null}
+                <View style={styles.amountBadge}>
+                  <Text style={styles.amountText}>
+                    {amount}
+                    <Text style={styles.capText}>/{cap}</Text>
+                  </Text>
+                  {cap < 100 && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.plusWrap}
+                      onPress={() => onUpgrade?.(key)}
+                    >
+                      <Image
+                        source={PLUS_BTN}
+                        style={styles.plusBtn}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
+
+      {/* Row 2: Advanced resources — always visible to show animals are present */}
+      <View style={styles.container}>
+        {advancedEntries.map(({ key, amount, cap }) => {
+          const meta = RESOURCE_META[key];
+          return (
+            <View key={key} style={styles.section}>
+              <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
+              <View style={styles.row}>
+                {meta.image ? (
+                  <Image
+                    source={meta.image}
+                    style={styles.resourceImage}
+                    resizeMode="contain"
+                  />
+                ) : null}
+                <View style={styles.amountBadge}>
+                  <Text style={styles.amountText}>
+                    {amount}
+                    <Text style={styles.capText}>/{cap}</Text>
+                  </Text>
+                  {cap < 100 && (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.plusWrap}
+                      onPress={() =>
+                        onUpgradeAdvanced?.(key as AdvancedResourceKey)
+                      }
+                    >
+                      <Image
+                        source={PLUS_BTN}
+                        style={styles.plusBtn}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
+  wrapper: {
     marginHorizontal: 12,
     marginVertical: 8,
+    gap: 6,
+  },
+  container: {
+    flexDirection: "row",
     backgroundColor: "#f5e9cc",
     borderRadius: 16,
     borderWidth: 2,

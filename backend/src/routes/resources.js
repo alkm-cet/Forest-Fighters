@@ -23,19 +23,25 @@ function getCapUpgradeCost(currentCap) {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const rows = await query(
-      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1',
+      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1',
       [req.player.id]
     );
     if (!rows.length) {
-      return res.json({ strawberry: 0, pinecone: 0, blueberry: 0, strawberry_cap: 15, pinecone_cap: 15, blueberry_cap: 15 });
+      return res.json({ strawberry: 0, pinecone: 0, blueberry: 0, strawberry_cap: 10, pinecone_cap: 10, blueberry_cap: 10, egg: 0, wool: 0, milk: 0, egg_cap: 10, wool_cap: 10, milk_cap: 10 });
     }
     const row = rows[0];
     // Ensure caps have a value (in case columns were just added)
     return res.json({
       ...row,
-      strawberry_cap: row.strawberry_cap ?? 15,
-      pinecone_cap:   row.pinecone_cap   ?? 15,
-      blueberry_cap:  row.blueberry_cap  ?? 15,
+      strawberry_cap: row.strawberry_cap ?? 10,
+      pinecone_cap:   row.pinecone_cap   ?? 10,
+      blueberry_cap:  row.blueberry_cap  ?? 10,
+      egg:      row.egg      ?? 0,
+      wool:     row.wool     ?? 0,
+      milk:     row.milk     ?? 0,
+      egg_cap:  row.egg_cap  ?? 10,
+      wool_cap: row.wool_cap ?? 10,
+      milk_cap: row.milk_cap ?? 10,
     });
   } catch (err) {
     console.error(err);

@@ -28,8 +28,10 @@ import { connectSocket, disconnectSocket } from "../../lib/socket";
 import {
   Resources,
   ResourceKey,
+  AdvancedResourceKey,
   Champion,
   Farmer,
+  Animal,
   Player,
   DungeonRun,
   PvpBattle,
@@ -41,6 +43,8 @@ import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
 import FarmerCard from "../../components/FarmerCard";
 import FarmerDrawer from "../../components/FarmerDrawer";
+import AnimalCard from "../../components/AnimalCard";
+import AnimalDrawer from "../../components/AnimalDrawer";
 import CollectFloater from "../../components/CollectFloater";
 import CampfireScene from "../../components/CampfireScene";
 
@@ -59,6 +63,12 @@ export default function MainScreen() {
     strawberry_cap: 10,
     pinecone_cap: 10,
     blueberry_cap: 10,
+    egg: 0,
+    wool: 0,
+    milk: 0,
+    egg_cap: 10,
+    wool_cap: 10,
+    milk_cap: 10,
   });
   const [capUpgradeConfirm, setCapUpgradeConfirm] = useState<{
     resource: ResourceKey;
@@ -66,6 +76,15 @@ export default function MainScreen() {
     cost: number;
     costRes1: ResourceKey;
     costRes2: ResourceKey;
+  } | null>(null);
+  const [advancedCapUpgradeConfirm, setAdvancedCapUpgradeConfirm] = useState<{
+    resource: AdvancedResourceKey;
+    currentCap: number;
+    cost1: number;
+    cost2: number;
+    costRes1: ResourceKey;
+    costRes2: ResourceKey;
+    emoji: string;
   } | null>(null);
   const [champions, setChampions] = useState<Champion[]>([]);
   const [runMap, setRunMap] = useState<Record<string, DungeonRun>>({});
@@ -79,10 +98,12 @@ export default function MainScreen() {
     newLevel: number;
   } | null>(null);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
+  const [animals, setAnimals] = useState<Animal[]>([]);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
+  const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [collectAnim, setCollectAnim] = useState<{
     farmerId: string;
     amount: number;
@@ -90,7 +111,9 @@ export default function MainScreen() {
     farmerIndex: number;
     key: number;
   } | null>(null);
-  const [showFarmers, setShowFarmers] = useState(false);
+  type TabName = "champions" | "farmers" | "animals";
+  const TAB_ORDER: TabName[] = ["champions", "farmers", "animals"];
+  const [activeTab, setActiveTab] = useState<TabName>("champions");
   const [error, setError] = useState(false);
   const [missionTick, setMissionTick] = useState(0);
   const [expiredRunChampions, setExpiredRunChampions] = useState<Set<string>>(new Set());
@@ -117,6 +140,7 @@ export default function MainScreen() {
         api.get("/api/resources").then((r) => setResources(r.data)),
         api.get("/api/champions").then((r) => setChampions(r.data)),
         api.get("/api/farmers").then((r) => setFarmers(r.data)),
+        api.get("/api/animals").then((r) => setAnimals(r.data)),
         api.get("/api/dungeons/runs").then((r) => {
           const map: Record<string, DungeonRun> = {};
           for (const run of r.data) {
@@ -210,18 +234,19 @@ export default function MainScreen() {
     }
   }
 
-  function toggleView() {
-    const toValue = showFarmers ? 0 : -screenWidth;
+  function switchTab(tab: TabName) {
+    const idx = TAB_ORDER.indexOf(tab);
+    const toValue = -idx * screenWidth;
     Animated.spring(slideAnim, {
       toValue,
       useNativeDriver: true,
       tension: 80,
       friction: 14,
     }).start();
-    setShowFarmers(!showFarmers);
+    setActiveTab(tab);
   }
 
-  const hasCards = champions.length > 0 || farmers.length > 0;
+  const hasCards = champions.length > 0 || farmers.length > 0 || animals.length > 0;
 
   return (
     <ImageBackground source={BG} style={styles.bg} resizeMode="cover">
@@ -249,6 +274,25 @@ export default function MainScreen() {
         {/* Resource pills */}
         <ResourceBar
           resources={resources}
+          onUpgradeAdvanced={(resource) => {
+            const ADVANCED_COSTS: Record<AdvancedResourceKey, { res1: ResourceKey; res2: ResourceKey; cost1: number; cost2: number; emoji: string }> = {
+              egg:  { res1: "strawberry", res2: "pinecone",  cost1: 20, cost2: 10, emoji: "🥚" },
+              wool: { res1: "pinecone",   res2: "blueberry", cost1: 20, cost2: 10, emoji: "🧶" },
+              milk: { res1: "blueberry",  res2: "strawberry", cost1: 20, cost2: 10, emoji: "🥛" },
+            };
+            const cfg = ADVANCED_COSTS[resource];
+            const capKey = `${resource}_cap` as keyof Resources;
+            const currentCap = (resources[capKey] as number) ?? 10;
+            setAdvancedCapUpgradeConfirm({
+              resource,
+              currentCap,
+              cost1: cfg.cost1,
+              cost2: cfg.cost2,
+              costRes1: cfg.res1,
+              costRes2: cfg.res2,
+              emoji: cfg.emoji,
+            });
+          }}
           onUpgrade={(resource) => {
             const CAP_COSTS: Record<ResourceKey, [ResourceKey, ResourceKey]> = {
               strawberry: ["pinecone", "blueberry"],
@@ -306,7 +350,8 @@ export default function MainScreen() {
             <CampfireScene
               champions={champions}
               farmers={farmers}
-              showFarmers={showFarmers}
+              animals={animals}
+              activeTab={activeTab}
               closedEyesCat={closedEyesCat}
               onCatPress={handleCatPress}
             />
@@ -316,36 +361,40 @@ export default function MainScreen() {
         {/* Cards section */}
         {hasCards && (
           <View style={styles.cardsSection}>
-            {/* Section header with toggle */}
+            {/* Section header with 3-tab buttons */}
             <View style={styles.cardsSectionHeader}>
               <View style={styles.sectionTitleRow}>
-                {showFarmers ? (
+                {activeTab === "farmers" ? (
                   <Sprout size={13} color="#a8e6a3" strokeWidth={2.5} />
                 ) : (
                   <Swords size={13} color="#a8e6a3" strokeWidth={2.5} />
                 )}
                 <Text style={styles.sectionTitle}>
-                  {showFarmers ? t("farmersUpper") : t("championsUpper")}
+                  {activeTab === "farmers"
+                    ? t("farmersUpper")
+                    : activeTab === "animals"
+                    ? "ANIMALS"
+                    : t("championsUpper")}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.toggleBtn}
-                onPress={toggleView}
-                activeOpacity={0.75}
-              >
-                {showFarmers ? (
-                  <Swords size={12} color="#3a2a10" strokeWidth={2.5} />
-                ) : (
-                  <Sprout size={12} color="#3a2a10" strokeWidth={2.5} />
-                )}
-                <Text style={styles.toggleBtnText}>
-                  {showFarmers ? t("champions") : t("farmers")}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.tabRow}>
+                {(["champions", "farmers", "animals"] as TabName[]).map((tab) => (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+                    onPress={() => switchTab(tab)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
+                      {tab === "champions" ? t("champions") : tab === "farmers" ? t("farmers") : "Animals"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {/* Collect floater — rendered outside slideClip to avoid overflow:hidden clipping */}
-            {collectAnim && showFarmers && (
+            {collectAnim && activeTab === "farmers" && (
               <CollectFloater
                 key={collectAnim.key}
                 amount={collectAnim.amount}
@@ -361,7 +410,7 @@ export default function MainScreen() {
               <Animated.View
                 style={[
                   styles.slideContainer,
-                  { transform: [{ translateX: slideAnim }] },
+                  { width: screenWidth * 3, transform: [{ translateX: slideAnim }] },
                 ]}
               >
                 {/* Champions row */}
@@ -385,6 +434,17 @@ export default function MainScreen() {
                       key={f.id}
                       farmer={f}
                       onPress={setSelectedFarmer}
+                    />
+                  ))}
+                </View>
+
+                {/* Animals row */}
+                <View style={[styles.cardsRow, { width: screenWidth }]}>
+                  {animals.slice(0, 3).map((a) => (
+                    <AnimalCard
+                      key={a.id}
+                      animal={a}
+                      onPress={setSelectedAnimal}
                     />
                   ))}
                 </View>
@@ -605,6 +665,61 @@ export default function MainScreen() {
         }}
       />
 
+      <AnimalDrawer
+        animal={selectedAnimal}
+        resources={resources}
+        onClose={() => setSelectedAnimal(null)}
+        onUpgrade={async (animal) => {
+          try {
+            const res = await api.post(`/api/animals/${animal.id}/upgrade`);
+            setResources(res.data.resources);
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
+            );
+            setSelectedAnimal(res.data.animal);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Upgrade failed");
+          }
+        }}
+        onFeed={async (animal) => {
+          try {
+            const res = await api.post(`/api/animals/${animal.id}/feed`);
+            setResources(res.data.resources);
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
+            );
+            setSelectedAnimal(res.data.animal);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Feed failed");
+          }
+        }}
+        onFeedMax={async (animal) => {
+          try {
+            const res = await api.post(`/api/animals/${animal.id}/feed-max`);
+            setResources(res.data.resources);
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
+            );
+            setSelectedAnimal(res.data.animal);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Feed max failed");
+          }
+        }}
+        onCollect={async (animal) => {
+          try {
+            const res = await api.post(`/api/animals/${animal.id}/collect`);
+            setResources(res.data.resources);
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? res.data.animal : a)),
+            );
+            setSelectedAnimal(res.data.animal);
+            music.sfx("COLLECT");
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Collect failed");
+          }
+        }}
+      />
+
       {/* Capacity upgrade confirmation modal */}
       <Modal
         visible={capUpgradeConfirm !== null}
@@ -704,6 +819,123 @@ export default function MainScreen() {
                           try {
                             const res = await api.post(
                               "/api/resources/upgrade-capacity",
+                              { resource },
+                            );
+                            setResources(res.data);
+                          } catch (err: any) {
+                            alert(
+                              err.response?.data?.error ??
+                                "Kapasite artırılamadı",
+                            );
+                          }
+                        }}
+                      >
+                        <Text style={styles.capModalConfirmText}>
+                          {t("confirmUpgradeBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                );
+              })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Advanced resource (egg/wool/milk) storage upgrade confirmation modal */}
+      <Modal
+        visible={advancedCapUpgradeConfirm !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAdvancedCapUpgradeConfirm(null)}
+      >
+        <View style={styles.capModalOverlay}>
+          <View style={styles.capModalCard}>
+            {advancedCapUpgradeConfirm &&
+              (() => {
+                const { resource, currentCap, cost1, cost2, costRes1, costRes2, emoji } =
+                  advancedCapUpgradeConfirm;
+                const meta1 = RESOURCE_META[costRes1];
+                const meta2 = RESOURCE_META[costRes2];
+                const canAfford =
+                  resources[costRes1] >= cost1 && resources[costRes2] >= cost2;
+                return (
+                  <>
+                    <Text style={styles.capModalTitle}>
+                      {t("upgradeCapacityTitle")}
+                    </Text>
+                    {/* Resource emoji + cap change */}
+                    <View style={styles.capModalResourceRow}>
+                      <Text style={{ fontSize: 32 }}>{emoji}</Text>
+                      <Text style={styles.capModalCapChange}>
+                        {currentCap}
+                        <Text style={styles.capModalArrow}> → </Text>
+                        <Text style={styles.capModalNewCap}>
+                          {currentCap + 10}
+                        </Text>
+                      </Text>
+                    </View>
+                    <Text style={styles.capModalInfo}>
+                      {t("upgradeCapacityInfo")}
+                    </Text>
+                    {/* Cost row */}
+                    <View style={styles.capModalCostRow}>
+                      <View style={styles.capModalCostItem}>
+                        <Image
+                          source={meta1.image!}
+                          style={styles.capModalCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.capModalCostText,
+                            resources[costRes1] < cost1 &&
+                              styles.capModalCostLow,
+                          ]}
+                        >
+                          ×{cost1}
+                        </Text>
+                      </View>
+                      <Text style={styles.capModalPlus}>+</Text>
+                      <View style={styles.capModalCostItem}>
+                        <Image
+                          source={meta2.image!}
+                          style={styles.capModalCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.capModalCostText,
+                            resources[costRes2] < cost2 &&
+                              styles.capModalCostLow,
+                          ]}
+                        >
+                          ×{cost2}
+                        </Text>
+                      </View>
+                    </View>
+                    {/* Buttons */}
+                    <View style={styles.capModalBtns}>
+                      <TouchableOpacity
+                        style={styles.capModalCancelBtn}
+                        onPress={() => setAdvancedCapUpgradeConfirm(null)}
+                      >
+                        <Text style={styles.capModalCancelText}>
+                          {t("cancelBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.capModalConfirmBtn,
+                          !canAfford && styles.capModalConfirmDisabled,
+                        ]}
+                        activeOpacity={canAfford ? 0.75 : 1}
+                        onPress={async () => {
+                          if (!canAfford) return;
+                          setAdvancedCapUpgradeConfirm(null);
+                          try {
+                            const res = await api.post(
+                              "/api/animals/upgrade-storage",
                               { resource },
                             );
                             setResources(res.data);
@@ -935,7 +1167,7 @@ export default function MainScreen() {
                       const meta = RESOURCE_META[r];
                       return (
                         <View key={r} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Image source={meta.image} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                          {meta.image ? <Image source={meta.image} style={{ width: 22, height: 22 }} resizeMode="contain" /> : null}
                           <Text style={[styles.modalReward, { color: won ? "#4a7c3f" : "#c0392b" }]}>
                             {won ? "+" : "-"}{amt}
                           </Text>
@@ -1155,21 +1387,30 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  toggleBtn: {
+  tabRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(245,237,216,0.92)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
+    gap: 4,
+  },
+  tabBtn: {
+    paddingHorizontal: 10,
     paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: "rgba(245,237,216,0.75)",
     borderWidth: 1.5,
     borderColor: "#d4b896",
   },
-  toggleBtnText: {
-    fontSize: 12,
+  tabBtnActive: {
+    backgroundColor: "rgba(245,237,216,0.97)",
+    borderColor: "#9a7040",
+  },
+  tabBtnText: {
+    fontSize: 11,
     fontWeight: "700",
-    color: "#3a2a10",
+    color: "#7a5030",
+  },
+  tabBtnTextActive: {
+    color: "#3a1e00",
+    fontWeight: "900",
   },
   slideClip: {
     overflow: "hidden",

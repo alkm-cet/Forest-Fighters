@@ -1,8 +1,8 @@
 export const RESOURCE_META: Record<
   string,
   {
-    image: ReturnType<typeof require>;
-    catImage: ReturnType<typeof require>;
+    image: ReturnType<typeof require> | null;
+    catImage?: ReturnType<typeof require> | null;
     label: string;
     color: string;
   }
@@ -24,6 +24,58 @@ export const RESOURCE_META: Record<
     catImage: require("../assets/cats/blueberry-cat.webp"),
     label: "Blueberry",
     color: "#5b6bbf",
+  },
+  egg: {
+    image: require("../assets/resource-images/egg.png"),
+    label: "Egg",
+    color: "#e8c840",
+  },
+  wool: {
+    image: require("../assets/resource-images/wool.png"),
+    label: "Wool",
+    color: "#b0b8c8",
+  },
+  milk: {
+    image: require("../assets/resource-images/milk.png"),
+    label: "Milk",
+    color: "#d4a070",
+  },
+};
+
+export const ANIMAL_META: Record<
+  string,
+  {
+    image: ReturnType<typeof require>;
+    label: string;
+    consumeResource: string;
+    produceResource: string;
+    color: string;
+    produceEmoji: string;
+  }
+> = {
+  chicken: {
+    image: require("../assets/animals/chicken.png"),
+    label: "Chicken",
+    consumeResource: "strawberry",
+    produceResource: "egg",
+    color: "#e8a030",
+    produceEmoji: "🥚",
+  },
+  sheep: {
+    image: require("../assets/animals/sheep.png"),
+    label: "Sheep",
+    consumeResource: "pinecone",
+    produceResource: "wool",
+    color: "#b0b8c8",
+    produceEmoji: "🧶",
+  },
+  cow: {
+    image: require("../assets/animals/cow.png"),
+    label: "Cow",
+    consumeResource: "blueberry",
+    produceResource: "milk",
+    color: "#d4a070",
+    produceEmoji: "🥛",
   },
 };
 

@@ -11,6 +11,7 @@ const championRoutes = require('./routes/champions');
 const farmerRoutes = require('./routes/farmers');
 const dungeonRoutes = require('./routes/dungeons');
 const pvpRoutes = require('./routes/pvp');
+const animalRoutes = require('./routes/animals');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -36,6 +37,7 @@ app.use('/api/champions', championRoutes);
 app.use('/api/farmers', farmerRoutes);
 app.use('/api/dungeons', dungeonRoutes);
 app.use('/api/pvp', pvpRoutes);
+app.use('/api/animals', animalRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

@@ -26,8 +26,10 @@ const translations = {
     cannotReachServer: "Cannot reach server",
     champions: "Champions",
     farmers: "Farmers",
+    animals: "Animals",
     championsUpper: "CHAMPIONS",
     farmersUpper: "FARMERS",
+    animalsUpper: "ANIMALS",
 
     // Settings
     settings: "Settings",
@@ -164,8 +166,10 @@ const translations = {
     cannotReachServer: "Sunucuya ulaşılamıyor",
     champions: "Savaşçılar",
     farmers: "Çiftçiler",
+    animals: "Hayvanlar",
     championsUpper: "SAVAŞÇILAR",
     farmersUpper: "ÇİFTÇİLER",
+    animalsUpper: "HAYVANLAR",
 
     // Settings
     settings: "Ayarlar",

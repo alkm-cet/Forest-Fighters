@@ -225,6 +225,32 @@ async function migrate() {
         AND p.pvp_storage_blueberry  = 0
     `);
 
+    // ── Animals system ──────────────────────────────────────────────────────────
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS egg  INT DEFAULT 0`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS wool INT DEFAULT 0`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS milk INT DEFAULT 0`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS egg_cap  INT DEFAULT 10`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS wool_cap INT DEFAULT 10`);
+    await query(`ALTER TABLE player_resources ADD COLUMN IF NOT EXISTS milk_cap INT DEFAULT 10`);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS player_animals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        animal_type VARCHAR(20) NOT NULL,
+        level INT DEFAULT 1,
+        current_feed INT DEFAULT 0,
+        max_feed INT DEFAULT 30,
+        last_production_time TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // New fuel-based animal columns
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS fuel_remaining_minutes FLOAT DEFAULT 0`);
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS progress_minutes FLOAT DEFAULT 0`);
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS pending_production INT DEFAULT 0`);
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS last_computed_at TIMESTAMP DEFAULT NOW()`);
+    console.log('Animals system migrated');
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

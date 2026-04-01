@@ -6,8 +6,8 @@ import {
   Animated,
   TouchableWithoutFeedback,
 } from "react-native";
-import { Champion, Farmer } from "../types";
-import { RESOURCE_META } from "../constants/resources";
+import { Champion, Farmer, Animal } from "../types";
+import { RESOURCE_META, ANIMAL_META } from "../constants/resources";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -21,15 +21,20 @@ const ASSETS = {
   mage_closed:    require("../assets/cats/mage-cat-closed-eyes.png"),
 };
 
+type ActiveTab = "champions" | "farmers" | "animals";
+
 type Props = {
   champions: Champion[];
   farmers?: Farmer[];
+  animals?: Animal[];
+  activeTab?: ActiveTab;
+  /** @deprecated use activeTab instead */
   showFarmers?: boolean;
   closedEyesCat?: string | null;
   onCatPress?: (championClass: string) => void;
 };
 
-// Shared slot geometry — farmer cats render at the exact same position as champion cats
+// Shared slot geometry — all layers render at the same positions
 const W = SCREEN_W;
 const cx = W / 2;
 const B = 50;
@@ -62,57 +67,49 @@ const SLOTS = {
 export default function CampfireScene({
   champions,
   farmers = [],
+  animals = [],
+  activeTab,
   showFarmers = false,
   closedEyesCat = null,
   onCatPress,
 }: Props) {
-  const championOpacity = useRef(
-    new Animated.Value(showFarmers ? 0 : 1),
-  ).current;
-  const farmerOpacity = useRef(new Animated.Value(showFarmers ? 1 : 0)).current;
-  const fireOpacity = useRef(new Animated.Value(showFarmers ? 0 : 1)).current;
+  // Resolve active tab from either prop
+  const tab: ActiveTab = activeTab ?? (showFarmers ? "farmers" : "champions");
+
+  const championOpacity = useRef(new Animated.Value(tab === "champions" ? 1 : 0)).current;
+  const farmerOpacity   = useRef(new Animated.Value(tab === "farmers"   ? 1 : 0)).current;
+  const animalOpacity   = useRef(new Animated.Value(tab === "animals"   ? 1 : 0)).current;
+  const fireOpacity     = useRef(new Animated.Value(tab === "champions" ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(championOpacity, {
-        toValue: showFarmers ? 0 : 1,
-        duration: 280,
-        useNativeDriver: true,
-      }),
-      Animated.timing(farmerOpacity, {
-        toValue: showFarmers ? 1 : 0,
-        duration: 280,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fireOpacity, {
-        toValue: showFarmers ? 0 : 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.timing(championOpacity, { toValue: tab === "champions" ? 1 : 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(farmerOpacity,   { toValue: tab === "farmers"   ? 1 : 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(animalOpacity,   { toValue: tab === "animals"   ? 1 : 0, duration: 280, useNativeDriver: true }),
+      Animated.timing(fireOpacity,     { toValue: tab === "champions" ? 1 : 0, duration: 200, useNativeDriver: true }),
     ]).start();
-  }, [showFarmers]);
+  }, [tab]);
 
   const warrior = champions.find((c) => c.class === "Warrior");
-  const archer = champions.find((c) => c.class === "Archer");
-  const mage = champions.find((c) => c.class === "Mage");
+  const archer  = champions.find((c) => c.class === "Archer");
+  const mage    = champions.find((c) => c.class === "Mage");
 
   const farmerByType: Record<string, Farmer> = {};
   for (const f of farmers) farmerByType[f.resource_type] = f;
+
+  const animalByType: Record<string, Animal> = {};
+  for (const a of animals) animalByType[a.animal_type] = a;
 
   return (
     <View
       style={[styles.scene, { width: W, height: 300 }]}
       pointerEvents="box-none"
     >
-      {/* ── Left slot: Warrior ↔ Strawberry ── */}
+      {/* ── Left slot: Warrior ↔ Strawberry Farmer ↔ Chicken ── */}
       {warrior && (
         <TouchableWithoutFeedback onPress={() => onCatPress?.("Warrior")}>
           <Animated.Image
-            source={
-              closedEyesCat === "Warrior"
-                ? ASSETS.warrior_closed
-                : ASSETS.warrior
-            }
+            source={closedEyesCat === "Warrior" ? ASSETS.warrior_closed : ASSETS.warrior}
             style={[styles.cat, SLOTS.left, { opacity: championOpacity }]}
             resizeMode="contain"
           />
@@ -125,16 +122,19 @@ export default function CampfireScene({
           resizeMode="contain"
         />
       )}
+      {animalByType["chicken"] && (
+        <Animated.Image
+          source={ANIMAL_META["chicken"].image}
+          style={[styles.cat, SLOTS.left, { opacity: animalOpacity }]}
+          resizeMode="contain"
+        />
+      )}
 
-      {/* ── Center slot: Archer ↔ Pinecone ── */}
+      {/* ── Center slot: Archer ↔ Pinecone Farmer ↔ Sheep ── */}
       {archer && (
         <TouchableWithoutFeedback onPress={() => onCatPress?.("Archer")}>
           <Animated.Image
-            source={
-              closedEyesCat === "Archer"
-                ? ASSETS.archer_closed
-                : ASSETS.archer
-            }
+            source={closedEyesCat === "Archer" ? ASSETS.archer_closed : ASSETS.archer}
             style={[styles.cat, SLOTS.center, { opacity: championOpacity }]}
             resizeMode="contain"
           />
@@ -147,19 +147,20 @@ export default function CampfireScene({
           resizeMode="contain"
         />
       )}
+      {animalByType["sheep"] && (
+        <Animated.Image
+          source={ANIMAL_META["sheep"].image}
+          style={[styles.cat, SLOTS.center, { opacity: animalOpacity }]}
+          resizeMode="contain"
+        />
+      )}
 
-      {/* ── Right slot: Mage ↔ Blueberry (mirrored) ── */}
+      {/* ── Right slot: Mage ↔ Blueberry Farmer ↔ Cow (mirrored) ── */}
       {mage && (
         <TouchableWithoutFeedback onPress={() => onCatPress?.("Mage")}>
           <Animated.Image
-            source={
-              closedEyesCat === "Mage" ? ASSETS.mage_closed : ASSETS.mage
-            }
-            style={[
-              styles.cat,
-              SLOTS.right,
-              { opacity: championOpacity, transform: [{ scaleX: -1 }] },
-            ]}
+            source={closedEyesCat === "Mage" ? ASSETS.mage_closed : ASSETS.mage}
+            style={[styles.cat, SLOTS.right, { opacity: championOpacity, transform: [{ scaleX: -1 }] }]}
             resizeMode="contain"
           />
         </TouchableWithoutFeedback>
@@ -167,16 +168,19 @@ export default function CampfireScene({
       {farmerByType["blueberry"] && (
         <Animated.Image
           source={RESOURCE_META["blueberry"].catImage}
-          style={[
-            styles.cat,
-            SLOTS.right,
-            { opacity: farmerOpacity, transform: [{ scaleX: -1 }] },
-          ]}
+          style={[styles.cat, SLOTS.right, { opacity: farmerOpacity, transform: [{ scaleX: -1 }] }]}
+          resizeMode="contain"
+        />
+      )}
+      {animalByType["cow"] && (
+        <Animated.Image
+          source={ANIMAL_META["cow"].image}
+          style={[styles.cat, SLOTS.right, { opacity: animalOpacity, transform: [{ scaleX: -1 }] }]}
           resizeMode="contain"
         />
       )}
 
-      {/* ── Fire — fades out when showing farmers ── */}
+      {/* ── Fire — only visible on champions tab ── */}
       <Animated.Image
         source={ASSETS.fire}
         style={[
