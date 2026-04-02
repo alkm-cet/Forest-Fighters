@@ -1,10 +1,26 @@
-import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Image, StyleSheet, TouchableOpacity, Modal } from "react-native";
+import { useState } from "react";
 import { Text } from "./StyledText";
 import { Resources, ResourceKey, AdvancedResourceKey } from "../types";
-import { RESOURCE_META, ANIMAL_META } from "../constants/resources";
+import { RESOURCE_META } from "../constants/resources";
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 
 const PLUS_BTN = require("../assets/plus-button-image.png");
+
+const CAP_COSTS: Record<ResourceKey, [ResourceKey, ResourceKey]> = {
+  strawberry: ["pinecone", "blueberry"],
+  pinecone: ["strawberry", "blueberry"],
+  blueberry: ["strawberry", "pinecone"],
+};
+
+const ADVANCED_COSTS: Record<
+  AdvancedResourceKey,
+  { res1: ResourceKey; res2: ResourceKey; cost1: number; cost2: number }
+> = {
+  egg: { res1: "strawberry", res2: "pinecone", cost1: 20, cost2: 10 },
+  wool: { res1: "pinecone", res2: "blueberry", cost1: 20, cost2: 10 },
+  milk: { res1: "blueberry", res2: "strawberry", cost1: 20, cost2: 10 },
+};
 
 type Props = {
   resources: Resources;
@@ -12,15 +28,15 @@ type Props = {
   onUpgradeAdvanced?: (resource: AdvancedResourceKey) => void;
 };
 
-type Entry = { key: ResourceKey; amount: number; cap: number };
-
 export default function ResourceBar({
   resources,
   onUpgrade,
   onUpgradeAdvanced,
 }: Props) {
   const { t } = useLanguage();
-  const entries: Entry[] = [
+  const [showCapMenu, setShowCapMenu] = useState(false);
+
+  const basicEntries: { key: ResourceKey; amount: number; cap: number }[] = [
     {
       key: "strawberry",
       amount: resources.strawberry,
@@ -38,110 +54,185 @@ export default function ResourceBar({
     },
   ];
 
-  const advancedEntries = [
-    {
-      key: "egg",
-      amount: resources.egg ?? 0,
-      cap: resources.egg_cap ?? 10,
-      producedBy: "chicken",
-    },
+  const advancedEntries: {
+    key: AdvancedResourceKey;
+    amount: number;
+    cap: number;
+  }[] = [
+    { key: "egg", amount: resources.egg ?? 0, cap: resources.egg_cap ?? 10 },
     {
       key: "wool",
       amount: resources.wool ?? 0,
       cap: resources.wool_cap ?? 10,
-      producedBy: "sheep",
     },
     {
       key: "milk",
       amount: resources.milk ?? 0,
       cap: resources.milk_cap ?? 10,
-      producedBy: "cow",
     },
   ];
 
   return (
     <View style={styles.wrapper}>
-      {/* Row 1: Basic resources */}
       <View style={styles.container}>
-        {entries.map(({ key, amount, cap }) => {
-          const meta = RESOURCE_META[key];
-          return (
-            <View key={key} style={styles.section}>
-              <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
-              <View style={styles.row}>
-                {meta.image ? (
-                  <Image
-                    source={meta.image}
-                    style={styles.resourceImage}
-                    resizeMode="contain"
-                  />
-                ) : null}
-                <View style={styles.amountBadge}>
-                  <Text style={styles.amountText}>
-                    {amount}
-                    <Text style={styles.capText}>/{cap}</Text>
-                  </Text>
-                  {cap < 100 && (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      style={styles.plusWrap}
-                      onPress={() => onUpgrade?.(key)}
-                    >
+        {/* Left: two rows of 3 */}
+        <View style={styles.rows}>
+          {[basicEntries, advancedEntries].map((rowEntries, rowIndex) => (
+            <View key={rowIndex} style={styles.row}>
+              {rowEntries.map(({ key, amount, cap }) => {
+                const meta = RESOURCE_META[key];
+                return (
+                  <View key={key} style={styles.item}>
+                    {meta.image && (
                       <Image
-                        source={PLUS_BTN}
-                        style={styles.plusBtn}
+                        source={meta.image}
+                        style={styles.icon}
                         resizeMode="contain"
                       />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
+                    )}
+                    <View style={styles.amountBadge}>
+                      <Text style={styles.amountText}>
+                        {amount}
+                        <Text style={styles.capText}>/{cap}</Text>
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-          );
-        })}
+          ))}
+        </View>
+
+        {/* Right: plus button */}
+        <TouchableOpacity
+          style={styles.plusWrap}
+          onPress={() => setShowCapMenu(true)}
+          activeOpacity={0.8}
+        >
+          <Image
+            source={PLUS_BTN}
+            style={styles.plusBtn}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Row 2: Advanced resources — always visible to show animals are present */}
-      <View style={styles.container}>
-        {advancedEntries.map(({ key, amount, cap }) => {
-          const meta = RESOURCE_META[key];
-          return (
-            <View key={key} style={styles.section}>
-              <Text style={styles.label}>{t(key as TranslationKeys)}</Text>
-              <View style={styles.row}>
-                {meta.image ? (
+      {/* Capacity overview modal */}
+      <Modal
+        visible={showCapMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCapMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setShowCapMenu(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.menuCard}>
+            <Text style={styles.menuTitle}>{t("upgradeCapacityTitle")}</Text>
+
+            {basicEntries.map(({ key, cap }) => {
+              const meta = RESOURCE_META[key];
+              const cost = Math.ceil((cap - 10) / 2 + 2);
+              const [costRes1, costRes2] = CAP_COSTS[key];
+              const meta1 = RESOURCE_META[costRes1];
+              const meta2 = RESOURCE_META[costRes2];
+              const level = Math.floor((cap - 10) / 2) + 1;
+              return (
+                <View key={key} style={styles.menuRow}>
                   <Image
-                    source={meta.image}
-                    style={styles.resourceImage}
+                    source={meta.image!}
+                    style={styles.menuIcon}
                     resizeMode="contain"
                   />
-                ) : null}
-                <View style={styles.amountBadge}>
-                  <Text style={styles.amountText}>
-                    {amount}
-                    <Text style={styles.capText}>/{cap}</Text>
+                  <Text style={styles.menuName}>
+                    {t(key as TranslationKeys)}
                   </Text>
+                  <Text style={styles.menuLevel}>Lv {level}</Text>
+                  <View style={styles.menuCostRow}>
+                    <Image
+                      source={meta1.image!}
+                      style={styles.menuCostIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.menuCostText}>×{cost}</Text>
+                    <Image
+                      source={meta2.image!}
+                      style={styles.menuCostIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.menuCostText}>×{cost}</Text>
+                  </View>
                   {cap < 100 && (
                     <TouchableOpacity
-                      activeOpacity={0.8}
-                      style={styles.plusWrap}
-                      onPress={() =>
-                        onUpgradeAdvanced?.(key as AdvancedResourceKey)
-                      }
+                      onPress={() => {
+                        setShowCapMenu(false);
+                        onUpgrade?.(key);
+                      }}
                     >
                       <Image
                         source={PLUS_BTN}
-                        style={styles.plusBtn}
+                        style={styles.menuPlusIcon}
                         resizeMode="contain"
                       />
                     </TouchableOpacity>
                   )}
                 </View>
-              </View>
-            </View>
-          );
-        })}
-      </View>
+              );
+            })}
+
+            {advancedEntries.map(({ key, cap }) => {
+              const meta = RESOURCE_META[key];
+              const { res1, res2, cost1, cost2 } = ADVANCED_COSTS[key];
+              const meta1 = RESOURCE_META[res1];
+              const meta2 = RESOURCE_META[res2];
+              const level = Math.floor((cap - 10) / 2) + 1;
+              return (
+                <View key={key} style={styles.menuRow}>
+                  <Image
+                    source={meta.image!}
+                    style={styles.menuIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.menuName}>
+                    {t(key as TranslationKeys)}
+                  </Text>
+                  <Text style={styles.menuLevel}>Lv {level}</Text>
+                  <View style={styles.menuCostRow}>
+                    <Image
+                      source={meta1.image!}
+                      style={styles.menuCostIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.menuCostText}>×{cost1}</Text>
+                    <Image
+                      source={meta2.image!}
+                      style={styles.menuCostIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.menuCostText}>×{cost2}</Text>
+                  </View>
+                  {cap < 100 && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowCapMenu(false);
+                        onUpgradeAdvanced?.(key as AdvancedResourceKey);
+                      }}
+                    >
+                      <Image
+                        source={PLUS_BTN}
+                        style={styles.menuPlusIcon}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -150,82 +241,144 @@ const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: 12,
     marginVertical: 8,
-    gap: 6,
   },
   container: {
     flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#f5e9cc",
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: "#c8a96e",
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
-    paddingRight: 16,
   },
-  section: {
+  rows: {
     flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "900",
-    fontFamily: "Fredoka-Bold",
-    color: "#4a2e0a",
-    textAlign: "right",
-    width: "100%",
-    paddingRight: 6,
+    gap: 2,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 2,
   },
-  // Image overlaps the badge: rendered after badge in JSX but zIndex higher
-  resourceImage: {
-    width: 40,
-    height: 40,
+  item: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  icon: {
+    width: 30,
+    height: 30,
     zIndex: 2,
   },
   amountBadge: {
-    position: "relative",
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#d4aa6e",
-    height: 24,
+    height: 20,
+    width: "80%",
     borderRadius: 10,
-    paddingLeft: 22, // space for the image that overlaps from the left
-    paddingRight: 14,
-    marginLeft: -16, // pulls badge under the resource image
+    paddingLeft: 26,
+    paddingRight: 8,
+    marginLeft: -19,
     zIndex: 1,
-    gap: 4,
+    alignItems: "center",
+    justifyContent: "center",
   },
   amountText: {
     color: "#3a1e00",
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "800",
-    minWidth: 28,
-    textAlign: "center",
     fontFamily: "Fredoka-Bold",
   },
   capText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
-    color: "#6a3e10",
+    color: "#5a2e00",
     fontFamily: "Fredoka-Bold",
   },
   plusWrap: {
-    marginLeft: 2,
+    marginLeft: 4,
   },
   plusBtn: {
-    position: "absolute",
-    right: -30,
-    bottom: 0,
-    transform: [{ translateY: "50%" }],
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
+  },
+
+  // Capacity menu modal
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuCard: {
+    backgroundColor: "#f5e9cc",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    width: 320,
+    gap: 8,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    fontFamily: "Fredoka-Bold",
+    color: "#4a2e0a",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#edddb8",
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  menuIcon: {
+    width: 24,
+    height: 24,
+  },
+  menuName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: "Fredoka-Bold",
+    color: "#4a2e0a",
+  },
+  menuLevel: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: "Fredoka-Bold",
+    color: "#7a4e20",
+    minWidth: 32,
+    textAlign: "center",
+  },
+  menuCostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  menuCostIcon: {
+    width: 18,
+    height: 18,
+  },
+  menuCostText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: "Fredoka-Bold",
+    color: "#4a2e0a",
+    marginRight: 4,
+  },
+  menuPlusIcon: {
+    width: 30,
+    height: 30,
   },
 });

@@ -49,7 +49,7 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/resources/upgrade-capacity — spend 2 other resources to raise one cap by 3
+// POST /api/resources/upgrade-capacity — spend resources to raise one cap by 2
 router.post('/upgrade-capacity', authMiddleware, async (req, res) => {
   const { resource } = req.body;
   if (!['strawberry', 'pinecone', 'blueberry'].includes(resource)) {

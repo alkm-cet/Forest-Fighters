@@ -390,13 +390,14 @@ export default function AnimalDrawer({
                 {
                   width: timerRowWidth * progress,
                   backgroundColor: isStopped ? "#b0a080" : meta.color,
+                  opacity: isStopped ? 0.5 : 1,
                 },
               ]}
             />
           )}
           <Timer
             size={12}
-            color={isFull ? "#c0392b" : isStopped ? "#b0805a" : "#9a7040"}
+            color={isFull ? "#c0392b" : "black"}
             strokeWidth={2}
           />
           <Text style={styles.nextReadyLabel}>
@@ -740,13 +741,12 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     borderRadius: 10,
-    opacity: 0.35,
   },
   nextReadyLabel: {
     flex: 1,
     fontSize: 12,
     fontWeight: "700",
-    color: "#7a5030",
+    color: "black",
   },
   nextReadyTimer: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
 
