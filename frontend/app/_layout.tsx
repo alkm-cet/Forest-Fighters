@@ -7,6 +7,7 @@ import music from "../lib/music";
 import { isMusicEnabled } from "../lib/settings";
 import { LanguageProvider } from "../lib/i18n";
 import { AuthProvider, useAuth } from "../lib/auth-context";
+import { GameDataProvider } from "../lib/game-data-context";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,8 +23,10 @@ function AuthGuard() {
     const inAuthGroup = segments[0] === "(auth)";
     const inGameGroup = segments[0] === "(game)";
     const inSplash = segments[0] === undefined;
+    const inLoading = segments[0] === "loading";
 
-    if (inSplash) return; // splash handles its own navigation
+    if (inSplash) return;   // splash handles its own navigation
+    if (inLoading) return;  // loading screen handles its own navigation
 
     if (!token && !inAuthGroup) {
       router.replace("/(auth)/login");
@@ -64,7 +67,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <AuthGuard />
+          <GameDataProvider>
+            <AuthGuard />
+          </GameDataProvider>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>

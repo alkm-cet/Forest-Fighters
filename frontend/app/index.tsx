@@ -24,7 +24,7 @@ const SplashScreen = () => {
         useNativeDriver: true,
       }).start(() => {
         if (token) {
-          router.replace("/(game)/");
+          router.replace("/loading");
         } else {
           router.replace("/(auth)/login");
         }

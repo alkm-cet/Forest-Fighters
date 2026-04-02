@@ -23,6 +23,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import music from "../../lib/music";
+import { useGameData } from "../../lib/game-data-context";
 import { useLanguage } from "../../lib/i18n";
 import { connectSocket, disconnectSocket } from "../../lib/socket";
 import {
@@ -132,6 +133,33 @@ export default function MainScreen() {
   const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Seed state from loading-screen snapshot (first mount only) ──────────
+  const { snapshot } = useGameData();
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!snapshot || seededRef.current) return;
+    seededRef.current = true;
+    setPlayer(snapshot.player);
+    setResources(snapshot.resources);
+    setChampions(snapshot.champions);
+    setFarmers(snapshot.farmers);
+    setAnimals(snapshot.animals);
+    setSelectedAnimal((prev) =>
+      prev ? (snapshot.animals.find((a) => a.id === prev.id) ?? prev) : null
+    );
+    setRunMap(snapshot.runMap);
+    setPvpDefenderId(snapshot.pvp.defenderId);
+    setPvpTrophies(snapshot.pvp.trophies);
+    setPvpLeague(snapshot.pvp.league);
+    setPvpUnlocked(snapshot.pvp.unlocked);
+    setPvpPendingChampionId(snapshot.pvp.pendingChampionId);
+    setPvpBattleEndsAt(snapshot.pvp.battleEndsAt);
+    if (snapshot.pvp.battleEndsAt && new Date(snapshot.pvp.battleEndsAt) <= new Date()) {
+      setResultBanner(true);
+    }
+  }, [snapshot]);
+  // ────────────────────────────────────────────────────────────────────────
 
   useFocusEffect(
     useCallback(() => {
