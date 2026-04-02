@@ -69,6 +69,9 @@ const translations = {
     strawberry: "Strawberry",
     pinecone: "Pinecone",
     blueberry: "Blueberry",
+    egg: "Egg",
+    wool: "Wool",
+    milk: "Milk",
 
     // Buttons
     enter: "ENTER",
@@ -209,6 +212,9 @@ const translations = {
     strawberry: "Çilek",
     pinecone: "Çam Kozalağı",
     blueberry: "Yaban Mersini",
+    egg: "Yumurta",
+    wool: "Yün",
+    milk: "Süt",
 
     // Buttons
     enter: "GİR",

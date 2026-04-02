@@ -14,13 +14,6 @@ type Props = {
 
 type Entry = { key: ResourceKey; amount: number; cap: number };
 
-// Emoji icons for advanced resources (no image assets yet)
-const ADVANCED_RESOURCE_EMOJI: Record<string, string> = {
-  egg: "🥚",
-  wool: "🧶",
-  milk: "🥛",
-};
-
 export default function ResourceBar({
   resources,
   onUpgrade,
@@ -65,7 +58,6 @@ export default function ResourceBar({
       producedBy: "cow",
     },
   ];
-  const hasAdvanced = advancedEntries.some((e) => e.amount > 0 || e.cap > 10);
 
   return (
     <View style={styles.wrapper}>
