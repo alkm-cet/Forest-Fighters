@@ -143,9 +143,9 @@ router.post('/:id/spend-stat', authMiddleware, async (req, res) => {
 
 // POST /:id/boost — apply a one-battle boost to hp, defense, or chance
 const BOOST_COSTS = {
-  hp:      { resource: 'strawberry', amount: 4 },
-  defense: { resource: 'pinecone',   amount: 4 },
-  chance:  { resource: 'blueberry',  amount: 3 },
+  hp:      { resource: 'egg',  amount: 4 },
+  defense: { resource: 'wool', amount: 3 },
+  chance:  { resource: 'milk', amount: 3 },
 };
 
 router.post('/:id/boost', authMiddleware, async (req, res) => {
@@ -191,7 +191,7 @@ router.post('/:id/boost', authMiddleware, async (req, res) => {
     }
 
     const updated = await query(`SELECT ${CHAMPION_FIELDS} FROM champions WHERE id = $1`, [championId]);
-    const resUpdated = await query(`SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1`, [playerId]);
+    const resUpdated = await query(`SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1`, [playerId]);
     res.json({ champion: updated[0], resources: resUpdated[0] });
   } catch (err) {
     console.error(err);

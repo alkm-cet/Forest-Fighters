@@ -53,7 +53,7 @@ const STORAGE_UPGRADE_COST = {
   milk: { res1: 'blueberry',  res2: 'strawberry', cost1: 20, cost2: 10 },
 };
 const ANIMAL_CAP_MAX  = 100;
-const ANIMAL_CAP_STEP = 10;
+const ANIMAL_CAP_STEP = 2;
 
 const ANIMAL_CONFIGS = {
   chicken: { name: 'Chicken', consumeResource: 'strawberry', produceResource: 'egg'  },

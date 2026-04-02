@@ -18,9 +18,16 @@ export default function AnimalCard({ animal, onPress }: Props) {
     produceEmoji: "?",
   };
   const consumeMeta = RESOURCE_META[animal.consume_resource];
+
+  const elapsedMin = animal._fetched_at_ms ? (Date.now() - animal._fetched_at_ms) / 60000 : 0;
+  const liveFuelMin = Math.max(0, animal.fuel_remaining_minutes - elapsedMin);
+  const liveFeedUnits = animal.minutes_per_feed > 0
+    ? Math.min(Math.ceil(liveFuelMin / animal.minutes_per_feed), animal.max_feed)
+    : 0;
+
   const feedPct =
     animal.max_feed > 0
-      ? Math.min(animal.current_feed / animal.max_feed, 1)
+      ? Math.min(liveFeedUnits / animal.max_feed, 1)
       : 0;
 
   return (
@@ -42,10 +49,7 @@ export default function AnimalCard({ animal, onPress }: Props) {
       <View style={styles.statsRow}>
         <StatCell label={t("lvl")} value={String(animal.level)} />
         <View style={styles.statDivider} />
-        <StatCell
-          label="FEED"
-          value={`${animal.current_feed}/${animal.max_feed}`}
-        />
+        <StatCell label="ÜRT" value={`1/${Number(animal.interval_minutes).toFixed(1)}m`} />
       </View>
 
       {/* Animal image */}
@@ -83,7 +87,7 @@ export default function AnimalCard({ animal, onPress }: Props) {
           />
         </View>
         <Text style={styles.feedValue}>
-          {animal.current_feed}/{animal.max_feed}
+          {liveFeedUnits}/{animal.max_feed}
         </Text>
       </View>
     </TouchableOpacity>

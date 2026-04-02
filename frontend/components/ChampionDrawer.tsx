@@ -86,29 +86,29 @@ const BOOST_META: Record<
     label: "+10 HP",
     icon: null,
     cost: 4,
-    costImage: require("../assets/resource-images/strawberry.webp"),
+    costImage: require("../assets/resource-images/egg.png"),
     boostCol: "boost_hp",
   },
   defense: {
     label: "+5 DEF",
     icon: null,
-    cost: 4,
-    costImage: require("../assets/resource-images/pinecone.webp"),
+    cost: 3,
+    costImage: require("../assets/resource-images/wool.png"),
     boostCol: "boost_defense",
   },
   chance: {
     label: "+5 CHC",
     icon: null,
     cost: 3,
-    costImage: require("../assets/resource-images/blueberry.webp"),
+    costImage: require("../assets/resource-images/milk.png"),
     boostCol: "boost_chance",
   },
 };
 
 const BOOST_RESOURCE: Record<BoostType, keyof Resources> = {
-  hp: "strawberry",
-  defense: "pinecone",
-  chance: "blueberry",
+  hp: "egg",
+  defense: "wool",
+  chance: "milk",
 };
 
 const STAT_MAX = 100;

@@ -12,6 +12,19 @@ type Props = {
 
 const getMaxCapacity = (level: number) => 4 + level;
 
+function calcLivePending(farmer: Farmer): number {
+  const maxCap = getMaxCapacity(farmer.level);
+  if (!farmer._fetched_at_ms || !farmer.interval_minutes || !farmer.next_ready_in_seconds) {
+    return Math.min(farmer.pending, maxCap);
+  }
+  const elapsedSec = (Date.now() - farmer._fetched_at_ms) / 1000;
+  const cycleSec = farmer.interval_minutes * 60;
+  const rawTimeLeft = Math.max(0, farmer.next_ready_in_seconds - elapsedSec);
+  const burned = farmer.next_ready_in_seconds - rawTimeLeft;
+  const extraCycles = cycleSec > 0 ? Math.floor((cycleSec - farmer.next_ready_in_seconds + burned) / cycleSec) : 0;
+  return Math.min(farmer.pending + extraCycles, maxCap);
+}
+
 export default function FarmerCard({ farmer, onPress }: Props) {
   const { t } = useLanguage();
   const meta = RESOURCE_META[farmer.resource_type] ?? {
@@ -19,6 +32,8 @@ export default function FarmerCard({ farmer, onPress }: Props) {
     color: "#888",
     label: farmer.resource_type,
   };
+
+  const livePending = calcLivePending(farmer);
 
   return (
     <TouchableOpacity
@@ -30,7 +45,7 @@ export default function FarmerCard({ farmer, onPress }: Props) {
       <View style={styles.statsRow}>
         <StatCell label={t("lvl")} value={String(farmer.level)} />
         <View style={styles.statDivider} />
-        <StatCell label={t("prod")} value={String(farmer.pending)} />
+        <StatCell label="ÜRT" value={`1/${Number(farmer.interval_minutes).toFixed(1)}m`} />
       </View>
 
       {/* Farmer cat image */}
@@ -56,13 +71,13 @@ export default function FarmerCard({ farmer, onPress }: Props) {
               styles.prodFill,
               {
                 width:
-                  `${Math.min((farmer.pending / getMaxCapacity(farmer.level)) * 100, 100)}%` as any,
+                  `${Math.min((livePending / getMaxCapacity(farmer.level)) * 100, 100)}%` as any,
                 backgroundColor: meta.color,
               },
             ]}
           />
         </View>
-        <Text style={styles.prodValue}>{farmer.pending}/{getMaxCapacity(farmer.level)}</Text>
+        <Text style={styles.prodValue}>{livePending}/{getMaxCapacity(farmer.level)}</Text>
       </View>
     </TouchableOpacity>
   );

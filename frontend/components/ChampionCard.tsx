@@ -165,8 +165,8 @@ export default function ChampionCard({
         )}
       </View>
 
-      {/* Class name */}
-      <Text style={styles.name}>{champion.class}</Text>
+      {/* Class name with level */}
+      <Text style={styles.name}>Lv {champion.level} - {champion.class}</Text>
 
       {/* HP bar footer */}
       <View style={styles.hpRow}>

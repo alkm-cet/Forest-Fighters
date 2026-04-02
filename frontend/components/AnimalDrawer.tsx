@@ -264,14 +264,21 @@ export default function AnimalDrawer({
         style={[styles.drawer, { transform: [{ translateY }] }]}
         {...panResponder.panHandlers}
       >
-        {/* CLOSE button */}
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          activeOpacity={0.7}
-        >
-          <X size={14} color="#7a5230" strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {/* Handle (center) */}
+          <View style={styles.handleWrap}>
+            <View style={styles.handle} />
+          </View>
+
+          {/* CLOSE button */}
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <X size={14} color="#7a5230" strokeWidth={2.5} />
+          </TouchableOpacity>
+        </View>
 
         {/* ─── Top bar: level badge │ handle │ close ─── */}
         <View style={styles.topBar}>
@@ -321,19 +328,12 @@ export default function AnimalDrawer({
             </View>
           )}
 
-          {/* Handle (center) */}
-          <View style={styles.handleWrap}>
-            <View style={styles.handle} />
-          </View>
-
           {/* Level badge (right) */}
           <View style={styles.levelBadge}>
             <Text style={styles.levelBadgeLabel}>LV</Text>
             <Text style={styles.levelBadgeNum}>{animal.level}</Text>
           </View>
         </View>
-
-        {/* Close button — below topBar so it never overlaps */}
 
         {/* Animal name */}
         <Text style={styles.animalName}>{meta.label}</Text>
@@ -624,7 +624,11 @@ const styles = StyleSheet.create({
   upgradeMiniPlus: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
   upgradeMiniArrow: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
-  handleWrap: { flex: 1, alignItems: "center" },
+  handleWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   handle: {
     width: 36,
     height: 4,

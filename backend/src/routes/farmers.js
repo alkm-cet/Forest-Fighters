@@ -148,7 +148,7 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
     );
 
     const updatedRes = await query(
-      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1',
+      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1',
       [playerId]
     );
     res.json({ collected: collectible, resource_type: farmer.resource_type, resources: updatedRes[0] });

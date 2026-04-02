@@ -880,7 +880,7 @@ export default function MainScreen() {
                         {currentCap}
                         <Text style={styles.capModalArrow}> → </Text>
                         <Text style={styles.capModalNewCap}>
-                          {currentCap + 10}
+                          {currentCap + 2}
                         </Text>
                       </Text>
                     </View>
