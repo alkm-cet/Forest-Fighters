@@ -510,7 +510,8 @@ export default function ChampionDrawer({
                   const resKey = BOOST_RESOURCE[type];
                   const isActive = ((champion[bm.boostCol] as number) ?? 0) > 0;
                   const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
-                  const disabled = isActive || !canAfford || !!isPvpBattle || !!isOnMission;
+                  const disabled =
+                    isActive || !canAfford || !!isPvpBattle || !!isOnMission;
                   return (
                     <TouchableOpacity
                       key={type}
@@ -523,26 +524,24 @@ export default function ChampionDrawer({
                       activeOpacity={0.75}
                     >
                       {type === "hp" && (
-                        <Heart
-                          size={11}
-                          color={isActive ? "#fff" : "#c0392b"}
-                          strokeWidth={2}
-                          fill={isActive ? "#fff" : "#c0392b"}
+                        <Image
+                          source={require("../assets/icons/heart.png")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
                         />
                       )}
                       {type === "defense" && (
-                        <Shield
-                          size={11}
-                          color={isActive ? "#fff" : "#4a7c3f"}
-                          strokeWidth={2}
+                        <Image
+                          source={require("../assets/icons/shield.png")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
                         />
                       )}
                       {type === "chance" && (
-                        <Zap
-                          size={11}
-                          color={isActive ? "#fff" : "#8a5cc7"}
-                          strokeWidth={2}
-                          fill={isActive ? "#fff" : "#8a5cc7"}
+                        <Image
+                          source={require("../assets/icons/lightning.png")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
                         />
                       )}
                       <Text
@@ -1021,77 +1020,129 @@ export default function ChampionDrawer({
         visible={selectedBattle !== null}
         onClose={() => setSelectedBattle(null)}
         onConfirm={() => setSelectedBattle(null)}
-        title={selectedBattle
-          ? (selectedBattle.winner_id === selectedBattle.attacker_id ? "⚔️ Zafer!" : "💀 Yenilgi")
-          : ""}
+        title={
+          selectedBattle
+            ? selectedBattle.winner_id === selectedBattle.attacker_id
+              ? "⚔️ Zafer!"
+              : "💀 Yenilgi"
+            : ""
+        }
         confirmText="Kapat"
         hideCancel
       >
-        {selectedBattle && (() => {
-          const won = selectedBattle.winner_id === selectedBattle.attacker_id;
-          const tDelta = selectedBattle.attacker_trophies_delta;
-          return (
-            <>
-              {/* Summary header */}
-              <View style={styles.logSummary}>
-                <Text style={styles.logSummaryVs}>
-                  <Text style={styles.logSummaryAtk}>{selectedBattle.attacker_name}</Text>
-                  {"  vs  "}
-                  <Text style={styles.logSummaryDef}>{selectedBattle.defender_name}</Text>
-                </Text>
-                <View style={styles.logSummaryRow}>
-                  <Trophy size={11} color={tDelta >= 0 ? "#d4a017" : "#c0392b"} strokeWidth={2} />
-                  <Text style={[styles.logSummaryVal, { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" }]}>
-                    {tDelta >= 0 ? "+" : ""}{tDelta} kupa
+        {selectedBattle &&
+          (() => {
+            const won = selectedBattle.winner_id === selectedBattle.attacker_id;
+            const tDelta = selectedBattle.attacker_trophies_delta;
+            return (
+              <>
+                {/* Summary header */}
+                <View style={styles.logSummary}>
+                  <Text style={styles.logSummaryVs}>
+                    <Text style={styles.logSummaryAtk}>
+                      {selectedBattle.attacker_name}
+                    </Text>
+                    {"  vs  "}
+                    <Text style={styles.logSummaryDef}>
+                      {selectedBattle.defender_name}
+                    </Text>
                   </Text>
-                  {(["strawberry", "pinecone", "blueberry"] as const).map((r) => {
-                    const amt = (selectedBattle as any)[`transferred_${r}`] ?? 0;
-                    if (amt === 0) return null;
-                    return (
-                      <View key={r} style={styles.logSummaryRes}>
-                        <Image source={RESOURCE_META[r].image} style={styles.logSummaryResIcon} resizeMode="contain" />
-                        <Text style={[styles.logSummaryVal, { color: won ? "#4a7c3f" : "#c0392b" }]}>
-                          {won ? "+" : "-"}{amt}
-                        </Text>
-                      </View>
-                    );
-                  })}
+                  <View style={styles.logSummaryRow}>
+                    <Trophy
+                      size={11}
+                      color={tDelta >= 0 ? "#d4a017" : "#c0392b"}
+                      strokeWidth={2}
+                    />
+                    <Text
+                      style={[
+                        styles.logSummaryVal,
+                        { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" },
+                      ]}
+                    >
+                      {tDelta >= 0 ? "+" : ""}
+                      {tDelta} kupa
+                    </Text>
+                    {(["strawberry", "pinecone", "blueberry"] as const).map(
+                      (r) => {
+                        const amt =
+                          (selectedBattle as any)[`transferred_${r}`] ?? 0;
+                        if (amt === 0) return null;
+                        return (
+                          <View key={r} style={styles.logSummaryRes}>
+                            <Image
+                              source={RESOURCE_META[r].image}
+                              style={styles.logSummaryResIcon}
+                              resizeMode="contain"
+                            />
+                            <Text
+                              style={[
+                                styles.logSummaryVal,
+                                { color: won ? "#4a7c3f" : "#c0392b" },
+                              ]}
+                            >
+                              {won ? "+" : "-"}
+                              {amt}
+                            </Text>
+                          </View>
+                        );
+                      },
+                    )}
+                  </View>
                 </View>
-              </View>
 
-              {/* Log entries */}
-              <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
-                {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
-                  <Text style={styles.historyEmpty}>Savaş günlüğü bulunamadı.</Text>
-                ) : (
-                  selectedBattle.combat_log.map((entry: any, i: number) => {
-                    const isAtk = entry.actor === "attacker";
-                    const newRound = i === 0 || selectedBattle.combat_log[i - 1]?.round !== entry.round;
-                    return (
-                      <View key={i}>
-                        {newRound && (
-                          <Text style={styles.logRound}>— Tur {entry.round + 1} —</Text>
-                        )}
-                        <View style={styles.logRow}>
-                          <Text style={[styles.logActor, isAtk ? styles.logChamp : styles.logEnemy]}>
-                            {isAtk ? `⚔️ ${selectedBattle.attacker_name}` : `🛡️ ${selectedBattle.defender_name}`}
-                          </Text>
-                          <Text style={styles.logDmg}>
-                            {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
-                            {entry.isCrit ? " 💥" : ""}
-                          </Text>
-                          <Text style={styles.logHp}>
-                            {isAtk ? entry.defenderHpAfter : entry.attackerHpAfter} HP
-                          </Text>
+                {/* Log entries */}
+                <ScrollView
+                  style={styles.logScroll}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                >
+                  {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
+                    <Text style={styles.historyEmpty}>
+                      Savaş günlüğü bulunamadı.
+                    </Text>
+                  ) : (
+                    selectedBattle.combat_log.map((entry: any, i: number) => {
+                      const isAtk = entry.actor === "attacker";
+                      const newRound =
+                        i === 0 ||
+                        selectedBattle.combat_log[i - 1]?.round !== entry.round;
+                      return (
+                        <View key={i}>
+                          {newRound && (
+                            <Text style={styles.logRound}>
+                              — Tur {entry.round + 1} —
+                            </Text>
+                          )}
+                          <View style={styles.logRow}>
+                            <Text
+                              style={[
+                                styles.logActor,
+                                isAtk ? styles.logChamp : styles.logEnemy,
+                              ]}
+                            >
+                              {isAtk
+                                ? `⚔️ ${selectedBattle.attacker_name}`
+                                : `🛡️ ${selectedBattle.defender_name}`}
+                            </Text>
+                            <Text style={styles.logDmg}>
+                              {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
+                              {entry.isCrit ? " 💥" : ""}
+                            </Text>
+                            <Text style={styles.logHp}>
+                              {isAtk
+                                ? entry.defenderHpAfter
+                                : entry.attackerHpAfter}{" "}
+                              HP
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                    );
-                  })
-                )}
-              </ScrollView>
-            </>
-          );
-        })()}
+                      );
+                    })
+                  )}
+                </ScrollView>
+              </>
+            );
+          })()}
       </CustomModal>
     </Modal>
   );
@@ -1243,7 +1294,7 @@ const styles = StyleSheet.create({
     width: 148,
     height: 148,
     backgroundColor: "#ede0c4",
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: "#c8a96e",
     alignItems: "center",
@@ -1271,16 +1322,16 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   boostBadgeTopLeft: {
-    top: -7,
-    left: -7,
+    top: 1,
+    left: 1,
   },
   boostBadgeBottomLeft: {
-    bottom: -7,
-    left: -7,
+    bottom: 1,
+    left: 1,
   },
   boostBadgeTopRight: {
-    top: -7,
-    right: -7,
+    top: 1,
+    right: 1,
   },
   boostBtns: {
     flex: 1,
@@ -1828,17 +1879,38 @@ const styles = StyleSheet.create({
   logSummaryResIcon: { width: 16, height: 16 },
   logScroll: { maxHeight: 220, marginTop: 10, width: "100%" },
   logRound: {
-    fontSize: 11, fontWeight: "700", color: "#9a7040",
-    textAlign: "center", marginVertical: 4, letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+    textAlign: "center",
+    marginVertical: 4,
+    letterSpacing: 1,
   },
   logRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingVertical: 3, paddingHorizontal: 6,
-    backgroundColor: "#f0e4c8", borderRadius: 6, marginBottom: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    backgroundColor: "#f0e4c8",
+    borderRadius: 6,
+    marginBottom: 2,
   },
   logActor: { fontSize: 12, fontWeight: "700", flex: 1 },
   logChamp: { color: "#2d5a24" },
   logEnemy: { color: "#c0392b" },
-  logDmg: { fontSize: 12, fontWeight: "800", color: "#3a2a10", minWidth: 50, textAlign: "center" },
-  logHp: { fontSize: 11, fontWeight: "600", color: "#7a5a30", minWidth: 45, textAlign: "right" },
+  logDmg: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#3a2a10",
+    minWidth: 50,
+    textAlign: "center",
+  },
+  logHp: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7a5a30",
+    minWidth: 45,
+    textAlign: "right",
+  },
 });

@@ -117,18 +117,24 @@ export default function MainScreen() {
   const [activeTab, setActiveTab] = useState<TabName>("champions");
   const [error, setError] = useState(false);
   const [missionTick, setMissionTick] = useState(0);
-  const [expiredRunChampions, setExpiredRunChampions] = useState<Set<string>>(new Set());
+  const [expiredRunChampions, setExpiredRunChampions] = useState<Set<string>>(
+    new Set(),
+  );
   const [attackedBanner, setAttackedBanner] = useState<string | null>(null);
   const [resultBanner, setResultBanner] = useState(false);
   const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
   const [pvpTrophies, setPvpTrophies] = useState<number>(10);
   const [closedEyesCat, setClosedEyesCat] = useState<string | null>(null);
   const closedEyesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const catClickRef = useRef<{ champClass: string; count: number } | null>(null);
+  const catClickRef = useRef<{ champClass: string; count: number } | null>(
+    null,
+  );
   const catClickResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pvpLeague, setPvpLeague] = useState<string>("Bronz");
   const [pvpUnlocked, setPvpUnlocked] = useState<boolean>(false);
-  const [pvpPendingChampionId, setPvpPendingChampionId] = useState<string | null>(null);
+  const [pvpPendingChampionId, setPvpPendingChampionId] = useState<
+    string | null
+  >(null);
   const [pvpBattleEndsAt, setPvpBattleEndsAt] = useState<string | null>(null);
   const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
 
@@ -146,7 +152,7 @@ export default function MainScreen() {
     setFarmers(snapshot.farmers);
     setAnimals(snapshot.animals);
     setSelectedAnimal((prev) =>
-      prev ? (snapshot.animals.find((a) => a.id === prev.id) ?? prev) : null
+      prev ? (snapshot.animals.find((a) => a.id === prev.id) ?? prev) : null,
     );
     setRunMap(snapshot.runMap);
     setPvpDefenderId(snapshot.pvp.defenderId);
@@ -155,7 +161,10 @@ export default function MainScreen() {
     setPvpUnlocked(snapshot.pvp.unlocked);
     setPvpPendingChampionId(snapshot.pvp.pendingChampionId);
     setPvpBattleEndsAt(snapshot.pvp.battleEndsAt);
-    if (snapshot.pvp.battleEndsAt && new Date(snapshot.pvp.battleEndsAt) <= new Date()) {
+    if (
+      snapshot.pvp.battleEndsAt &&
+      new Date(snapshot.pvp.battleEndsAt) <= new Date()
+    ) {
       setResultBanner(true);
     }
   }, [snapshot]);
@@ -169,15 +178,23 @@ export default function MainScreen() {
         api.get("/api/champions").then((r) => setChampions(r.data)),
         api.get("/api/farmers").then((r) => {
           const now = Date.now();
-          const stamped = r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now }));
+          const stamped = r.data.map((f: Farmer) => ({
+            ...f,
+            _fetched_at_ms: now,
+          }));
           setFarmers(stamped);
         }),
         api.get("/api/animals").then((r) => {
           const now = Date.now();
-          const stamped = r.data.map((a: Animal) => ({ ...a, _fetched_at_ms: now }));
+          const stamped = r.data.map((a: Animal) => ({
+            ...a,
+            _fetched_at_ms: now,
+          }));
           setAnimals(stamped);
           setSelectedAnimal((prev) =>
-            prev ? (stamped.find((a: Animal) => a.id === prev.id) ?? prev) : null
+            prev
+              ? (stamped.find((a: Animal) => a.id === prev.id) ?? prev)
+              : null,
           );
         }),
         api.get("/api/dungeons/runs").then((r) => {
@@ -190,23 +207,26 @@ export default function MainScreen() {
       ]).catch(() => setError(true));
 
       // Check PvP status on focus
-      api.get("/api/pvp/status").then((r) => {
-        setPvpDefenderId(r.data.defender_champion_id ?? null);
-        setPvpTrophies(r.data.trophies ?? 10);
-        setPvpLeague(r.data.league ?? "Bronz");
-        setPvpUnlocked(r.data.pvp_unlocked ?? false);
-        const pending = r.data.pending_battle;
-        if (pending) {
-          setPvpPendingChampionId(pending.attacker_champion_id ?? null);
-          setPvpBattleEndsAt(pending.result_available_at ?? null);
-          if (new Date(pending.result_available_at) <= new Date()) {
-            setResultBanner(true);
+      api
+        .get("/api/pvp/status")
+        .then((r) => {
+          setPvpDefenderId(r.data.defender_champion_id ?? null);
+          setPvpTrophies(r.data.trophies ?? 10);
+          setPvpLeague(r.data.league ?? "Bronz");
+          setPvpUnlocked(r.data.pvp_unlocked ?? false);
+          const pending = r.data.pending_battle;
+          if (pending) {
+            setPvpPendingChampionId(pending.attacker_champion_id ?? null);
+            setPvpBattleEndsAt(pending.result_available_at ?? null);
+            if (new Date(pending.result_available_at) <= new Date()) {
+              setResultBanner(true);
+            }
+          } else {
+            setPvpPendingChampionId(null);
+            setPvpBattleEndsAt(null);
           }
-        } else {
-          setPvpPendingChampionId(null);
-          setPvpBattleEndsAt(null);
-        }
-      }).catch(() => {});
+        })
+        .catch(() => {});
     }, []),
   );
 
@@ -214,10 +234,13 @@ export default function MainScreen() {
   useEffect(() => {
     if (!player?.id) return;
     const sock = connectSocket(player.id);
-    sock.on("pvp:attacked", ({ attackerName }: { battleId: string; attackerName: string }) => {
-      setAttackedBanner(attackerName);
-      setTimeout(() => setAttackedBanner(null), 4000);
-    });
+    sock.on(
+      "pvp:attacked",
+      ({ attackerName }: { battleId: string; attackerName: string }) => {
+        setAttackedBanner(attackerName);
+        setTimeout(() => setAttackedBanner(null), 4000);
+      },
+    );
     return () => {
       disconnectSocket();
     };
@@ -285,7 +308,8 @@ export default function MainScreen() {
     setActiveTab(tab);
   }
 
-  const hasCards = champions.length > 0 || farmers.length > 0 || animals.length > 0;
+  const hasCards =
+    champions.length > 0 || farmers.length > 0 || animals.length > 0;
 
   return (
     <ImageBackground source={BG} style={styles.bg} resizeMode="cover">
@@ -298,7 +322,12 @@ export default function MainScreen() {
               {player ? player.username : t("appName")}
             </Text>
             <View style={styles.trophyPill}>
-              <Trophy size={11} color="#ffd54f" strokeWidth={2.5} fill="#ffd54f" />
+              <Trophy
+                size={11}
+                color="#ffd54f"
+                strokeWidth={2.5}
+                fill="#ffd54f"
+              />
               <Text style={styles.trophyCount}>{pvpTrophies}</Text>
             </View>
           </View>
@@ -314,10 +343,37 @@ export default function MainScreen() {
         <ResourceBar
           resources={resources}
           onUpgradeAdvanced={(resource) => {
-            const ADVANCED_COSTS: Record<AdvancedResourceKey, { res1: ResourceKey; res2: ResourceKey; cost1: number; cost2: number; emoji: string }> = {
-              egg:  { res1: "strawberry", res2: "pinecone",  cost1: 20, cost2: 10, emoji: "🥚" },
-              wool: { res1: "pinecone",   res2: "blueberry", cost1: 20, cost2: 10, emoji: "🧶" },
-              milk: { res1: "blueberry",  res2: "strawberry", cost1: 20, cost2: 10, emoji: "🥛" },
+            const ADVANCED_COSTS: Record<
+              AdvancedResourceKey,
+              {
+                res1: ResourceKey;
+                res2: ResourceKey;
+                cost1: number;
+                cost2: number;
+                emoji: string;
+              }
+            > = {
+              egg: {
+                res1: "strawberry",
+                res2: "pinecone",
+                cost1: 20,
+                cost2: 10,
+                emoji: "🥚",
+              },
+              wool: {
+                res1: "pinecone",
+                res2: "blueberry",
+                cost1: 20,
+                cost2: 10,
+                emoji: "🧶",
+              },
+              milk: {
+                res1: "blueberry",
+                res2: "strawberry",
+                cost1: 20,
+                cost2: 10,
+                emoji: "🥛",
+              },
             };
             const cfg = ADVANCED_COSTS[resource];
             const capKey = `${resource}_cap` as keyof Resources;
@@ -374,7 +430,9 @@ export default function MainScreen() {
             style={styles.pvpResultBanner}
             onPress={() => {
               setResultBanner(false);
-              const pendingChamp = champions.find((c) => c.id === pvpPendingChampionId);
+              const pendingChamp = champions.find(
+                (c) => c.id === pvpPendingChampionId,
+              );
               if (pendingChamp) setSelectedChampion(pendingChamp);
             }}
             activeOpacity={0.85}
@@ -412,23 +470,37 @@ export default function MainScreen() {
                   {activeTab === "farmers"
                     ? t("farmersUpper")
                     : activeTab === "animals"
-                    ? "ANIMALS"
-                    : t("championsUpper")}
+                      ? "ANIMALS"
+                      : t("championsUpper")}
                 </Text>
               </View>
               <View style={styles.tabRow}>
-                {(["champions", "farmers", "animals"] as TabName[]).map((tab) => (
-                  <TouchableOpacity
-                    key={tab}
-                    style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
-                    onPress={() => switchTab(tab)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
-                      {tab === "champions" ? t("champions") : tab === "farmers" ? t("farmers") : "Animals"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {(["champions", "farmers", "animals"] as TabName[]).map(
+                  (tab) => (
+                    <TouchableOpacity
+                      key={tab}
+                      style={[
+                        styles.tabBtn,
+                        activeTab === tab && styles.tabBtnActive,
+                      ]}
+                      onPress={() => switchTab(tab)}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.tabBtnText,
+                          activeTab === tab && styles.tabBtnTextActive,
+                        ]}
+                      >
+                        {tab === "champions"
+                          ? t("champions")
+                          : tab === "farmers"
+                            ? t("farmers")
+                            : "Animals"}
+                      </Text>
+                    </TouchableOpacity>
+                  ),
+                )}
               </View>
             </View>
 
@@ -449,7 +521,10 @@ export default function MainScreen() {
               <Animated.View
                 style={[
                   styles.slideContainer,
-                  { width: screenWidth * 3, transform: [{ translateX: slideAnim }] },
+                  {
+                    width: screenWidth * 3,
+                    transform: [{ translateX: slideAnim }],
+                  },
                 ]}
               >
                 {/* Champions row */}
@@ -459,7 +534,11 @@ export default function MainScreen() {
                       key={c.id}
                       champion={c}
                       activeRunEndsAt={runMap[c.id]?.ends_at}
-                      pvpBattleEndsAt={pvpPendingChampionId === c.id ? pvpBattleEndsAt ?? undefined : undefined}
+                      pvpBattleEndsAt={
+                        pvpPendingChampionId === c.id
+                          ? (pvpBattleEndsAt ?? undefined)
+                          : undefined
+                      }
                       onPress={setSelectedChampion}
                       isDefender={pvpDefenderId === c.id}
                     />
@@ -502,17 +581,17 @@ export default function MainScreen() {
           router.push({
             pathname: "/(game)/pvp",
             params: {
-              championId:      champion.id,
-              championName:    champion.name,
-              championClass:   champion.class,
-              championAttack:  String(champion.attack),
+              championId: champion.id,
+              championName: champion.name,
+              championClass: champion.class,
+              championAttack: String(champion.attack),
               championDefense: String(champion.defense),
-              championChance:  String(champion.chance),
-              championMaxHp:   String(champion.max_hp),
+              championChance: String(champion.chance),
+              championMaxHp: String(champion.max_hp),
               championCurrentHp: String(champion.current_hp),
-              championLevel:   String(champion.level),
-              myTrophies:      String(pvpTrophies ?? 10),
-              myLeague:        pvpLeague ?? "Bronz",
+              championLevel: String(champion.level),
+              myTrophies: String(pvpTrophies ?? 10),
+              myLeague: pvpLeague ?? "Bronz",
             },
           });
         }}
@@ -583,7 +662,9 @@ export default function MainScreen() {
         onMissionExpire={() => {
           setMissionTick((t) => t + 1);
           if (selectedChampion) {
-            setExpiredRunChampions((prev) => new Set([...prev, selectedChampion.id]));
+            setExpiredRunChampions(
+              (prev) => new Set([...prev, selectedChampion.id]),
+            );
           }
         }}
         defenderChampionId={pvpDefenderId}
@@ -591,11 +672,17 @@ export default function MainScreen() {
         pvpLeague={pvpLeague}
         pvpUnlocked={pvpUnlocked}
         isPvpBattle={pvpPendingChampionId === selectedChampion?.id}
-        pvpBattleEndsAt={pvpPendingChampionId === selectedChampion?.id ? pvpBattleEndsAt ?? undefined : undefined}
+        pvpBattleEndsAt={
+          pvpPendingChampionId === selectedChampion?.id
+            ? (pvpBattleEndsAt ?? undefined)
+            : undefined
+        }
         onViewPvpResult={handleViewPvpResult}
         onSetDefender={async (champion) => {
           try {
-            const res = await api.post("/api/pvp/set-defender", { champion_id: champion.id });
+            const res = await api.post("/api/pvp/set-defender", {
+              champion_id: champion.id,
+            });
             setPvpDefenderId(res.data.defender_champion_id);
             setPvpTrophies(res.data.trophies);
             setPvpLeague(res.data.league);
@@ -605,7 +692,9 @@ export default function MainScreen() {
         }}
         onBoost={async (champion, type) => {
           try {
-            const res = await api.post(`/api/champions/${champion.id}/boost`, { type });
+            const res = await api.post(`/api/champions/${champion.id}/boost`, {
+              type,
+            });
             setResources(res.data.resources);
             setChampions((prev) =>
               prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
@@ -677,7 +766,9 @@ export default function MainScreen() {
             setResources(res.data.resources);
             api.get("/api/farmers").then((r) => {
               const now = Date.now();
-              setFarmers(r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now })));
+              setFarmers(
+                r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now })),
+              );
             });
             setSelectedFarmer(null);
             music.sfx("COLLECT");
@@ -698,7 +789,9 @@ export default function MainScreen() {
             const res = await api.post(`/api/farmers/${farmer.id}/upgrade`);
             const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setFarmers((prev) => prev.map((f) => (f.id === farmer.id ? fresh : f)));
+            setFarmers((prev) =>
+              prev.map((f) => (f.id === farmer.id ? fresh : f)),
+            );
             setSelectedFarmer(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Geliştirme başarısız");
@@ -715,7 +808,9 @@ export default function MainScreen() {
             const res = await api.post(`/api/animals/${animal.id}/upgrade`);
             const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? fresh : a)),
+            );
             setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Upgrade failed");
@@ -726,7 +821,9 @@ export default function MainScreen() {
             const res = await api.post(`/api/animals/${animal.id}/feed`);
             const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? fresh : a)),
+            );
             setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Feed failed");
@@ -734,10 +831,14 @@ export default function MainScreen() {
         }}
         onFeedMax={async (animal, requestedUnits) => {
           try {
-            const res = await api.post(`/api/animals/${animal.id}/feed-max`, { requestedUnits });
+            const res = await api.post(`/api/animals/${animal.id}/feed-max`, {
+              requestedUnits,
+            });
             const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? fresh : a)),
+            );
             setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Feed max failed");
@@ -748,7 +849,9 @@ export default function MainScreen() {
             const res = await api.post(`/api/animals/${animal.id}/collect`);
             const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
             setResources(res.data.resources);
-            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? fresh : a)),
+            );
             setSelectedAnimal(fresh);
             music.sfx("COLLECT");
           } catch (err: any) {
@@ -890,8 +993,15 @@ export default function MainScreen() {
           <View style={styles.capModalCard}>
             {advancedCapUpgradeConfirm &&
               (() => {
-                const { resource, currentCap, cost1, cost2, costRes1, costRes2, emoji } =
-                  advancedCapUpgradeConfirm;
+                const {
+                  resource,
+                  currentCap,
+                  cost1,
+                  cost2,
+                  costRes1,
+                  costRes2,
+                  emoji,
+                } = advancedCapUpgradeConfirm;
                 const meta1 = RESOURCE_META[costRes1];
                 const meta2 = RESOURCE_META[costRes2];
                 const canAfford =
@@ -1183,73 +1293,140 @@ export default function MainScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            {pvpResult && (() => {
-              const won = pvpResult.winner_id === pvpResult.attacker_id;
-              const trophyDelta = pvpResult.attacker_trophies_delta;
-              return (
-                <>
-                  <View style={[styles.modalHeader, won ? styles.modalHeaderWin : styles.modalHeaderLose]}>
-                    <Text style={styles.modalTitle}>{won ? "⚔️ Zafer!" : "💀 Yenilgi"}</Text>
-                    <View style={styles.modalRewardRow}>
-                      <Text style={won ? styles.modalReward : styles.modalNoReward}>
-                        {trophyDelta >= 0 ? "+" : ""}{trophyDelta} 🏆
-                      </Text>
-                      <Text style={styles.modalXp}>vs {pvpResult.defender_name}</Text>
-                    </View>
-                  </View>
-                  <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }}>
-                    {(["strawberry", "pinecone", "blueberry"] as const).map((r) => {
-                      const amt = (pvpResult as any)[`transferred_${r}`] ?? 0;
-                      if (amt === 0) return null;
-                      const meta = RESOURCE_META[r];
-                      return (
-                        <View key={r} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          {meta.image ? <Image source={meta.image} style={{ width: 22, height: 22 }} resizeMode="contain" /> : null}
-                          <Text style={[styles.modalReward, { color: won ? "#4a7c3f" : "#c0392b" }]}>
-                            {won ? "+" : "-"}{amt}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                  {/* Battle log */}
-                  {(pvpResult.combat_log?.length ?? 0) > 0 && (
-                    <ScrollView
-                      style={styles.pvpLogScroll}
-                      showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled
+            {pvpResult &&
+              (() => {
+                const won = pvpResult.winner_id === pvpResult.attacker_id;
+                const trophyDelta = pvpResult.attacker_trophies_delta;
+                return (
+                  <>
+                    <View
+                      style={[
+                        styles.modalHeader,
+                        won ? styles.modalHeaderWin : styles.modalHeaderLose,
+                      ]}
                     >
-                      {pvpResult.combat_log.map((entry: any, i: number) => {
-                        const isAtk = entry.actor === "attacker";
-                        const newRound = i === 0 || pvpResult.combat_log[i - 1]?.round !== entry.round;
-                        return (
-                          <View key={i}>
-                            {newRound && (
-                              <Text style={styles.pvpLogRound}>— Tur {entry.round + 1} —</Text>
-                            )}
-                            <View style={styles.pvpLogRow}>
-                              <Text style={[styles.pvpLogActor, isAtk ? styles.pvpLogChamp : styles.pvpLogEnemy]}>
-                                {isAtk ? `⚔️ ${pvpResult.attacker_champion_name}` : `🛡️ ${pvpResult.defender_champion_name}`}
-                              </Text>
-                              <Text style={styles.pvpLogDmg}>
-                                {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
-                                {entry.isCrit ? " 💥" : ""}
-                              </Text>
-                              <Text style={styles.pvpLogHp}>
-                                {isAtk ? entry.defenderHpAfter : entry.attackerHpAfter} HP
+                      <Text style={styles.modalTitle}>
+                        {won ? "⚔️ Zafer!" : "💀 Yenilgi"}
+                      </Text>
+                      <View style={styles.modalRewardRow}>
+                        <Text
+                          style={
+                            won ? styles.modalReward : styles.modalNoReward
+                          }
+                        >
+                          {trophyDelta >= 0 ? "+" : ""}
+                          {trophyDelta} 🏆
+                        </Text>
+                        <Text style={styles.modalXp}>
+                          vs {pvpResult.defender_name}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingTop: 12,
+                        gap: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {(["strawberry", "pinecone", "blueberry"] as const).map(
+                        (r) => {
+                          const amt =
+                            (pvpResult as any)[`transferred_${r}`] ?? 0;
+                          if (amt === 0) return null;
+                          const meta = RESOURCE_META[r];
+                          return (
+                            <View
+                              key={r}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              {meta.image ? (
+                                <Image
+                                  source={meta.image}
+                                  style={{ width: 22, height: 22 }}
+                                  resizeMode="contain"
+                                />
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.modalReward,
+                                  { color: won ? "#4a7c3f" : "#c0392b" },
+                                ]}
+                              >
+                                {won ? "+" : "-"}
+                                {amt}
                               </Text>
                             </View>
-                          </View>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                  <TouchableOpacity style={styles.modalBtn} onPress={() => setPvpResult(null)}>
-                    <Text style={styles.modalBtnText}>Kapat</Text>
-                  </TouchableOpacity>
-                </>
-              );
-            })()}
+                          );
+                        },
+                      )}
+                    </View>
+                    {/* Battle log */}
+                    {(pvpResult.combat_log?.length ?? 0) > 0 && (
+                      <ScrollView
+                        style={styles.pvpLogScroll}
+                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled
+                      >
+                        {pvpResult.combat_log.map((entry: any, i: number) => {
+                          const isAtk = entry.actor === "attacker";
+                          const newRound =
+                            i === 0 ||
+                            pvpResult.combat_log[i - 1]?.round !== entry.round;
+                          return (
+                            <View key={i}>
+                              {newRound && (
+                                <Text style={styles.pvpLogRound}>
+                                  — Tur {entry.round + 1} —
+                                </Text>
+                              )}
+                              <View style={styles.pvpLogRow}>
+                                <Text
+                                  style={[
+                                    styles.pvpLogActor,
+                                    isAtk
+                                      ? styles.pvpLogChamp
+                                      : styles.pvpLogEnemy,
+                                  ]}
+                                >
+                                  {isAtk
+                                    ? `⚔️ ${pvpResult.attacker_champion_name}`
+                                    : `🛡️ ${pvpResult.defender_champion_name}`}
+                                </Text>
+                                <Text style={styles.pvpLogDmg}>
+                                  {entry.damage === 0
+                                    ? "BLOK"
+                                    : `−${entry.damage}`}
+                                  {entry.isCrit ? " 💥" : ""}
+                                </Text>
+                                <Text style={styles.pvpLogHp}>
+                                  {isAtk
+                                    ? entry.defenderHpAfter
+                                    : entry.attackerHpAfter}{" "}
+                                  HP
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
+                    <TouchableOpacity
+                      style={styles.modalBtn}
+                      onPress={() => setPvpResult(null)}
+                    >
+                      <Text style={styles.modalBtnText}>Kapat</Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
           </View>
         </View>
       </Modal>
