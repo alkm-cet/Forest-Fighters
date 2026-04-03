@@ -67,14 +67,20 @@ export default function FarmerDrawer({
   // Interpolate farmer snapshot forward to "now" using _fetched_at_ms.
   function interpolate(f: Farmer) {
     if (!f) return { timeLeft: 0, pending: 0 };
-    const elapsedSec  = f._fetched_at_ms ? (Date.now() - f._fetched_at_ms) / 1000 : 0;
-    const cycleSec    = f.interval_minutes * 60;
-    const maxCap      = getMaxCapacity(f.level);
+    const elapsedSec = f._fetched_at_ms
+      ? (Date.now() - f._fetched_at_ms) / 1000
+      : 0;
+    const cycleSec = f.interval_minutes * 60;
+    const maxCap = getMaxCapacity(f.level);
     const rawTimeLeft = Math.max(0, f.next_ready_in_seconds - elapsedSec);
-    const burned      = f.next_ready_in_seconds - rawTimeLeft; // seconds consumed since fetch
-    const extraCycles = cycleSec > 0 ? Math.floor((cycleSec - f.next_ready_in_seconds + burned) / cycleSec) : 0;
-    const pending     = Math.min(f.pending + extraCycles, maxCap);
-    const timeLeft    = rawTimeLeft <= 0 ? cycleSec - ((-rawTimeLeft) % cycleSec) : rawTimeLeft;
+    const burned = f.next_ready_in_seconds - rawTimeLeft; // seconds consumed since fetch
+    const extraCycles =
+      cycleSec > 0
+        ? Math.floor((cycleSec - f.next_ready_in_seconds + burned) / cycleSec)
+        : 0;
+    const pending = Math.min(f.pending + extraCycles, maxCap);
+    const timeLeft =
+      rawTimeLeft <= 0 ? cycleSec - (-rawTimeLeft % cycleSec) : rawTimeLeft;
     return { timeLeft: Math.round(timeLeft), pending };
   }
 
@@ -158,8 +164,12 @@ export default function FarmerDrawer({
     (resources?.[res1 as keyof Resources] ?? 0) >= upgradeCost &&
     (resources?.[res2 as keyof Resources] ?? 0) >= upgradeCost;
 
-  const currentStored = resources?.[farmer.resource_type as keyof Resources] as number ?? 0;
-  const storageCap = resources?.[(farmer.resource_type + "_cap") as keyof Resources] as number ?? 15;
+  const currentStored =
+    (resources?.[farmer.resource_type as keyof Resources] as number) ?? 0;
+  const storageCap =
+    (resources?.[
+      (farmer.resource_type + "_cap") as keyof Resources
+    ] as number) ?? 15;
   const freeSpace = Math.max(0, storageCap - currentStored);
   const collectible = Math.min(livePending, freeSpace);
   const capacityFull = freeSpace === 0 && livePending > 0;
@@ -265,7 +275,8 @@ export default function FarmerDrawer({
             <Text style={styles.productionValue}>1</Text>
             <Text style={styles.productionSep}>/</Text>
             <Text style={styles.productionInterval}>
-              {Number(farmer.interval_minutes).toFixed(1)} {t("perMin").replace("/ ", "")}
+              {Number(farmer.interval_minutes).toFixed(1)}{" "}
+              {t("perMin").replace("/ ", "")}
             </Text>
           </View>
           {livePending > 0 && (
@@ -286,10 +297,11 @@ export default function FarmerDrawer({
           const maxCap = getMaxCapacity(farmer.level);
           const isFarmerFull = livePending >= maxCap;
           const totalSeconds = farmer.interval_minutes * 60;
-          const progress = isFarmerFull ? 0
+          const progress = isFarmerFull
+            ? 0
             : totalSeconds > 0
-            ? Math.max(0, Math.min(1, 1 - (timeLeft - 1) / totalSeconds))
-            : 1;
+              ? Math.max(0, Math.min(1, 1 - (timeLeft - 1) / totalSeconds))
+              : 1;
           return (
             <View
               style={styles.nextReadyRow}
@@ -300,16 +312,26 @@ export default function FarmerDrawer({
                 <View
                   style={[
                     styles.nextReadyFill,
-                    { width: timerRowWidth * progress, backgroundColor: meta.color },
+                    {
+                      width: timerRowWidth * progress,
+                      backgroundColor: meta.color,
+                      opacity: isFarmerFull ? 0.5 : 1,
+                    },
                   ]}
                 />
               )}
-              <Timer size={12} color={isFarmerFull ? "#c0392b" : "#9a7040"} strokeWidth={2} />
+              <Timer
+                size={12}
+                color={isFarmerFull ? "#c0392b" : "black"}
+                strokeWidth={2}
+              />
               <Text style={styles.nextReadyLabel}>
                 {isFarmerFull ? t("farmerStorageFull") : t("nextIn")}
               </Text>
               {!isFarmerFull && (
-                <Text style={styles.nextReadyTimer}>{formatTime(timeLeft)}</Text>
+                <Text style={styles.nextReadyTimer}>
+                  {formatTime(timeLeft)}
+                </Text>
               )}
             </View>
           );
@@ -322,8 +344,8 @@ export default function FarmerDrawer({
             capacityFull
               ? `${t("collect")} — ${t("farmerStorageFull")}`
               : collectible > 0
-              ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
-              : t("nothingToCollect")
+                ? `${t("collect")} (+${collectible}${collectible < livePending ? `/${livePending}` : ""})`
+                : t("nothingToCollect")
           }
           onClick={() => onCollect(farmer)}
           bgColor={capacityFull ? "#9a7040" : meta.color}
@@ -337,7 +359,11 @@ export default function FarmerDrawer({
         {/* Upgrade button */}
         <CustomButton
           btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-          text={isMaxLevel ? `MAX LV ${farmer.level}` : `${t("upgrade")} → LV ${farmer.level + 1}`}
+          text={
+            isMaxLevel
+              ? `MAX LV ${farmer.level}`
+              : `${t("upgrade")} → LV ${farmer.level + 1}`
+          }
           onClick={() => onUpgrade(farmer)}
           bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
           borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
@@ -507,9 +533,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     borderRadius: 10,
-    opacity: 0.28,
   },
-  nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "#9a7040" },
+  nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "black" },
   nextReadyTimer: {
     fontSize: 14,
     fontWeight: "800",
