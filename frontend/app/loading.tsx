@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Text } from "../components/StyledText";
 import { useGameData } from "../lib/game-data-context";
+import { deleteToken } from "../lib/auth";
 
 const BG = require("../assets/home-assets/background-image-3.png");
 
@@ -51,7 +52,14 @@ export default function LoadingScreen() {
       setLabel("Ready! 🌲");
       await new Promise<void>((resolve) => setTimeout(resolve, 700));
       router.replace("/(game)/");
-    } catch {
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        // Token expired or invalid — clear it and go to login
+        await deleteToken();
+        router.replace("/(auth)/login");
+        return;
+      }
       setHasError(true);
       setLabel("Could not reach the server.");
     }

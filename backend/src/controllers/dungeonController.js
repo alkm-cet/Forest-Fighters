@@ -96,7 +96,7 @@ async function claimRun(req, res) {
 
   try {
     const runRows = await query(
-      `SELECT dr.*, c.attack, c.defense, c.chance, c.max_hp, c.level, c.xp, c.xp_to_next_level,
+      `SELECT dr.*, c.attack, c.defense, c.chance, c.max_hp, c.current_hp, c.level, c.xp, c.xp_to_next_level,
               c.boost_hp, c.boost_defense, c.boost_chance,
               d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward
@@ -125,6 +125,7 @@ async function claimRun(req, res) {
       defense: run.defense + (run.boost_defense || 0),
       chance: run.chance + (run.boost_chance || 0),
       max_hp: run.max_hp + (run.boost_hp || 0),
+      current_hp: run.current_hp + (run.boost_hp || 0), // start from actual HP, not max
     };
     const defender = { attack: run.enemy_attack, defense: run.enemy_defense, chance: run.enemy_chance, max_hp: run.enemy_hp };
     const result = simulateCombat(attacker, defender);

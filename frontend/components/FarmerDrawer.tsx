@@ -15,6 +15,8 @@ import { Farmer, Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 import CustomButton from "./CustomButton";
+import { useCoinConfirm } from "../lib/coin-confirm-context";
+import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 
 // Cross-resource upgrade costs
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
@@ -41,9 +43,11 @@ function formatTime(seconds: number): string {
 type Props = {
   farmer: Farmer | null;
   resources?: Resources;
+  coins?: number;
   onClose: () => void;
   onCollect: (farmer: Farmer) => void;
   onUpgrade: (farmer: Farmer) => void;
+  onFillStorage?: (farmer: Farmer) => void;
 };
 
 const DISMISS_THRESHOLD = 100;
@@ -51,11 +55,14 @@ const DISMISS_THRESHOLD = 100;
 export default function FarmerDrawer({
   farmer,
   resources,
+  coins = 0,
   onClose,
   onCollect,
   onUpgrade,
+  onFillStorage,
 }: Props) {
   const { t } = useLanguage();
+  const { triggerCoinConfirm } = useCoinConfirm();
   const translateY = useRef(new Animated.Value(0)).current;
 
   // Live pending + countdown managed locally
@@ -70,30 +77,34 @@ export default function FarmerDrawer({
     const elapsedSec = f._fetched_at_ms
       ? (Date.now() - f._fetched_at_ms) / 1000
       : 0;
-    const cycleSec = f.interval_minutes * 60;
+    const cycleSec = (f.interval_minutes ?? 0) * 60;
     const maxCap = getMaxCapacity(f.level);
-    const rawTimeLeft = Math.max(0, f.next_ready_in_seconds - elapsedSec);
+    const rawTimeLeft = Math.max(0, (f.next_ready_in_seconds ?? 0) - elapsedSec);
     const burned = f.next_ready_in_seconds - rawTimeLeft; // seconds consumed since fetch
     const extraCycles =
       cycleSec > 0
-        ? Math.floor((cycleSec - f.next_ready_in_seconds + burned) / cycleSec)
+        ? Math.max(0, Math.floor((cycleSec - f.next_ready_in_seconds + burned) / cycleSec))
         : 0;
-    const pending = Math.min(f.pending + extraCycles, maxCap);
+    const pending = Math.min((f.pending ?? 0) + extraCycles, maxCap);
     const timeLeft =
       rawTimeLeft <= 0 ? cycleSec - (-rawTimeLeft % cycleSec) : rawTimeLeft;
     return { timeLeft: Math.round(timeLeft), pending };
   }
 
-  // Reset when drawer opens; interpolate so timer is accurate even if snapshot is old.
+  // Slide animation reset — only when the drawer opens (new farmer)
+  useEffect(() => {
+    if (farmer) translateY.setValue(0);
+  }, [farmer?.id]);
+
+  // Re-interpolate whenever farmer data changes (open or after fill/collect)
   useEffect(() => {
     if (farmer) {
-      translateY.setValue(0);
       const { timeLeft, pending } = interpolate(farmer);
       livePendingRef.current = pending;
       setLivePending(pending);
       setTimeLeft(timeLeft);
     }
-  }, [farmer?.id]);
+  }, [farmer?.id, farmer?.last_collected_at]);
 
   // Keep ref in sync so interval can read latest value without recreating
   useEffect(() => {
@@ -356,20 +367,44 @@ export default function FarmerDrawer({
 
         <View style={styles.divider} />
 
-        {/* Upgrade button */}
-        <CustomButton
-          btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-          text={
-            isMaxLevel
-              ? `MAX LV ${farmer.level}`
-              : `${t("upgrade")} → LV ${farmer.level + 1}`
-          }
-          onClick={() => onUpgrade(farmer)}
-          bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
-          borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
-          disabled={!canUpgrade}
-          style={styles.actionBtn}
-        />
+        {/* Upgrade + Fill Storage buttons row */}
+        <View style={styles.bottomBtnRow}>
+          <CustomButton
+            btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
+            text={
+              isMaxLevel
+                ? `MAX LV ${farmer.level}`
+                : `${t("upgrade")} → LV ${farmer.level + 1}`
+            }
+            onClick={() => onUpgrade(farmer)}
+            bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
+            borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
+            disabled={!canUpgrade}
+            style={styles.bottomBtnFlex}
+          />
+          {(() => {
+            const maxCap = getMaxCapacity(farmer.level);
+            const fillCost = maxCap - livePending;
+            const isFull = fillCost <= 0;
+            const canFill = !isFull && coins >= fillCost;
+            return (
+              <CustomButton
+                text={isFull ? t("storageFull") : `${t("fillStorage")} 🪙×${fillCost}`}
+                onClick={() => !isFull && onFillStorage && triggerCoinConfirm({
+                  transactionCost: fillCost,
+                  transactionTitle: t("fillStorage"),
+                  transactionDesc: t("fillStorageDesc"),
+                  onConfirm: () => onFillStorage(farmer),
+                })}
+                bgColor={isFull ? "#9a7040" : "#b8860b"}
+                borderColor={isFull ? "#7a5030" : "#8b6508"}
+                disabled={isFull || !canFill}
+                style={styles.bottomBtnFlex}
+              />
+            );
+          })()}
+        </View>
+        <InGameCoinConfirmModal coins={coins} />
       </Animated.View>
     </Modal>
   );
@@ -545,4 +580,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   btnDisabled: { opacity: 0.4 },
+  bottomBtnRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 4,
+  },
+  bottomBtnFlex: {
+    flex: 1,
+  },
 });

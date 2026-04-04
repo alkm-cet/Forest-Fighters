@@ -14,8 +14,9 @@
  * @returns {{ winner: 'attacker'|'defender', attackerHpLeft, defenderHpLeft, log }}
  */
 function simulateCombat(attacker, defender) {
-  let attackerHp = attacker.max_hp || 100;
-  let defenderHp = defender.max_hp || 100;
+  // Use current_hp if provided (champion entered the fight injured), otherwise start at max_hp
+  let attackerHp = attacker.current_hp ?? attacker.max_hp ?? 100;
+  let defenderHp = defender.current_hp ?? defender.max_hp ?? 100;
   const log = [];
 
   for (let round = 0; round < 10; round++) {

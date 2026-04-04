@@ -66,6 +66,7 @@ export type Farmer = {
   interval_minutes: number;
   pending: number;
   next_ready_in_seconds: number;
+  last_collected_at?: string;  // ISO string from backend, used to detect data updates
   _fetched_at_ms: number;      // client-side: Date.now() when this snapshot arrived
 };
 
@@ -73,6 +74,7 @@ export type Player = {
   id: string;
   username: string;
   email: string;
+  coins: number;
 };
 
 export type Dungeon = {

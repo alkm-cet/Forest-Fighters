@@ -244,7 +244,7 @@ router.post('/:id/feed', authMiddleware, async (req, res) => {
     }
 
     await query(
-      `UPDATE player_resources SET ${cfg.consumeResource} = ${cfg.consumeResource} - 1 WHERE player_id = $1`,
+      `UPDATE player_resources SET ${cfg.consumeResource} = GREATEST(${cfg.consumeResource} - 1, 0) WHERE player_id = $1`,
       [playerId]
     );
 
@@ -311,7 +311,7 @@ router.post('/:id/feed-max', authMiddleware, async (req, res) => {
     );
 
     await query(
-      `UPDATE player_resources SET ${cfg.consumeResource} = ${cfg.consumeResource} - $1 WHERE player_id = $2`,
+      `UPDATE player_resources SET ${cfg.consumeResource} = GREATEST(${cfg.consumeResource} - $1, 0) WHERE player_id = $2`,
       [actualUnits, playerId]
     );
 

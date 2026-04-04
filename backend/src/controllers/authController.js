@@ -68,7 +68,7 @@ async function login(req, res) {
 async function me(req, res) {
   try {
     const rows = await query(
-      'SELECT id, username, email, created_at FROM players WHERE id = $1',
+      'SELECT id, username, email, created_at, coins FROM players WHERE id = $1',
       [req.player.id]
     );
     const player = rows[0];

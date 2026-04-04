@@ -16,6 +16,8 @@ import { ANIMAL_META, RESOURCE_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
 import CustomButton from "./CustomButton";
 import CustomModal from "./CustomModal";
+import { useCoinConfirm } from "../lib/coin-confirm-context";
+import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 
 const DISMISS_THRESHOLD = 100;
 
@@ -49,23 +51,28 @@ function formatMinutes(minutes: number): string {
 type Props = {
   animal: Animal | null;
   resources?: Resources;
+  coins?: number;
   onClose: () => void;
   onFeed: (animal: Animal) => void;
   onFeedMax: (animal: Animal, requestedUnits: number) => void;
   onCollect: (animal: Animal) => void;
   onUpgrade: (animal: Animal) => void;
+  onFillStorage?: (animal: Animal) => void;
 };
 
 export default function AnimalDrawer({
   animal,
   resources,
+  coins = 0,
   onClose,
   onFeed,
   onFeedMax,
   onCollect,
   onUpgrade,
+  onFillStorage,
 }: Props) {
   const { t } = useLanguage();
+  const { triggerCoinConfirm } = useCoinConfirm();
   const translateY = useRef(new Animated.Value(0)).current;
   const [showMaxConfirm, setShowMaxConfirm] = useState(false);
   const [timerRowWidth, setTimerRowWidth] = useState(0);
@@ -537,20 +544,43 @@ export default function AnimalDrawer({
 
         <View style={styles.divider} />
 
-        {/* ─── Upgrade button (mirrors FarmerDrawer) ─── */}
-        <CustomButton
-          btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-          text={
-            isMaxLevel
-              ? `MAX LV ${animal.level}`
-              : `${t("upgrade")} → LV ${animal.level + 1}`
-          }
-          onClick={() => onUpgrade(animal)}
-          bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
-          borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
-          disabled={!canUpgrade}
-          style={styles.actionBtn}
-        />
+        {/* ─── Upgrade + Fill Storage buttons row ─── */}
+        <View style={styles.bottomBtnRow}>
+          <CustomButton
+            btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
+            text={
+              isMaxLevel
+                ? `MAX LV ${animal.level}`
+                : `${t("upgrade")} → LV ${animal.level + 1}`
+            }
+            onClick={() => onUpgrade(animal)}
+            bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
+            borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
+            disabled={!canUpgrade}
+            style={styles.bottomBtnFlex}
+          />
+          {(() => {
+            const fillCost = maxCap - livePending;
+            const isFull = fillCost <= 0;
+            const canFill = !isFull && coins >= fillCost;
+            return (
+              <CustomButton
+                text={isFull ? t("storageFull") : `${t("fillStorage")} 🪙×${fillCost}`}
+                onClick={() => !isFull && onFillStorage && triggerCoinConfirm({
+                  transactionCost: fillCost,
+                  transactionTitle: t("fillStorage"),
+                  transactionDesc: t("fillStorageDesc"),
+                  onConfirm: () => onFillStorage(animal),
+                })}
+                bgColor={isFull ? "#9a7040" : "#b8860b"}
+                borderColor={isFull ? "#7a5030" : "#8b6508"}
+                disabled={isFull || !canFill}
+                style={styles.bottomBtnFlex}
+              />
+            );
+          })()}
+        </View>
+        <InGameCoinConfirmModal coins={coins} />
       </Animated.View>
 
       {/* MAX feed confirmation modal */}
@@ -751,6 +781,14 @@ const styles = StyleSheet.create({
   nextReadyTimer: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
 
   actionBtn: { marginBottom: 2 },
+  bottomBtnRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 2,
+  },
+  bottomBtnFlex: {
+    flex: 1,
+  },
 
   // ── Feed storage ──
   availableFeedText: {

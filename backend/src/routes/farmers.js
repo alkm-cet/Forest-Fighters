@@ -151,7 +151,23 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
       'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1',
       [playerId]
     );
-    res.json({ collected: collectible, resource_type: farmer.resource_type, resources: updatedRes[0] });
+    const r = updatedRes[0];
+    res.json({
+      collected: collectible,
+      resource_type: farmer.resource_type,
+      resources: {
+        ...r,
+        strawberry_cap: r.strawberry_cap ?? 10,
+        pinecone_cap:   r.pinecone_cap   ?? 10,
+        blueberry_cap:  r.blueberry_cap  ?? 10,
+        egg:      r.egg      ?? 0,
+        wool:     r.wool     ?? 0,
+        milk:     r.milk     ?? 0,
+        egg_cap:  r.egg_cap  ?? 10,
+        wool_cap: r.wool_cap ?? 10,
+        milk_cap: r.milk_cap ?? 10,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Collect failed' });

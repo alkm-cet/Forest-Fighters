@@ -112,6 +112,13 @@ export default function MainScreen() {
     farmerIndex: number;
     key: number;
   } | null>(null);
+  const [animalCollectAnim, setAnimalCollectAnim] = useState<{
+    animalId: string;
+    amount: number;
+    resourceType: string;
+    animalIndex: number;
+    key: number;
+  } | null>(null);
   type TabName = "champions" | "farmers" | "animals";
   const TAB_ORDER: TabName[] = ["champions", "farmers", "animals"];
   const [activeTab, setActiveTab] = useState<TabName>("champions");
@@ -126,6 +133,38 @@ export default function MainScreen() {
   const [pvpTrophies, setPvpTrophies] = useState<number>(10);
   const [closedEyesCat, setClosedEyesCat] = useState<string | null>(null);
   const closedEyesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Feed serialization: prevents concurrent feed requests from over-spending resources.
+  // Each tap increments the buffer; only one request is in-flight at a time;
+  // buffered taps are sent as a single feed-max call after the current request completes.
+  const feedBufferRef = useRef(0);
+  const feedInFlightRef = useRef(false);
+  const flushFeedBufferRef = useRef<(animalId: string) => void>();
+  flushFeedBufferRef.current = (animalId: string) => {
+    if (feedInFlightRef.current || feedBufferRef.current === 0) return;
+    feedInFlightRef.current = true;
+    const count = feedBufferRef.current;
+    feedBufferRef.current = 0;
+    (count === 1
+      ? api.post(`/api/animals/${animalId}/feed`)
+      : api.post(`/api/animals/${animalId}/feed-max`, { requestedUnits: count })
+    ).then((res) => {
+      const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
+      // If feed storage is now full, discard any remaining buffered taps
+      if (fresh.current_feed >= fresh.max_feed) {
+        feedBufferRef.current = 0;
+      }
+      setResources(res.data.resources);
+      setAnimals((prev) => prev.map((a) => (a.id === animalId ? fresh : a)));
+      setSelectedAnimal(fresh);
+    }).catch(() => {
+      // On any error (full, no resource, etc.) clear the buffer — stop retrying
+      feedBufferRef.current = 0;
+    }).finally(() => {
+      feedInFlightRef.current = false;
+      if (feedBufferRef.current > 0) flushFeedBufferRef.current?.(animalId);
+    });
+  };
   const catClickRef = useRef<{ champClass: string; count: number } | null>(
     null,
   );
@@ -137,6 +176,7 @@ export default function MainScreen() {
   >(null);
   const [pvpBattleEndsAt, setPvpBattleEndsAt] = useState<string | null>(null);
   const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
+  const [coins, setCoins] = useState<number>(0);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -147,6 +187,7 @@ export default function MainScreen() {
     if (!snapshot || seededRef.current) return;
     seededRef.current = true;
     setPlayer(snapshot.player);
+    setCoins(snapshot.player?.coins ?? 0);
     setResources(snapshot.resources);
     setChampions(snapshot.champions);
     setFarmers(snapshot.farmers);
@@ -173,7 +214,7 @@ export default function MainScreen() {
   useFocusEffect(
     useCallback(() => {
       Promise.all([
-        api.get("/api/auth/me").then((r) => setPlayer(r.data)),
+        api.get("/api/auth/me").then((r) => { setPlayer(r.data); setCoins(r.data.coins ?? 0); }),
         api.get("/api/resources").then((r) => setResources(r.data)),
         api.get("/api/champions").then((r) => setChampions(r.data)),
         api.get("/api/farmers").then((r) => {
@@ -329,6 +370,10 @@ export default function MainScreen() {
                 fill="#ffd54f"
               />
               <Text style={styles.trophyCount}>{pvpTrophies}</Text>
+            </View>
+            <View style={styles.coinPill}>
+              <Text style={styles.coinIcon}>🪙</Text>
+              <Text style={styles.coinCount}>{coins}</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -513,6 +558,16 @@ export default function MainScreen() {
                 farmerIndex={collectAnim.farmerIndex}
                 screenWidth={screenWidth}
                 onDone={() => setCollectAnim(null)}
+              />
+            )}
+            {animalCollectAnim && activeTab === "animals" && (
+              <CollectFloater
+                key={animalCollectAnim.key}
+                amount={animalCollectAnim.amount}
+                resourceType={animalCollectAnim.resourceType}
+                farmerIndex={animalCollectAnim.animalIndex}
+                screenWidth={screenWidth}
+                onDone={() => setAnimalCollectAnim(null)}
               />
             )}
 
@@ -720,6 +775,35 @@ export default function MainScreen() {
             );
           }
         }}
+        coins={coins}
+        onCoinRevive={async (champion) => {
+          try {
+            const res = await api.post("/api/coins/revive-champion", { champion_id: champion.id });
+            setCoins(res.data.coins);
+            setChampions((prev) =>
+              prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
+            );
+            setSelectedChampion(res.data.champion);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Coin ile canlandırma başarısız");
+          }
+        }}
+        onSkipMission={async (champion) => {
+          const run = selectedChampion && runMap[selectedChampion.id];
+          if (!run) return;
+          try {
+            const res = await api.post("/api/coins/skip-dungeon", { run_id: run.id });
+            setCoins(res.data.coins);
+            // Mark run as expired so drawer shows claim button
+            setExpiredRunChampions((prev) => new Set([...prev, champion.id]));
+            setRunMap((prev) => ({
+              ...prev,
+              [champion.id]: { ...run, ends_at: res.data.ends_at },
+            }));
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Skip başarısız");
+          }
+        }}
         onClaim={async (run) => {
           setSelectedChampion(null);
           setExpiredRunChampions((prev) => {
@@ -759,7 +843,19 @@ export default function MainScreen() {
       <FarmerDrawer
         farmer={selectedFarmer}
         resources={resources}
+        coins={coins}
         onClose={() => setSelectedFarmer(null)}
+        onFillStorage={async (farmer) => {
+          try {
+            const res = await api.post("/api/coins/fill-farmer-storage", { farmer_id: farmer.id });
+            setCoins(res.data.coins);
+            const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
+            setFarmers((prev) => prev.map((f) => (f.id === farmer.id ? fresh : f)));
+            setSelectedFarmer(fresh);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Depo doldurulamadı");
+          }
+        }}
         onCollect={async (farmer) => {
           try {
             const res = await api.post(`/api/farmers/${farmer.id}/collect`);
@@ -802,7 +898,19 @@ export default function MainScreen() {
       <AnimalDrawer
         animal={selectedAnimal}
         resources={resources}
+        coins={coins}
         onClose={() => setSelectedAnimal(null)}
+        onFillStorage={async (animal) => {
+          try {
+            const res = await api.post("/api/coins/fill-animal-storage", { animal_id: animal.id });
+            setCoins(res.data.coins);
+            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
+            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setSelectedAnimal(fresh);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Depo doldurulamadı");
+          }
+        }}
         onUpgrade={async (animal) => {
           try {
             const res = await api.post(`/api/animals/${animal.id}/upgrade`);
@@ -816,20 +924,16 @@ export default function MainScreen() {
             alert(err.response?.data?.error ?? "Upgrade failed");
           }
         }}
-        onFeed={async (animal) => {
-          try {
-            const res = await api.post(`/api/animals/${animal.id}/feed`);
-            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? fresh : a)),
-            );
-            setSelectedAnimal(fresh);
-          } catch (err: any) {
-            alert(err.response?.data?.error ?? "Feed failed");
-          }
+        onFeed={(animal) => {
+          feedBufferRef.current += 1;
+          flushFeedBufferRef.current?.(animal.id);
         }}
         onFeedMax={async (animal, requestedUnits) => {
+          // Feed max bypasses the buffer — wait for any in-flight feed to finish first
+          if (feedInFlightRef.current) {
+            feedBufferRef.current += requestedUnits;
+            return;
+          }
           try {
             const res = await api.post(`/api/animals/${animal.id}/feed-max`, {
               requestedUnits,
@@ -852,8 +956,16 @@ export default function MainScreen() {
             setAnimals((prev) =>
               prev.map((a) => (a.id === animal.id ? fresh : a)),
             );
-            setSelectedAnimal(fresh);
+            setSelectedAnimal(null);
             music.sfx("COLLECT");
+            const idx = animals.findIndex((a) => a.id === animal.id);
+            setAnimalCollectAnim({
+              animalId: animal.id,
+              amount: res.data.collected,
+              resourceType: animal.produce_resource,
+              animalIndex: idx >= 0 ? idx : 0,
+              key: Date.now(),
+            });
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
           }
@@ -1473,6 +1585,23 @@ const styles = StyleSheet.create({
   },
   trophyCount: {
     color: "#ffd54f",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  coinPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  coinIcon: {
+    fontSize: 11,
+  },
+  coinCount: {
+    color: "#ffe082",
     fontSize: 12,
     fontWeight: "800",
   },

@@ -8,6 +8,7 @@ import { isMusicEnabled } from "../lib/settings";
 import { LanguageProvider } from "../lib/i18n";
 import { AuthProvider, useAuth } from "../lib/auth-context";
 import { GameDataProvider } from "../lib/game-data-context";
+import { CoinConfirmProvider } from "../lib/coin-confirm-context";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -68,7 +69,9 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <GameDataProvider>
-            <AuthGuard />
+            <CoinConfirmProvider>
+              <AuthGuard />
+            </CoinConfirmProvider>
           </GameDataProvider>
         </AuthProvider>
       </LanguageProvider>

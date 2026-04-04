@@ -57,7 +57,7 @@ router.post('/:id/revive', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: `Not enough strawberries (need ${REVIVE_COST})` });
     }
 
-    await query('UPDATE player_resources SET strawberry = strawberry - $1 WHERE player_id = $2', [REVIVE_COST, playerId]);
+    await query('UPDATE player_resources SET strawberry = GREATEST(strawberry - $1, 0) WHERE player_id = $2', [REVIVE_COST, playerId]);
     await query('UPDATE champions SET current_hp = max_hp WHERE id = $1', [championId]);
 
     const updated = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);
@@ -92,7 +92,7 @@ router.post('/:id/heal', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: `Not enough strawberries (need ${healCost})` });
     }
 
-    await query('UPDATE player_resources SET strawberry = strawberry - $1 WHERE player_id = $2', [healCost, playerId]);
+    await query('UPDATE player_resources SET strawberry = GREATEST(strawberry - $1, 0) WHERE player_id = $2', [healCost, playerId]);
     await query('UPDATE champions SET current_hp = $1 WHERE id = $2', [effectiveMaxHp, championId]);
 
     const updated = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);

@@ -261,6 +261,10 @@ async function migrate() {
     `);
     console.log('Animals system migrated');
 
+    // ── In-game coin system ─────────────────────────────────────────────────
+    await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS coins INT DEFAULT 0`);
+    console.log('Coins column added to players');
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

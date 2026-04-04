@@ -50,7 +50,6 @@ export const ANIMAL_META: Record<
     consumeResource: string;
     produceResource: string;
     color: string;
-    produceEmoji: string;
   }
 > = {
   chicken: {
@@ -59,23 +58,20 @@ export const ANIMAL_META: Record<
     consumeResource: "strawberry",
     produceResource: "egg",
     color: "#e8534a",
-    produceEmoji: "🥚",
   },
   sheep: {
     image: require("../assets/animals/sheep.png"),
     label: "Sheep",
     consumeResource: "pinecone",
     produceResource: "wool",
-    color: "#5b6bbf",
-    produceEmoji: "🧶",
+    color: "#5a8a3c",
   },
   cow: {
     image: require("../assets/animals/cow.png"),
     label: "Cow",
     consumeResource: "blueberry",
     produceResource: "milk",
-    color: "#e8c840",
-    produceEmoji: "🥛",
+    color: "#5b6bbf",
   },
 };
 

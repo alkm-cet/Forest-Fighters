@@ -40,6 +40,8 @@ import { useLanguage } from "../lib/i18n";
 import PvpBattleButton from "./PvpBattleButton";
 import EnterDungeonButton from "./EnterDungeonButton";
 import CountdownTimer from "./CountdownTimer";
+import { useCoinConfirm } from "../lib/coin-confirm-context";
+import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 
 const REVIVE_COST = 3;
 
@@ -70,6 +72,9 @@ type Props = {
   isPvpBattle?: boolean;
   pvpBattleEndsAt?: string;
   onViewPvpResult?: () => void;
+  coins?: number;
+  onCoinRevive?: (champion: Champion) => void;
+  onSkipMission?: (champion: Champion) => void;
 };
 
 const BOOST_META: Record<
@@ -183,8 +188,12 @@ export default function ChampionDrawer({
   isPvpBattle,
   pvpBattleEndsAt,
   onViewPvpResult,
+  coins = 0,
+  onCoinRevive,
+  onSkipMission,
 }: Props) {
   const { t } = useLanguage();
+  const { triggerCoinConfirm } = useCoinConfirm();
   const translateY = useRef(new Animated.Value(0)).current;
   const contentScrollY = useRef(0);
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
@@ -755,7 +764,7 @@ export default function ChampionDrawer({
 
             {/* Buttons */}
             {champion.current_hp <= 0 ? (
-              // Dead champion — show revive button full width
+              // Dead champion — show both revive options
               <View style={styles.btnRow}>
                 <TouchableOpacity
                   style={[
@@ -773,6 +782,24 @@ export default function ChampionDrawer({
                   <Sparkles size={16} color="#fff" strokeWidth={2} />
                   <Text style={styles.reviveBtnText}>{t("revive")}</Text>
                   <Text style={styles.reviveCost}>🍓 ×{REVIVE_COST}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.coinReviveBtn,
+                    styles.btnFlex,
+                    coins < 5 && styles.btnDisabled,
+                  ]}
+                  onPress={() => coins >= 5 && triggerCoinConfirm({
+                    transactionCost: 5,
+                    transactionTitle: t("coinRevive"),
+                    transactionDesc: `${champion.name} anında canlandırılsın mı?`,
+                    onConfirm: () => onCoinRevive?.(champion),
+                  })}
+                  activeOpacity={0.8}
+                >
+                  <Sparkles size={16} color="#fff" strokeWidth={2} />
+                  <Text style={styles.reviveBtnText}>{t("coinRevive")}</Text>
+                  <Text style={styles.reviveCost}>🪙 ×5</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -868,6 +895,25 @@ export default function ChampionDrawer({
                               />
                             )}
                           </View>
+                          {activeRunEndsAt && (() => {
+                            const secsLeft = Math.max(0, (new Date(activeRunEndsAt).getTime() - Date.now()) / 1000);
+                            const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
+                            const canSkip = coins >= skipCost;
+                            return (
+                              <TouchableOpacity
+                                style={[styles.missionSkipBtn, !canSkip && styles.btnDisabled]}
+                                onPress={() => canSkip && triggerCoinConfirm({
+                                  transactionCost: skipCost,
+                                  transactionTitle: t("skipCooldown"),
+                                  transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
+                                  onConfirm: () => onSkipMission?.(champion),
+                                })}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.missionSkipText}>🪙 ×{skipCost}</Text>
+                              </TouchableOpacity>
+                            );
+                          })()}
                         </View>
                       ) : (
                         <View
@@ -1013,6 +1059,7 @@ export default function ChampionDrawer({
             </View>
           </Modal>
         )}
+        <InGameCoinConfirmModal coins={coins} />
       </Animated.View>
 
       {/* Battle log modal */}
@@ -1703,6 +1750,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#e8c8f8",
+  },
+  coinReviveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#b8860b",
+    borderRadius: 14,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: "#8b6508",
+  },
+  missionSkipBtn: {
+    backgroundColor: "#b8860b",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1.5,
+    borderColor: "#8b6508",
+    marginLeft: 6,
+  },
+  missionSkipText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
   },
   healBtn: {
     flexDirection: "row",

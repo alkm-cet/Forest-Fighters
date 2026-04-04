@@ -123,6 +123,16 @@ const translations = {
     boostAlreadyActive: "Already active",
     boostSection: "BATTLE BOOSTS",
 
+    // Coins
+    coins: "Coins",
+    skipCooldown: "Skip",
+    notEnoughCoins: "Not enough coins",
+    coinRevive: "Revive",
+    alreadyReady: "Already ready!",
+    fillStorage: "Fill Storage",
+    fillStorageDesc: "Fill farmer storage to max capacity?",
+    storageFull: "Storage Full",
+
     // PvP
     pvpArena: "PvP Arena",
     trophies: "Trophies",
@@ -265,6 +275,16 @@ const translations = {
     boostActiveUntil: "Bir sonraki savaşa kadar aktif",
     boostAlreadyActive: "Zaten aktif",
     boostSection: "SAVAŞ BOOSTLARI",
+
+    // Coins
+    coins: "Altın",
+    skipCooldown: "Atla",
+    notEnoughCoins: "Yeterli altın yok",
+    coinRevive: "Canlandır",
+    alreadyReady: "Zaten hazır!",
+    fillStorage: "Depoyu Doldur",
+    fillStorageDesc: "Çiftçi deposunu max kapasiteye doldur?",
+    storageFull: "Depo Dolu",
 
     // PvP
     pvpArena: "PvP Arenası",

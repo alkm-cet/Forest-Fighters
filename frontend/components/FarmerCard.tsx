@@ -14,8 +14,8 @@ const getMaxCapacity = (level: number) => 4 + level;
 
 function calcLivePending(farmer: Farmer): number {
   const maxCap = getMaxCapacity(farmer.level);
-  if (!farmer._fetched_at_ms || !farmer.interval_minutes || !farmer.next_ready_in_seconds) {
-    return Math.min(farmer.pending, maxCap);
+  if (!farmer._fetched_at_ms || !farmer.interval_minutes || farmer.next_ready_in_seconds == null) {
+    return Math.min(farmer.pending ?? 0, maxCap);
   }
   const elapsedSec = (Date.now() - farmer._fetched_at_ms) / 1000;
   const cycleSec = farmer.interval_minutes * 60;

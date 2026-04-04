@@ -18,17 +18,22 @@ export default function AnimalCard({ animal, onPress }: Props) {
     produceEmoji: "?",
   };
   const consumeMeta = RESOURCE_META[animal.consume_resource];
+  const produceMeta = RESOURCE_META[animal.produce_resource];
 
-  const elapsedMin = animal._fetched_at_ms ? (Date.now() - animal._fetched_at_ms) / 60000 : 0;
-  const liveFuelMin = Math.max(0, animal.fuel_remaining_minutes - elapsedMin);
-  const liveFeedUnits = animal.minutes_per_feed > 0
-    ? Math.min(Math.ceil(liveFuelMin / animal.minutes_per_feed), animal.max_feed)
+  const elapsedMin = animal._fetched_at_ms
+    ? (Date.now() - animal._fetched_at_ms) / 60000
     : 0;
+  const liveFuelMin = Math.max(0, animal.fuel_remaining_minutes - elapsedMin);
+  const liveFeedUnits =
+    animal.minutes_per_feed > 0
+      ? Math.min(
+          Math.ceil(liveFuelMin / animal.minutes_per_feed),
+          animal.max_feed,
+        )
+      : 0;
 
   const feedPct =
-    animal.max_feed > 0
-      ? Math.min(liveFeedUnits / animal.max_feed, 1)
-      : 0;
+    animal.max_feed > 0 ? Math.min(liveFeedUnits / animal.max_feed, 1) : 0;
 
   return (
     <TouchableOpacity
@@ -39,9 +44,14 @@ export default function AnimalCard({ animal, onPress }: Props) {
       {/* Pending badge */}
       {animal.pending > 0 && (
         <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
-          <Text style={styles.pendingText}>
-            {meta.produceEmoji} {animal.pending}
-          </Text>
+          {produceMeta?.image && (
+            <Image
+              source={produceMeta.image}
+              style={styles.pendingIcon}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={styles.pendingText}>{animal.pending}</Text>
         </View>
       )}
 
@@ -49,7 +59,10 @@ export default function AnimalCard({ animal, onPress }: Props) {
       <View style={styles.statsRow}>
         <StatCell label={t("lvl")} value={String(animal.level)} />
         <View style={styles.statDivider} />
-        <StatCell label="ÜRT" value={`1/${Number(animal.interval_minutes).toFixed(1)}m`} />
+        <StatCell
+          label="ÜRT"
+          value={`1/${Number(animal.interval_minutes).toFixed(1)}m`}
+        />
       </View>
 
       {/* Animal image */}
@@ -116,12 +129,19 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     position: "absolute",
-    bottom: 45,
-    right: 6,
+    top: 48,
+    left: 6,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
     zIndex: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  pendingIcon: {
+    width: 14,
+    height: 14,
   },
   pendingText: {
     fontSize: 10,
