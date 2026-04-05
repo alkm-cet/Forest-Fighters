@@ -324,13 +324,16 @@ export default function MainScreen() {
     try {
       const res = await api.get("/api/pvp/battles");
       if (res.data.length > 0) {
-        // Refresh data first
-        const [champRes, resRes] = await Promise.all([
+        // Refresh data first (including pvp/status so trophies update immediately)
+        const [champRes, resRes, pvpRes] = await Promise.all([
           api.get("/api/champions"),
           api.get("/api/resources"),
+          api.get("/api/pvp/status"),
         ]);
         setChampions(champRes.data);
         setResources(resRes.data);
+        setPvpTrophies(pvpRes.data.trophies ?? 10);
+        setPvpLeague(pvpRes.data.league ?? "Bronz");
         setPvpPendingChampionId(null);
         setPvpBattleEndsAt(null);
         setResultBanner(false);
@@ -392,9 +395,9 @@ export default function MainScreen() {
                 <View style={styles.trophyPillRow}>
                   <Trophy
                     size={10}
-                    color="#ffd54f"
+                    color="#60552f"
                     strokeWidth={2.5}
-                    fill="#ffd54f"
+                    fill="#60552f"
                   />
                   <Text style={styles.trophyCount}>{pvpTrophies}</Text>
                 </View>
@@ -1653,10 +1656,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   playerName: {
-    color: "#fff",
+    color: "#000",
     fontSize: 13,
     fontWeight: "700",
-    textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -1666,7 +1668,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   trophyCount: {
-    color: "#ffd54f",
+    color: "#60552f",
     fontSize: 12,
     fontWeight: "800",
   },

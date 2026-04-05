@@ -30,7 +30,12 @@
       "Bash(wc:*)",
       "Bash(npx tsc:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(find Assets.xcassets/AppIcon.appiconset -name \"*.png\" ! -name \"1024.png\" -delete)",
+      "Bash(rm -f Assets.xcassets/AppIcon.appiconset/Contents.json)",
+      "Bash(rm -f appstore.png)",
+      "Bash(rm -rf android)",
+      "Bash(find:*)"
     ]
   }
 }

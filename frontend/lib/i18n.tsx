@@ -313,7 +313,7 @@ const translations = {
     // Animal drawer / Feed system
     feedStorage: "YEM DEPOSU",
     available: "mevcut",
-    fuelRemaining: "Yakıt Kalan",
+    fuelRemaining: "Kalan Yakıt",
     pausedAddFeed: "Duraklatıldı — yem ekle",
     emptyAddFeed: "Boş — yem ekle",
     maxLabel: "MAX",

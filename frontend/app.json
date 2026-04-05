@@ -6,13 +6,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/AppIcons/Assets.xcassets/AppIcon.appiconset/1024.png",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/AppIcons/Assets.xcassets/AppIcon.appiconset/1024.png",
+      "bundleIdentifier": "com.anonymous.forestfighters"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/AppIcons/playstore.png",
         "backgroundColor": "#2d6a2d"
-      }
+      },
+      "package": "com.anonymous.forestfighters"
     },
     "web": {
       "bundler": "metro"

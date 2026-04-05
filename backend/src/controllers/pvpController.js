@@ -193,9 +193,19 @@ async function attackPvp(req, res) {
     if (!defChampRows.length) return res.status(400).json({ error: 'Defender has no valid champion' });
     const defChamp = defChampRows[0];
 
-    // ── Simulate combat ────────────────────────────────────────────────────────
-    const attacker = { attack: attChamp.attack, defense: attChamp.defense, chance: attChamp.chance, max_hp: attChamp.max_hp };
-    const defender = { attack: defChamp.attack, defense: defChamp.defense, chance: defChamp.chance, max_hp: defChamp.max_hp };
+    // ── Simulate combat (apply one-time boosts to stats) ──────────────────────
+    const attacker = {
+      attack:  attChamp.attack,
+      defense: attChamp.defense + (attChamp.boost_defense || 0),
+      chance:  attChamp.chance  + (attChamp.boost_chance  || 0),
+      max_hp:  attChamp.max_hp  + (attChamp.boost_hp      || 0),
+    };
+    const defender = {
+      attack:  defChamp.attack,
+      defense: defChamp.defense + (defChamp.boost_defense || 0),
+      chance:  defChamp.chance  + (defChamp.boost_chance  || 0),
+      max_hp:  defChamp.max_hp  + (defChamp.boost_hp      || 0),
+    };
     const result = simulateCombat(attacker, defender);
 
     const attackerWon = result.winner === 'attacker';
@@ -414,8 +424,28 @@ async function getBattles(req, res) {
         );
       }
 
-      // Free attacker champion
-      await query('UPDATE champions SET is_deployed = FALSE WHERE id = $1', [b.attacker_champion_id]);
+      // Free attacker champion and consume their boosts
+      await query(
+        `UPDATE champions SET
+           is_deployed  = FALSE,
+           boost_hp      = 0,
+           boost_defense = 0,
+           boost_chance  = 0,
+           current_hp    = LEAST(current_hp, max_hp)
+         WHERE id = $1`,
+        [b.attacker_champion_id]
+      );
+
+      // Consume defender's boosts (battle consumed them regardless of outcome)
+      await query(
+        `UPDATE champions SET
+           boost_hp      = 0,
+           boost_defense = 0,
+           boost_chance  = 0,
+           current_hp    = LEAST(current_hp, max_hp)
+         WHERE id = $1`,
+        [b.defender_champion_id]
+      );
     }
 
     res.json(battles);

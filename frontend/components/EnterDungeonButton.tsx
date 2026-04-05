@@ -10,13 +10,17 @@ type Props = {
   disabled?: boolean;
 };
 
-export default function EnterDungeonButton({ onPress, style, disabled }: Props) {
+export default function EnterDungeonButton({
+  onPress,
+  style,
+  disabled,
+}: Props) {
   const { t } = useLanguage();
   return (
     <CustomButton
       btnImage={dungeonIcon}
       btnImagePos="left"
-      text={`${t("enter")} ${t("dungeon")}`}
+      text={`${t("enterDungeon")}`}
       onClick={onPress}
       bgColor="#6D7579"
       borderColor="#4a5f72"
