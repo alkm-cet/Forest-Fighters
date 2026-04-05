@@ -125,7 +125,7 @@ export default function ChampionCard({
         {(champion.boost_hp ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeTopLeft]}>
             <Image
-              source={require("../assets/icons/heart.png")}
+              source={require("../assets/icons/heart.webp")}
               style={styles.boostImage}
               resizeMode="contain"
             />
@@ -134,7 +134,7 @@ export default function ChampionCard({
         {(champion.boost_defense ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeBottomLeft]}>
             <Image
-              source={require("../assets/icons/shield.png")}
+              source={require("../assets/icons/shield.webp")}
               style={styles.boostImage}
               resizeMode="contain"
             />
@@ -143,7 +143,7 @@ export default function ChampionCard({
         {(champion.boost_chance ?? 0) > 0 && (
           <View style={[styles.boostBadge, styles.badgeTopRight]}>
             <Image
-              source={require("../assets/icons/lightning.png")}
+              source={require("../assets/icons/lightning.webp")}
               style={styles.boostImage}
               resizeMode="contain"
             />
@@ -152,7 +152,7 @@ export default function ChampionCard({
         {isDefender && (
           <View style={styles.defenderShieldCenter}>
             <Image
-              source={require("../assets/icons/shield.png")}
+              source={require("../assets/icons/shield.webp")}
               style={styles.shieldImage}
               resizeMode="contain"
             />
@@ -166,7 +166,9 @@ export default function ChampionCard({
       </View>
 
       {/* Class name with level */}
-      <Text style={styles.name}>Lv {champion.level} - {champion.class}</Text>
+      <Text style={styles.name}>
+        Lv {champion.level} - {champion.class}
+      </Text>
 
       {/* HP bar footer */}
       <View style={styles.hpRow}>

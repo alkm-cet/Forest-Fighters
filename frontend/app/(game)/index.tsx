@@ -11,13 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
-import {
-  Settings,
-  AlertTriangle,
-  Sprout,
-  Swords,
-  Trophy,
-} from "lucide-react-native";
+import { AlertTriangle, Trophy } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
@@ -50,7 +44,11 @@ import CollectFloater from "../../components/CollectFloater";
 import CampfireScene from "../../components/CampfireScene";
 
 const BG = require("../../assets/home-assets/background-image-3.png");
-const AVATAR = require("../../assets/avatar.png");
+const AVATAR = require("../../assets/icons/icon-fighters.webp");
+const ICON_SETTINGS = require("../../assets/icons/icon-settings.webp");
+const ICON_FIGHTERS = require("../../assets/icons/icon-fighters.webp");
+const ICON_FARMERS = require("../../assets/icons/icon-farmers.webp");
+const ICON_ANIMALS = require("../../assets/icons/icon-animals.webp");
 
 export default function MainScreen() {
   const router = useRouter();
@@ -140,7 +138,9 @@ export default function MainScreen() {
   // buffered taps are sent as a single feed-max call after the current request completes.
   const feedBufferRef = useRef(0);
   const feedInFlightRef = useRef(false);
-  const flushFeedBufferRef = useRef<(animalId: string) => void>();
+  const flushFeedBufferRef = useRef<(animalId: string) => void>(
+    null as unknown as (animalId: string) => void,
+  );
   flushFeedBufferRef.current = (animalId: string) => {
     if (feedInFlightRef.current || feedBufferRef.current === 0) return;
     feedInFlightRef.current = true;
@@ -376,13 +376,13 @@ export default function MainScreen() {
                 <Image
                   source={AVATAR}
                   style={styles.avatarImg}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
-                <Image
+                {/* <Image
                   source={getLeagueMeta(pvpTrophies).image}
                   style={styles.avatarLeagueBadge}
                   resizeMode="contain"
-                />
+                /> */}
               </View>
               {/* Banner behind the circle */}
               <View style={styles.profileBanner}>
@@ -411,7 +411,7 @@ export default function MainScreen() {
             onPress={() => router.push("/(game)/settings")}
             style={styles.settingsBtn}
           >
-            <Settings size={18} color="#fff" strokeWidth={2} />
+            <Image source={ICON_SETTINGS} style={styles.settingsBtnIcon} />
           </TouchableOpacity>
         </View>
 
@@ -535,49 +535,47 @@ export default function MainScreen() {
         {hasCards && (
           <View style={styles.cardsSection}>
             {/* Section header with 3-tab buttons */}
-            <View style={styles.cardsSectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                {activeTab === "farmers" ? (
-                  <Sprout size={13} color="#a8e6a3" strokeWidth={2.5} />
-                ) : (
-                  <Swords size={13} color="#a8e6a3" strokeWidth={2.5} />
-                )}
-                <Text style={styles.sectionTitle}>
-                  {activeTab === "farmers"
-                    ? t("farmersUpper")
-                    : activeTab === "animals"
-                      ? "ANIMALS"
-                      : t("championsUpper")}
-                </Text>
-              </View>
-              <View style={styles.tabRow}>
-                {(["champions", "farmers", "animals"] as TabName[]).map(
-                  (tab) => (
-                    <TouchableOpacity
-                      key={tab}
+
+            <View style={styles.tabRow}>
+              {(["champions", "farmers", "animals"] as TabName[]).map((tab) => {
+                const isActive = activeTab === tab;
+                const tabIcon =
+                  tab === "champions"
+                    ? ICON_FIGHTERS
+                    : tab === "farmers"
+                      ? ICON_FARMERS
+                      : ICON_ANIMALS;
+                const tabLabel =
+                  tab === "champions"
+                    ? t("champions")
+                    : tab === "farmers"
+                      ? t("farmers")
+                      : "Animals";
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                    onPress={() => switchTab(tab)}
+                    activeOpacity={0.75}
+                  >
+                    <Image
+                      source={tabIcon}
                       style={[
-                        styles.tabBtn,
-                        activeTab === tab && styles.tabBtnActive,
+                        styles.tabBtnIcon,
+                        !isActive && styles.tabBtnIconInactive,
                       ]}
-                      onPress={() => switchTab(tab)}
-                      activeOpacity={0.75}
+                    />
+                    <Text
+                      style={[
+                        styles.tabBtnText,
+                        isActive && styles.tabBtnTextActive,
+                      ]}
                     >
-                      <Text
-                        style={[
-                          styles.tabBtnText,
-                          activeTab === tab && styles.tabBtnTextActive,
-                        ]}
-                      >
-                        {tab === "champions"
-                          ? t("champions")
-                          : tab === "farmers"
-                            ? t("farmers")
-                            : "Animals"}
-                      </Text>
-                    </TouchableOpacity>
-                  ),
-                )}
-              </View>
+                      {tabLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Collect floater — rendered outside slideClip to avoid overflow:hidden clipping */}
@@ -1618,27 +1616,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2.5,
+    width: 66,
+    height: 66,
+    borderRadius: 20,
+    borderWidth: 2,
     borderColor: "#c8a96e",
-    backgroundColor: "#3a2a10",
+    backgroundColor: "#f5edd8",
     overflow: "visible",
     zIndex: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarImg: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 55,
+    height: 55,
   },
   avatarLeagueBadge: {
     position: "absolute",
-    width: 24,
-    height: 24,
-    bottom: -5,
+    width: 34,
+    height: 34,
+    bottom: -10,
     alignSelf: "center",
   },
   profileBanner: {
@@ -1647,7 +1644,7 @@ const styles = StyleSheet.create({
     marginLeft: -14,
     paddingLeft: 20,
     paddingRight: 10,
-    backgroundColor: "rgba(42,20,5,0.88)",
+    backgroundColor: "#f5edd8",
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: "#c8a96e",
@@ -1697,6 +1694,10 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: "center",
     alignItems: "center",
+  },
+  settingsBtnIcon: {
+    width: 24,
+    height: 24,
   },
   errorBanner: {
     marginHorizontal: 16,
@@ -1794,13 +1795,6 @@ const styles = StyleSheet.create({
   cardsSection: {
     paddingBottom: 16,
   },
-  cardsSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingBottom: 6,
-  },
   sectionTitleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1817,22 +1811,40 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    justifyContent: "flex-end",
   },
   tabBtn: {
+    flexDirection: "row",
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    backgroundColor: "rgba(245,237,216,0.75)",
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "rgba(245,237,216,0.65)",
     borderWidth: 1.5,
     borderColor: "#d4b896",
+    alignItems: "center",
+    gap: 3,
   },
   tabBtnActive: {
     backgroundColor: "rgba(245,237,216,0.97)",
     borderColor: "#9a7040",
+    shadowColor: "#9a7040",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  tabBtnIcon: {
+    width: 32,
+    height: 32,
+  },
+  tabBtnIconInactive: {
+    opacity: 0.55,
   },
   tabBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#7a5030",
   },

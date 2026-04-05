@@ -48,7 +48,7 @@ type OpponentInfo = {
 type Phase = "searching" | "found" | "fighting";
 
 const LEAGUE_COLORS: Record<string, string> = Object.fromEntries(
-  Object.entries(LEAGUE_META).map(([key, val]) => [key, val.color])
+  Object.entries(LEAGUE_META).map(([key, val]) => [key, val.color]),
 );
 
 const DOT_COUNT = 3;
@@ -88,6 +88,8 @@ export default function PvpScreen() {
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fightFade = useRef(new Animated.Value(0)).current;
+  const overlayAnim = useRef(new Animated.Value(1)).current;
+  const screenExitAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (phase !== "searching") return;
@@ -121,26 +123,44 @@ export default function PvpScreen() {
 
   async function handleAttack() {
     if (!opponent) return;
+
+    // Fade out the cards
     Animated.timing(fadeAnim, {
       toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    // Show "Savaş Başlıyor..." immediately
+    setPhase("fighting");
+    Animated.timing(fightFade, {
+      toValue: 1,
       duration: 350,
       useNativeDriver: true,
-    }).start(async () => {
-      setPhase("fighting");
-      Animated.timing(fightFade, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }).start();
-      try {
-        await api.post("/api/pvp/attack", {
-          champion_id: championId,
-          opponent_id: opponent.opponentId,
-        });
-      } catch {
-        /* logged server-side */
-      }
-      await sleep(1200);
+    }).start();
+
+    // Bring background to full brightness (remove dark overlay)
+    Animated.timing(overlayAnim, {
+      toValue: 0,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Fire API in background
+    api
+      .post("/api/pvp/attack", {
+        champion_id: championId,
+        opponent_id: opponent.opponentId,
+      })
+      .catch(() => {});
+
+    // After a beat, fade the whole screen to black then navigate
+    await sleep(900);
+    Animated.timing(screenExitAnim, {
+      toValue: 1,
+      duration: 900,
+      useNativeDriver: true,
+    }).start(() => {
       router.back();
     });
   }
@@ -155,6 +175,7 @@ export default function PvpScreen() {
 
   const myLeagueLabel = myLeague ?? "Bronz";
   const myLeagueColor = LEAGUE_COLORS[myLeagueLabel] ?? "#cd7f32";
+  const trophyChange = getTrophyChange(parseInt(myTrophies ?? "0"));
 
   const myMeta = CLASS_META[championClass ?? ""] ?? {
     image: null,
@@ -172,6 +193,12 @@ export default function PvpScreen() {
 
   return (
     <ImageBackground source={PVP_BG} style={styles.root} resizeMode="cover">
+      {/* Persistent dark overlay – fades away when fight starts */}
+      <Animated.View
+        style={[styles.bgOverlay, { opacity: overlayAnim }]}
+        pointerEvents="none"
+      />
+
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <View style={styles.header}>
@@ -267,30 +294,81 @@ export default function PvpScreen() {
                         <Text style={styles.vsText}>VS</Text>
                       </View>
 
-                      {/* Loot preview */}
-                      {(opponent.preview_strawberry > 0 || opponent.preview_pinecone > 0 || opponent.preview_blueberry > 0) && (
-                        <View style={styles.lootRow}>
-                          <Text style={styles.lootLabel}>Kazanılacak:</Text>
-                          {opponent.preview_strawberry > 0 && (
-                            <View style={styles.lootPill}>
-                              <Image source={require("../../assets/resource-images/strawberry.webp")} style={styles.lootIcon} />
-                              <Text style={[styles.lootVal, { color: "#e8534a" }]}>+{opponent.preview_strawberry}</Text>
-                            </View>
-                          )}
-                          {opponent.preview_pinecone > 0 && (
-                            <View style={styles.lootPill}>
-                              <Image source={require("../../assets/resource-images/pinecone.webp")} style={styles.lootIcon} />
-                              <Text style={[styles.lootVal, { color: "#5a8a3c" }]}>+{opponent.preview_pinecone}</Text>
-                            </View>
-                          )}
-                          {opponent.preview_blueberry > 0 && (
-                            <View style={styles.lootPill}>
-                              <Image source={require("../../assets/resource-images/blueberry.webp")} style={styles.lootIcon} />
-                              <Text style={[styles.lootVal, { color: "#5b6bbf" }]}>+{opponent.preview_blueberry}</Text>
-                            </View>
-                          )}
+                      {/* Loot + Trophy preview */}
+                      <View style={styles.lootCard}>
+                        <Text style={styles.lootTitle}>
+                          Kazanılacak Ödüller
+                        </Text>
+
+                        {/* Trophy win/loss row */}
+                        <View style={styles.trophyRow}>
+                          <View style={styles.trophyPill}>
+                            <Text style={styles.trophyWin}>
+                              🏆 +{trophyChange.win}
+                            </Text>
+                            <Text style={styles.trophySep}>/</Text>
+                            <Text style={styles.trophyLose}>
+                              -{trophyChange.lose}
+                            </Text>
+                          </View>
                         </View>
-                      )}
+
+                        {/* Resource loot row */}
+                        {(opponent.preview_strawberry > 0 ||
+                          opponent.preview_pinecone > 0 ||
+                          opponent.preview_blueberry > 0) && (
+                          <View style={styles.lootPillsRow}>
+                            {opponent.preview_strawberry > 0 && (
+                              <View style={styles.lootPill}>
+                                <Image
+                                  source={require("../../assets/resource-images/strawberry.webp")}
+                                  style={styles.lootIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.lootVal,
+                                    { color: "#e8534a" },
+                                  ]}
+                                >
+                                  +{opponent.preview_strawberry}
+                                </Text>
+                              </View>
+                            )}
+                            {opponent.preview_pinecone > 0 && (
+                              <View style={styles.lootPill}>
+                                <Image
+                                  source={require("../../assets/resource-images/pinecone.webp")}
+                                  style={styles.lootIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.lootVal,
+                                    { color: "#6dbf67" },
+                                  ]}
+                                >
+                                  +{opponent.preview_pinecone}
+                                </Text>
+                              </View>
+                            )}
+                            {opponent.preview_blueberry > 0 && (
+                              <View style={styles.lootPill}>
+                                <Image
+                                  source={require("../../assets/resource-images/blueberry.webp")}
+                                  style={styles.lootIcon}
+                                />
+                                <Text
+                                  style={[
+                                    styles.lootVal,
+                                    { color: "#8b9cf7" },
+                                  ]}
+                                >
+                                  +{opponent.preview_blueberry}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
 
                       {/* Opponent */}
                       <ChampionCard
@@ -341,6 +419,12 @@ export default function PvpScreen() {
           </Animated.View>
         )}
       </SafeAreaView>
+
+      {/* Full-screen black fade for exit transition */}
+      <Animated.View
+        style={[styles.screenExit, { opacity: screenExitAnim }]}
+        pointerEvents="none"
+      />
     </ImageBackground>
   );
 }
@@ -567,9 +651,30 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+/** Mirrors backend getTrophyChange — must stay in sync with pvpController.js */
+function getTrophyChange(trophies: number): { win: number; lose: number } {
+  if (trophies >= 1600) return { win: 8, lose: 6 };
+  if (trophies >= 1300) return { win: 10, lose: 8 };
+  if (trophies >= 1000) return { win: 12, lose: 10 };
+  if (trophies >= 750) return { win: 15, lose: 12 };
+  if (trophies >= 500) return { win: 18, lose: 14 };
+  if (trophies >= 300) return { win: 22, lose: 18 };
+  if (trophies >= 150) return { win: 26, lose: 22 };
+  return { win: 30, lose: 25 };
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
+
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  screenExit: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#000",
+  },
 
   header: {
     flexDirection: "row",
@@ -614,7 +719,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 16,
     paddingVertical: 24,
-    gap: 12,
+    gap: 4,
   },
 
   vsBadge: {
@@ -633,20 +738,77 @@ const styles = StyleSheet.create({
   },
   vsText: { fontSize: 13, fontWeight: "900", color: "#fff" },
 
-  lootRow: {
+  lootCard: {
+    backgroundColor: "rgba(245,237,216,0.13)",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(245,220,160,0.35)",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    gap: 12,
+  },
+  lootTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#f0d898",
+    letterSpacing: 0.8,
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  lootPillsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+  lootPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    gap: 7,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
-  lootLabel: { fontSize: 12, fontWeight: "700", color: "#aab0be", marginRight: 2 },
-  lootPill: { flexDirection: "row", alignItems: "center", gap: 4 },
-  lootIcon: { width: 16, height: 16, resizeMode: "contain" },
-  lootVal: { fontSize: 13, fontWeight: "800" },
+  lootIcon: { width: 28, height: 28, resizeMode: "contain" },
+  lootVal: { fontSize: 18, fontWeight: "900" },
+
+  trophyRow: {
+    alignItems: "center",
+    width: "100%",
+  },
+  trophyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,80,0.25)",
+  },
+  trophyWin: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#f5d060",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  trophySep: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.3)",
+  },
+  trophyLose: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#e07070",
+  },
 
   actionRow: { flexDirection: "row", gap: 12, marginTop: 20 },
   reSearchBtnStyle: { flex: 1 },

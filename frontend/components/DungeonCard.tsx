@@ -136,7 +136,7 @@ export default function DungeonCard({
           >
             <View style={styles.infoBoxInner}>
               <Image
-                source={require("../assets/icons/gift.png")}
+                source={require("../assets/icons/gift.webp")}
                 style={styles.rewardImage}
                 resizeMode="contain"
               />
@@ -182,7 +182,7 @@ export default function DungeonCard({
             onPress={() => onClaim(activeRun!)}
           >
             <Image
-              source={require("../assets/icons/gift.png")}
+              source={require("../assets/icons/gift.webp")}
               style={styles.rewardImage}
               resizeMode="contain"
             />

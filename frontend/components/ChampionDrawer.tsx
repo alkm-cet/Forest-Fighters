@@ -484,7 +484,7 @@ export default function ChampionDrawer({
                 {(champion.boost_hp ?? 0) > 0 && (
                   <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
                     <Image
-                      source={require("../assets/icons/heart.png")}
+                      source={require("../assets/icons/heart.webp")}
                       style={styles.boostBtnCostIcon}
                       resizeMode="contain"
                     />
@@ -495,7 +495,7 @@ export default function ChampionDrawer({
                     style={[styles.boostBadge, styles.boostBadgeBottomLeft]}
                   >
                     <Image
-                      source={require("../assets/icons/shield.png")}
+                      source={require("../assets/icons/shield.webp")}
                       style={styles.boostBtnCostIcon}
                       resizeMode="contain"
                     />
@@ -504,7 +504,7 @@ export default function ChampionDrawer({
                 {(champion.boost_chance ?? 0) > 0 && (
                   <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
                     <Image
-                      source={require("../assets/icons/lightning.png")}
+                      source={require("../assets/icons/lightning.webp")}
                       style={styles.boostBtnCostIcon}
                       resizeMode="contain"
                     />
@@ -534,21 +534,21 @@ export default function ChampionDrawer({
                     >
                       {type === "hp" && (
                         <Image
-                          source={require("../assets/icons/heart.png")}
+                          source={require("../assets/icons/heart.webp")}
                           style={styles.boostBtnCostIcon}
                           resizeMode="contain"
                         />
                       )}
                       {type === "defense" && (
                         <Image
-                          source={require("../assets/icons/shield.png")}
+                          source={require("../assets/icons/shield.webp")}
                           style={styles.boostBtnCostIcon}
                           resizeMode="contain"
                         />
                       )}
                       {type === "chance" && (
                         <Image
-                          source={require("../assets/icons/lightning.png")}
+                          source={require("../assets/icons/lightning.webp")}
                           style={styles.boostBtnCostIcon}
                           resizeMode="contain"
                         />
@@ -789,12 +789,15 @@ export default function ChampionDrawer({
                     styles.btnFlex,
                     coins < 5 && styles.btnDisabled,
                   ]}
-                  onPress={() => coins >= 5 && triggerCoinConfirm({
-                    transactionCost: 5,
-                    transactionTitle: t("coinRevive"),
-                    transactionDesc: `${champion.name} anında canlandırılsın mı?`,
-                    onConfirm: () => onCoinRevive?.(champion),
-                  })}
+                  onPress={() =>
+                    coins >= 5 &&
+                    triggerCoinConfirm({
+                      transactionCost: 5,
+                      transactionTitle: t("coinRevive"),
+                      transactionDesc: `${champion.name} anında canlandırılsın mı?`,
+                      onConfirm: () => onCoinRevive?.(champion),
+                    })
+                  }
                   activeOpacity={0.8}
                 >
                   <Sparkles size={16} color="#fff" strokeWidth={2} />
@@ -895,25 +898,43 @@ export default function ChampionDrawer({
                               />
                             )}
                           </View>
-                          {activeRunEndsAt && (() => {
-                            const secsLeft = Math.max(0, (new Date(activeRunEndsAt).getTime() - Date.now()) / 1000);
-                            const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
-                            const canSkip = coins >= skipCost;
-                            return (
-                              <TouchableOpacity
-                                style={[styles.missionSkipBtn, !canSkip && styles.btnDisabled]}
-                                onPress={() => canSkip && triggerCoinConfirm({
-                                  transactionCost: skipCost,
-                                  transactionTitle: t("skipCooldown"),
-                                  transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
-                                  onConfirm: () => onSkipMission?.(champion),
-                                })}
-                                activeOpacity={0.8}
-                              >
-                                <Text style={styles.missionSkipText}>🪙 ×{skipCost}</Text>
-                              </TouchableOpacity>
-                            );
-                          })()}
+                          {activeRunEndsAt &&
+                            (() => {
+                              const secsLeft = Math.max(
+                                0,
+                                (new Date(activeRunEndsAt).getTime() -
+                                  Date.now()) /
+                                  1000,
+                              );
+                              const skipCost = Math.max(
+                                1,
+                                Math.ceil(secsLeft / 60),
+                              );
+                              const canSkip = coins >= skipCost;
+                              return (
+                                <TouchableOpacity
+                                  style={[
+                                    styles.missionSkipBtn,
+                                    !canSkip && styles.btnDisabled,
+                                  ]}
+                                  onPress={() =>
+                                    canSkip &&
+                                    triggerCoinConfirm({
+                                      transactionCost: skipCost,
+                                      transactionTitle: t("skipCooldown"),
+                                      transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
+                                      onConfirm: () =>
+                                        onSkipMission?.(champion),
+                                    })
+                                  }
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.missionSkipText}>
+                                    🪙 ×{skipCost}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })()}
                         </View>
                       ) : (
                         <View
