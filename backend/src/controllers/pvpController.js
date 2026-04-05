@@ -2,17 +2,33 @@ const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { getIo } = require('../socket');
 
-const WIN_TROPHIES  = 12;
-const LOSE_TROPHIES = 10;
-const TROPHY_FLOOR  = 10;
+const TROPHY_FLOOR    = 10;
 const RESULT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
 
+// 8-league system — higher leagues earn/lose fewer trophies per battle
+const LEAGUE_TIERS = [
+  { name: 'Challenger',   min: 1600, win: 8,  lose: 6  },
+  { name: 'Grandmaster',  min: 1300, win: 10, lose: 8  },
+  { name: 'Master',       min: 1000, win: 12, lose: 10 },
+  { name: 'Elmas',        min: 750,  win: 15, lose: 12 },
+  { name: 'Platinium',    min: 500,  win: 18, lose: 14 },
+  { name: 'Altin',        min: 300,  win: 22, lose: 18 },
+  { name: 'Gumus',        min: 150,  win: 26, lose: 22 },
+  { name: 'Bronz',        min: 0,    win: 30, lose: 25 },
+];
+
 function getLeague(trophies) {
-  if (trophies >= 200) return 'Elmas';
-  if (trophies >= 100) return 'Platin';
-  if (trophies >= 50)  return 'Altin';
-  if (trophies >= 25)  return 'Gumus';
+  for (const tier of LEAGUE_TIERS) {
+    if (trophies >= tier.min) return tier.name;
+  }
   return 'Bronz';
+}
+
+function getTrophyChange(trophies) {
+  for (const tier of LEAGUE_TIERS) {
+    if (trophies >= tier.min) return { win: tier.win, lose: tier.lose };
+  }
+  return { win: 30, lose: 25 };
 }
 
 // Loot is calculated from the loser's pvp_storage (snapshot at battle creation).
@@ -186,8 +202,12 @@ async function attackPvp(req, res) {
     const winnerId = attackerWon ? playerId : opponent.id;
     const loserId  = attackerWon ? opponent.id : playerId;
 
-    const attDelta = attackerWon ? WIN_TROPHIES  : -LOSE_TROPHIES;
-    const defDelta = attackerWon ? -LOSE_TROPHIES : WIN_TROPHIES;
+    // Trophy change is based on each player's current league at battle time
+    const defTrophies = opponent.trophies ?? 10;
+    const attChange = getTrophyChange(attTrophies);
+    const defChange = getTrophyChange(defTrophies);
+    const attDelta = attackerWon ?  attChange.win : -attChange.lose;
+    const defDelta = attackerWon ? -defChange.lose : defChange.win;
 
     // ── Snapshot loot from loser's pvp_storage ─────────────────────────────────
     // Trophies and resources are NOT applied here — they are applied when the

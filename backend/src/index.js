@@ -13,6 +13,7 @@ const dungeonRoutes = require('./routes/dungeons');
 const pvpRoutes = require('./routes/pvp');
 const animalRoutes = require('./routes/animals');
 const coinRoutes = require('./routes/coins');
+const playerRoutes = require('./routes/players');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -40,6 +41,7 @@ app.use('/api/dungeons', dungeonRoutes);
 app.use('/api/pvp', pvpRoutes);
 app.use('/api/animals', animalRoutes);
 app.use('/api/coins', coinRoutes);
+app.use('/api/players', playerRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

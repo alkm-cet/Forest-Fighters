@@ -373,8 +373,8 @@ export default function FarmerDrawer({
             btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
             text={
               isMaxLevel
-                ? `MAX LV ${farmer.level}`
-                : `${t("upgrade")} → LV ${farmer.level + 1}`
+                ? `${t("maxLevel")} ${farmer.level}`
+                : `${t("upgrade")} → ${t("lv")} ${farmer.level + 1}`
             }
             onClick={() => onUpgrade(farmer)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}

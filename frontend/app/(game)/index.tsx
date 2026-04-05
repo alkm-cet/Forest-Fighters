@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { Text } from "../../components/StyledText";
 import {
-  Leaf,
   Settings,
   AlertTriangle,
   Sprout,
@@ -39,6 +38,7 @@ import {
 } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
+import { getLeagueMeta } from "../../constants/leagues";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
@@ -50,6 +50,7 @@ import CollectFloater from "../../components/CollectFloater";
 import CampfireScene from "../../components/CampfireScene";
 
 const BG = require("../../assets/home-assets/background-image-3.png");
+const AVATAR = require("../../assets/avatar.png");
 
 export default function MainScreen() {
   const router = useRouter();
@@ -148,22 +149,25 @@ export default function MainScreen() {
     (count === 1
       ? api.post(`/api/animals/${animalId}/feed`)
       : api.post(`/api/animals/${animalId}/feed-max`, { requestedUnits: count })
-    ).then((res) => {
-      const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-      // If feed storage is now full, discard any remaining buffered taps
-      if (fresh.current_feed >= fresh.max_feed) {
+    )
+      .then((res) => {
+        const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
+        // If feed storage is now full, discard any remaining buffered taps
+        if (fresh.current_feed >= fresh.max_feed) {
+          feedBufferRef.current = 0;
+        }
+        setResources(res.data.resources);
+        setAnimals((prev) => prev.map((a) => (a.id === animalId ? fresh : a)));
+        setSelectedAnimal(fresh);
+      })
+      .catch(() => {
+        // On any error (full, no resource, etc.) clear the buffer — stop retrying
         feedBufferRef.current = 0;
-      }
-      setResources(res.data.resources);
-      setAnimals((prev) => prev.map((a) => (a.id === animalId ? fresh : a)));
-      setSelectedAnimal(fresh);
-    }).catch(() => {
-      // On any error (full, no resource, etc.) clear the buffer — stop retrying
-      feedBufferRef.current = 0;
-    }).finally(() => {
-      feedInFlightRef.current = false;
-      if (feedBufferRef.current > 0) flushFeedBufferRef.current?.(animalId);
-    });
+      })
+      .finally(() => {
+        feedInFlightRef.current = false;
+        if (feedBufferRef.current > 0) flushFeedBufferRef.current?.(animalId);
+      });
   };
   const catClickRef = useRef<{ champClass: string; count: number } | null>(
     null,
@@ -214,7 +218,10 @@ export default function MainScreen() {
   useFocusEffect(
     useCallback(() => {
       Promise.all([
-        api.get("/api/auth/me").then((r) => { setPlayer(r.data); setCoins(r.data.coins ?? 0); }),
+        api.get("/api/auth/me").then((r) => {
+          setPlayer(r.data);
+          setCoins(r.data.coins ?? 0);
+        }),
         api.get("/api/resources").then((r) => setResources(r.data)),
         api.get("/api/champions").then((r) => setChampions(r.data)),
         api.get("/api/farmers").then((r) => {
@@ -358,19 +365,43 @@ export default function MainScreen() {
         {/* Top bar */}
         <View style={styles.topBar}>
           <View style={styles.playerNameRow}>
-            <Leaf size={16} color="#a8e6a3" strokeWidth={2} />
-            <Text style={styles.playerName}>
-              {player ? player.username : t("appName")}
-            </Text>
-            <View style={styles.trophyPill}>
-              <Trophy
-                size={11}
-                color="#ffd54f"
-                strokeWidth={2.5}
-                fill="#ffd54f"
-              />
-              <Text style={styles.trophyCount}>{pvpTrophies}</Text>
-            </View>
+            {/* Avatar circle + name banner — unified card */}
+            <TouchableOpacity
+              onPress={() => router.push("/(game)/leaderboard")}
+              activeOpacity={0.85}
+              style={styles.profileCard}
+            >
+              {/* Circle sits on top (zIndex 2), overlaps the banner */}
+              <View style={styles.avatarCircle}>
+                <Image
+                  source={AVATAR}
+                  style={styles.avatarImg}
+                  resizeMode="cover"
+                />
+                <Image
+                  source={getLeagueMeta(pvpTrophies).image}
+                  style={styles.avatarLeagueBadge}
+                  resizeMode="contain"
+                />
+              </View>
+              {/* Banner behind the circle */}
+              <View style={styles.profileBanner}>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {player ? player.username : t("appName")}
+                </Text>
+                <View style={styles.trophyPillRow}>
+                  <Trophy
+                    size={10}
+                    color="#ffd54f"
+                    strokeWidth={2.5}
+                    fill="#ffd54f"
+                  />
+                  <Text style={styles.trophyCount}>{pvpTrophies}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Coin pill */}
             <View style={styles.coinPill}>
               <Text style={styles.coinIcon}>🪙</Text>
               <Text style={styles.coinCount}>{coins}</Text>
@@ -778,21 +809,27 @@ export default function MainScreen() {
         coins={coins}
         onCoinRevive={async (champion) => {
           try {
-            const res = await api.post("/api/coins/revive-champion", { champion_id: champion.id });
+            const res = await api.post("/api/coins/revive-champion", {
+              champion_id: champion.id,
+            });
             setCoins(res.data.coins);
             setChampions((prev) =>
               prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
             );
             setSelectedChampion(res.data.champion);
           } catch (err: any) {
-            alert(err.response?.data?.error ?? "Coin ile canlandırma başarısız");
+            alert(
+              err.response?.data?.error ?? "Coin ile canlandırma başarısız",
+            );
           }
         }}
         onSkipMission={async (champion) => {
           const run = selectedChampion && runMap[selectedChampion.id];
           if (!run) return;
           try {
-            const res = await api.post("/api/coins/skip-dungeon", { run_id: run.id });
+            const res = await api.post("/api/coins/skip-dungeon", {
+              run_id: run.id,
+            });
             setCoins(res.data.coins);
             // Mark run as expired so drawer shows claim button
             setExpiredRunChampions((prev) => new Set([...prev, champion.id]));
@@ -847,10 +884,14 @@ export default function MainScreen() {
         onClose={() => setSelectedFarmer(null)}
         onFillStorage={async (farmer) => {
           try {
-            const res = await api.post("/api/coins/fill-farmer-storage", { farmer_id: farmer.id });
+            const res = await api.post("/api/coins/fill-farmer-storage", {
+              farmer_id: farmer.id,
+            });
             setCoins(res.data.coins);
             const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
-            setFarmers((prev) => prev.map((f) => (f.id === farmer.id ? fresh : f)));
+            setFarmers((prev) =>
+              prev.map((f) => (f.id === farmer.id ? fresh : f)),
+            );
             setSelectedFarmer(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Depo doldurulamadı");
@@ -902,10 +943,14 @@ export default function MainScreen() {
         onClose={() => setSelectedAnimal(null)}
         onFillStorage={async (animal) => {
           try {
-            const res = await api.post("/api/coins/fill-animal-storage", { animal_id: animal.id });
+            const res = await api.post("/api/coins/fill-animal-storage", {
+              animal_id: animal.id,
+            });
             setCoins(res.data.coins);
             const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setAnimals((prev) => prev.map((a) => (a.id === animal.id ? fresh : a)));
+            setAnimals((prev) =>
+              prev.map((a) => (a.id === animal.id ? fresh : a)),
+            );
             setSelectedAnimal(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Depo doldurulamadı");
@@ -1564,24 +1609,64 @@ const styles = StyleSheet.create({
   playerNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
+    flex: 1,
+  },
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  avatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2.5,
+    borderColor: "#c8a96e",
+    backgroundColor: "#3a2a10",
+    overflow: "visible",
+    zIndex: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarImg: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  avatarLeagueBadge: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    bottom: -5,
+    alignSelf: "center",
+  },
+  profileBanner: {
+    flex: 1,
+    height: 46,
+    marginLeft: -14,
+    paddingLeft: 20,
+    paddingRight: 10,
+    backgroundColor: "rgba(42,20,5,0.88)",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    zIndex: 1,
+    justifyContent: "center",
+    gap: 2,
   },
   playerName: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
     textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  trophyPill: {
+  trophyPillRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
   },
   trophyCount: {
     color: "#ffd54f",

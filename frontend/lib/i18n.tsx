@@ -133,6 +133,26 @@ const translations = {
     fillStorageDesc: "Fill farmer storage to max capacity?",
     storageFull: "Storage Full",
 
+    // Leaderboard
+    leaderboard: "Leaderboard",
+    highestChampLv: "Highest Champion: Lv",
+
+    // Animal drawer / Feed system
+    feedStorage: "FEED STORAGE",
+    available: "available",
+    fuelRemaining: "Fuel Remaining",
+    pausedAddFeed: "Paused — add feed",
+    emptyAddFeed: "Empty — add feed",
+    maxLabel: "MAX",
+    maxLevel: "MAX LV",
+    lv: "Lv",
+    feedAnimal: "Feed",
+    thisWillUse: "This will use",
+    toFillFeedStorage: "to fill the feed storage.",
+    notEnoughOf: "Not enough",
+    haveLabel: "have",
+    needLabel: "need",
+
     // PvP
     pvpArena: "PvP Arena",
     trophies: "Trophies",
@@ -285,6 +305,26 @@ const translations = {
     fillStorage: "Depoyu Doldur",
     fillStorageDesc: "Çiftçi deposunu max kapasiteye doldur?",
     storageFull: "Depo Dolu",
+
+    // Leaderboard
+    leaderboard: "Liderlik Tablosu",
+    highestChampLv: "En Yüksek Savaşçı: Sv",
+
+    // Animal drawer / Feed system
+    feedStorage: "YEM DEPOSU",
+    available: "mevcut",
+    fuelRemaining: "Yakıt Kalan",
+    pausedAddFeed: "Duraklatıldı — yem ekle",
+    emptyAddFeed: "Boş — yem ekle",
+    maxLabel: "MAX",
+    maxLevel: "MAX SV",
+    lv: "Sv",
+    feedAnimal: "Besle",
+    thisWillUse: "Kullanılacak:",
+    toFillFeedStorage: "yem deposunu doldurmak için.",
+    notEnoughOf: "Yeterli yok:",
+    haveLabel: "var",
+    needLabel: "gerekli",
 
     // PvP
     pvpArena: "PvP Arenası",

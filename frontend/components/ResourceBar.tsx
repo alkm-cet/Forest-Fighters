@@ -139,45 +139,76 @@ export default function ResourceBar({
               const meta1 = RESOURCE_META[costRes1];
               const meta2 = RESOURCE_META[costRes2];
               const level = Math.floor((cap - 10) / 2) + 1;
+              const has1 = (resources[costRes1] ?? 0) >= cost;
+              const has2 = (resources[costRes2] ?? 0) >= cost;
+              const canAfford = has1 && has2;
+              const isMax = cap >= 100;
               return (
                 <View key={key} style={styles.menuRow}>
-                  <Image
-                    source={meta.image!}
-                    style={styles.menuIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.menuName}>
-                    {t(key as TranslationKeys)}
-                  </Text>
-                  <Text style={styles.menuLevel}>Lv {level}</Text>
-                  <View style={styles.menuCostRow}>
+                  {/* Top line: icon + name ........... lv → lv+1 */}
+                  <View style={styles.menuTopLine}>
                     <Image
-                      source={meta1.image!}
-                      style={styles.menuCostIcon}
+                      source={meta.image!}
+                      style={styles.menuIcon}
                       resizeMode="contain"
                     />
-                    <Text style={styles.menuCostText}>×{cost}</Text>
-                    <Image
-                      source={meta2.image!}
-                      style={styles.menuCostIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.menuCostText}>×{cost}</Text>
+                    <Text style={styles.menuName}>
+                      {t(key as TranslationKeys)}
+                    </Text>
+                    <Text style={styles.menuLevelArrow}>
+                      {isMax ? t("maxLabel") : `${t("lv")}${level} →`}
+                    </Text>
+                    <Text style={styles.menuLevelArrowNext}>
+                      {isMax ? t("maxLabel") : `${t("lv")}${level + 1}`}
+                    </Text>
                   </View>
-                  {cap < 100 && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowCapMenu(false);
-                        onUpgrade?.(key);
-                      }}
-                    >
+                  {/* Bottom line: costs ........... upgrade button */}
+                  <View style={styles.menuBottomLine}>
+                    <View style={styles.menuCostRow}>
                       <Image
-                        source={PLUS_BTN}
-                        style={styles.menuPlusIcon}
+                        source={meta1.image!}
+                        style={styles.menuCostIcon}
                         resizeMode="contain"
                       />
-                    </TouchableOpacity>
-                  )}
+                      <Text
+                        style={[
+                          styles.menuCostText,
+                          !has1 && styles.menuCostShort,
+                        ]}
+                      >
+                        ×{cost}
+                      </Text>
+                      <Image
+                        source={meta2.image!}
+                        style={styles.menuCostIcon}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.menuCostText,
+                          !has2 && styles.menuCostShort,
+                        ]}
+                      >
+                        ×{cost}
+                      </Text>
+                    </View>
+                    {!isMax && (
+                      <TouchableOpacity
+                        style={[
+                          styles.menuUpgradeBtn,
+                          !canAfford && styles.menuUpgradeBtnDisabled,
+                        ]}
+                        disabled={!canAfford}
+                        onPress={() => {
+                          setShowCapMenu(false);
+                          onUpgrade?.(key);
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.menuUpgradeBtnText}>▲ {t("upgrade")}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -188,45 +219,76 @@ export default function ResourceBar({
               const meta1 = RESOURCE_META[res1];
               const meta2 = RESOURCE_META[res2];
               const level = Math.floor((cap - 10) / 2) + 1;
+              const has1 = (resources[res1] ?? 0) >= cost1;
+              const has2 = (resources[res2] ?? 0) >= cost2;
+              const canAfford = has1 && has2;
+              const isMax = cap >= 100;
               return (
                 <View key={key} style={styles.menuRow}>
-                  <Image
-                    source={meta.image!}
-                    style={styles.menuIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.menuName}>
-                    {t(key as TranslationKeys)}
-                  </Text>
-                  <Text style={styles.menuLevel}>Lv {level}</Text>
-                  <View style={styles.menuCostRow}>
+                  {/* Top line: icon + name ........... lv → lv+1 */}
+                  <View style={styles.menuTopLine}>
                     <Image
-                      source={meta1.image!}
-                      style={styles.menuCostIcon}
+                      source={meta.image!}
+                      style={styles.menuIcon}
                       resizeMode="contain"
                     />
-                    <Text style={styles.menuCostText}>×{cost1}</Text>
-                    <Image
-                      source={meta2.image!}
-                      style={styles.menuCostIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.menuCostText}>×{cost2}</Text>
+                    <Text style={styles.menuName}>
+                      {t(key as TranslationKeys)}
+                    </Text>
+                    <Text style={styles.menuLevelArrow}>
+                      {isMax ? t("maxLabel") : `${t("lv")}${level} →`}
+                    </Text>
+                    <Text style={styles.menuLevelArrowNext}>
+                      {isMax ? t("maxLabel") : `${t("lv")}${level + 1}`}
+                    </Text>
                   </View>
-                  {cap < 100 && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowCapMenu(false);
-                        onUpgradeAdvanced?.(key as AdvancedResourceKey);
-                      }}
-                    >
+                  {/* Bottom line: costs ........... upgrade button */}
+                  <View style={styles.menuBottomLine}>
+                    <View style={styles.menuCostRow}>
                       <Image
-                        source={PLUS_BTN}
-                        style={styles.menuPlusIcon}
+                        source={meta1.image!}
+                        style={styles.menuCostIcon}
                         resizeMode="contain"
                       />
-                    </TouchableOpacity>
-                  )}
+                      <Text
+                        style={[
+                          styles.menuCostText,
+                          !has1 && styles.menuCostShort,
+                        ]}
+                      >
+                        ×{cost1}
+                      </Text>
+                      <Image
+                        source={meta2.image!}
+                        style={styles.menuCostIcon}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.menuCostText,
+                          !has2 && styles.menuCostShort,
+                        ]}
+                      >
+                        ×{cost2}
+                      </Text>
+                    </View>
+                    {!isMax && (
+                      <TouchableOpacity
+                        style={[
+                          styles.menuUpgradeBtn,
+                          !canAfford && styles.menuUpgradeBtnDisabled,
+                        ]}
+                        disabled={!canAfford}
+                        onPress={() => {
+                          setShowCapMenu(false);
+                          onUpgradeAdvanced?.(key as AdvancedResourceKey);
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.menuUpgradeBtnText}>▲ {t("upgrade")}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -334,37 +396,49 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   menuRow: {
+    backgroundColor: "#edddb8",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  menuTopLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#edddb8",
-    borderRadius: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  },
+  menuBottomLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   menuIcon: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
   },
   menuName: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     fontFamily: "Fredoka-Bold",
     color: "#4a2e0a",
   },
-  menuLevel: {
+  menuLevelArrow: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     fontFamily: "Fredoka-Bold",
-    color: "#7a4e20",
-    minWidth: 32,
-    textAlign: "center",
+    color: "#4a7c3f",
+  },
+  menuLevelArrowNext: {
+    fontSize: 16,
+    fontWeight: "800",
+    fontFamily: "Fredoka-Bold",
+    color: "#5b6bbf",
   },
   menuCostRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 3,
   },
   menuCostIcon: {
     width: 18,
@@ -377,8 +451,24 @@ const styles = StyleSheet.create({
     color: "#4a2e0a",
     marginRight: 4,
   },
-  menuPlusIcon: {
-    width: 30,
-    height: 30,
+  menuCostShort: {
+    color: "#c0392b",
+  },
+  menuUpgradeBtn: {
+    backgroundColor: "#4a7c3f",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1.5,
+    borderColor: "#2d5a24",
+  },
+  menuUpgradeBtnDisabled: {
+    opacity: 0.35,
+  },
+  menuUpgradeBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: "Fredoka-Bold",
+    color: "#fff",
   },
 });

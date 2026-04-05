@@ -411,7 +411,7 @@ export default function AnimalDrawer({
             {isFull
               ? t("farmerStorageFull")
               : isStopped
-                ? "Paused — add feed"
+                ? t("pausedAddFeed")
                 : t("nextIn")}
           </Text>
           {!isFull && !isStopped && (
@@ -441,10 +441,10 @@ export default function AnimalDrawer({
         {/* ─── Feed Storage section ─── */}
         <View style={styles.sectionLabelRow}>
           <Package size={12} color="#9a7040" strokeWidth={2} />
-          <Text style={styles.sectionLabel}>FEED STORAGE</Text>
+          <Text style={styles.sectionLabel}>{t("feedStorage")}</Text>
           <Text style={styles.availableFeedText}>
             {availableFeed} {consumeMeta?.label ?? animal.consume_resource}{" "}
-            available
+            {t("available")}
           </Text>
         </View>
 
@@ -480,11 +480,11 @@ export default function AnimalDrawer({
             color={isStopped ? "#b0805a" : "#9a7040"}
             strokeWidth={2}
           />
-          <Text style={styles.feedTimeLabel}>Fuel Remaining</Text>
+          <Text style={styles.feedTimeLabel}>{t("fuelRemaining")}</Text>
           <Text
             style={[styles.feedTimeValue, isStopped && { color: "#b0805a" }]}
           >
-            {liveFuelSec > 0 ? formatMinutes(fuelMinLeft) : "Empty — add feed"}
+            {liveFuelSec > 0 ? formatMinutes(fuelMinLeft) : t("emptyAddFeed")}
           </Text>
         </View>
 
@@ -537,7 +537,7 @@ export default function AnimalDrawer({
                 !feedNeededForMax && styles.feedBtnTextDisabled,
               ]}
             >
-              MAX {feedNeededForMax > 0 ? `(${feedNeededForMax})` : ""}
+              {t("maxLabel")} {feedNeededForMax > 0 ? `(${feedNeededForMax})` : ""}
             </Text>
           </TouchableOpacity>
         </View>
@@ -550,8 +550,8 @@ export default function AnimalDrawer({
             btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
             text={
               isMaxLevel
-                ? `MAX LV ${animal.level}`
-                : `${t("upgrade")} → LV ${animal.level + 1}`
+                ? `${t("maxLevel")} ${animal.level}`
+                : `${t("upgrade")} → ${t("lv")} ${animal.level + 1}`
             }
             onClick={() => onUpgrade(animal)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
@@ -591,21 +591,21 @@ export default function AnimalDrawer({
           setShowMaxConfirm(false);
           onFeedMax(animal, feedNeededForMax);
         }}
-        title={`Feed ${meta.label}?`}
-        confirmText="Confirm"
+        title={`${t("feedAnimal")} ${meta.label}?`}
+        confirmText={t("confirmUpgradeBtn")}
         confirmDisabled={!canFeedMax}
       >
         <Text style={styles.modalBody}>
-          This will use{" "}
+          {t("thisWillUse")}{" "}
           <Text style={styles.modalCost}>
             {feedNeededForMax} {consumeMeta?.label ?? animal.consume_resource}
           </Text>
-          {"\n"}to fill the feed storage.
+          {"\n"}{t("toFillFeedStorage")}
         </Text>
         {!canFeedMax && (
           <Text style={styles.modalWarning}>
-            Not enough {consumeMeta?.label ?? animal.consume_resource} (have{" "}
-            {availableFeed}, need {feedNeededForMax})
+            {t("notEnoughOf")} {consumeMeta?.label ?? animal.consume_resource} ({t("haveLabel")}{" "}
+            {availableFeed}, {t("needLabel")} {feedNeededForMax})
           </Text>
         )}
       </CustomModal>

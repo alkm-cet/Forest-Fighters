@@ -22,6 +22,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import api from "../../lib/api";
 import { CLASS_META } from "../../constants/resources";
+import { LEAGUE_META } from "../../constants/leagues";
 import CustomButton from "../../components/CustomButton";
 
 const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
@@ -46,13 +47,9 @@ type OpponentInfo = {
 
 type Phase = "searching" | "found" | "fighting";
 
-const LEAGUE_COLORS: Record<string, string> = {
-  Bronz: "#cd7f32",
-  Gumus: "#aaaaaa",
-  Altin: "#ffd700",
-  Platin: "#a0c4ff",
-  Elmas: "#b9f2ff",
-};
+const LEAGUE_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(LEAGUE_META).map(([key, val]) => [key, val.color])
+);
 
 const DOT_COUNT = 3;
 const MIN_SEARCH_MS = 2000;
