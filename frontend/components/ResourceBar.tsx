@@ -145,7 +145,7 @@ export default function ResourceBar({
               const isMax = cap >= 100;
               return (
                 <View key={key} style={styles.menuRow}>
-                  {/* Top line: icon + name ........... lv → lv+1 */}
+                  {/* Top line: icon + name ........... lv → lv+1 / cap → cap */}
                   <View style={styles.menuTopLine}>
                     <Image
                       source={meta.image!}
@@ -155,12 +155,24 @@ export default function ResourceBar({
                     <Text style={styles.menuName}>
                       {t(key as TranslationKeys)}
                     </Text>
-                    <Text style={styles.menuLevelArrow}>
-                      {isMax ? t("maxLabel") : `${t("lv")}${level} →`}
-                    </Text>
-                    <Text style={styles.menuLevelArrowNext}>
-                      {isMax ? t("maxLabel") : `${t("lv")}${level + 1}`}
-                    </Text>
+                    {isMax ? (
+                      <Text style={styles.menuLevelArrowNext}>
+                        {t("maxLabel")}
+                      </Text>
+                    ) : (
+                      <View style={styles.menuLevelCapCol}>
+                        <Text style={styles.menuLevelArrow}>
+                          {`${t("lv")}${level}`}
+                          <Text style={styles.menuLevelSep}>{" → "}</Text>
+                          <Text style={styles.menuLevelArrowNext}>{`${t("lv")}${level + 1}`}</Text>
+                        </Text>
+                        <Text style={styles.menuCapCur}>
+                          {`cap${cap}`}
+                          <Text style={styles.menuLevelSep}>{" → "}</Text>
+                          <Text style={styles.menuCapNext}>{`cap${cap + 2}`}</Text>
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   {/* Bottom line: costs ........... upgrade button */}
                   <View style={styles.menuBottomLine}>
@@ -205,7 +217,9 @@ export default function ResourceBar({
                         }}
                         activeOpacity={0.75}
                       >
-                        <Text style={styles.menuUpgradeBtnText}>▲ {t("upgrade")}</Text>
+                        <Text style={styles.menuUpgradeBtnText}>
+                          ▲ {t("upgrade")}
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -225,7 +239,7 @@ export default function ResourceBar({
               const isMax = cap >= 100;
               return (
                 <View key={key} style={styles.menuRow}>
-                  {/* Top line: icon + name ........... lv → lv+1 */}
+                  {/* Top line: icon + name ........... lv → lv+1 / cap → cap */}
                   <View style={styles.menuTopLine}>
                     <Image
                       source={meta.image!}
@@ -235,12 +249,24 @@ export default function ResourceBar({
                     <Text style={styles.menuName}>
                       {t(key as TranslationKeys)}
                     </Text>
-                    <Text style={styles.menuLevelArrow}>
-                      {isMax ? t("maxLabel") : `${t("lv")}${level} →`}
-                    </Text>
-                    <Text style={styles.menuLevelArrowNext}>
-                      {isMax ? t("maxLabel") : `${t("lv")}${level + 1}`}
-                    </Text>
+                    {isMax ? (
+                      <Text style={styles.menuLevelArrowNext}>
+                        {t("maxLabel")}
+                      </Text>
+                    ) : (
+                      <View style={styles.menuLevelCapCol}>
+                        <Text style={styles.menuLevelArrow}>
+                          {`${t("lv")}${level}`}
+                          <Text style={styles.menuLevelSep}>{" → "}</Text>
+                          <Text style={styles.menuLevelArrowNext}>{`${t("lv")}${level + 1}`}</Text>
+                        </Text>
+                        <Text style={styles.menuCapCur}>
+                          {`cap${cap}`}
+                          <Text style={styles.menuLevelSep}>{" → "}</Text>
+                          <Text style={styles.menuCapNext}>{`cap${cap + 2}`}</Text>
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   {/* Bottom line: costs ........... upgrade button */}
                   <View style={styles.menuBottomLine}>
@@ -285,7 +311,9 @@ export default function ResourceBar({
                         }}
                         activeOpacity={0.75}
                       >
-                        <Text style={styles.menuUpgradeBtnText}>▲ {t("upgrade")}</Text>
+                        <Text style={styles.menuUpgradeBtnText}>
+                          ▲ {t("upgrade")}
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -423,17 +451,40 @@ const styles = StyleSheet.create({
     fontFamily: "Fredoka-Bold",
     color: "#4a2e0a",
   },
+  menuLevelCapCol: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 1,
+  },
   menuLevelArrow: {
     fontSize: 12,
     fontWeight: "800",
     fontFamily: "Fredoka-Bold",
     color: "#4a7c3f",
   },
+  menuLevelSep: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "Fredoka-Bold",
+    color: "#9a7040",
+  },
   menuLevelArrowNext: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "800",
     fontFamily: "Fredoka-Bold",
     color: "#5b6bbf",
+  },
+  menuCapCur: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "Fredoka-Bold",
+    color: "#7a5030",
+  },
+  menuCapNext: {
+    fontSize: 11,
+    fontWeight: "800",
+    fontFamily: "Fredoka-Bold",
+    color: "#4a7c3f",
   },
   menuCostRow: {
     flexDirection: "row",
