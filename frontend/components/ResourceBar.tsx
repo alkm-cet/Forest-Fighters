@@ -90,7 +90,7 @@ export default function ResourceBar({
                         resizeMode="contain"
                       />
                     )}
-                    <View style={styles.amountBadge}>
+                    <View style={[styles.amountBadge, amount >= cap && styles.amountBadgeFull]}>
                       <Text style={styles.amountText}>
                         {amount}
                         <Text style={styles.capText}>/{cap}</Text>
@@ -377,6 +377,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  amountBadgeFull: {
+    backgroundColor: "#6abf69",
   },
   amountText: {
     color: "#3a1e00",

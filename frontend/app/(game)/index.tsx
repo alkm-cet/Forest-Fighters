@@ -44,7 +44,11 @@ import CollectFloater from "../../components/CollectFloater";
 import CampfireScene from "../../components/CampfireScene";
 
 const BG = require("../../assets/home-assets/background-image-3.png");
-const AVATAR = require("../../assets/icons/icon-fighters.webp");
+const TAB_AVATARS = {
+  champions: require("../../assets/icons/icon-fighters.webp"),
+  farmers: require("../../assets/icons/icon-farmers.webp"),
+  animals: require("../../assets/icons/icon-animals.webp"),
+} as const;
 const ICON_SETTINGS = require("../../assets/icons/icon-settings.webp");
 const ICON_FIGHTERS = require("../../assets/icons/icon-fighters.webp");
 const ICON_FARMERS = require("../../assets/icons/icon-farmers.webp");
@@ -377,7 +381,7 @@ export default function MainScreen() {
               {/* Circle sits on top (zIndex 2), overlaps the banner */}
               <View style={styles.avatarCircle}>
                 <Image
-                  source={AVATAR}
+                  source={TAB_AVATARS[activeTab]}
                   style={styles.avatarImg}
                   resizeMode="contain"
                 />
