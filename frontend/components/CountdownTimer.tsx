@@ -37,9 +37,23 @@ export default function CountdownTimer({ endsAt, onExpire, style }: Props) {
     }
   }, [secondsLeft]);
 
-  const minutes = Math.floor(secondsLeft / 60);
-  const seconds = secondsLeft % 60;
-  const display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  let display: string;
+  if (secondsLeft >= 86400) {
+    const days = Math.floor(secondsLeft / 86400);
+    const hours = Math.floor((secondsLeft % 86400) / 3600);
+    const minutes = Math.floor((secondsLeft % 3600) / 60);
+    const seconds = secondsLeft % 60;
+    display = `${days}g ${hours}s ${String(minutes).padStart(2, "0")}d ${String(seconds).padStart(2, "0")}sn`;
+  } else if (secondsLeft >= 3600) {
+    const hours = Math.floor(secondsLeft / 3600);
+    const minutes = Math.floor((secondsLeft % 3600) / 60);
+    const seconds = secondsLeft % 60;
+    display = `${hours}s ${String(minutes).padStart(2, "0")}d ${String(seconds).padStart(2, "0")}sn`;
+  } else {
+    const minutes = Math.floor(secondsLeft / 60);
+    const seconds = secondsLeft % 60;
+    display = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
 
   return <Text style={[styles.timer, style]}>{display}</Text>;
 }

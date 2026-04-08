@@ -32,7 +32,6 @@ import {
 } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
-import { getLeagueMeta } from "../../constants/leagues";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
@@ -41,13 +40,11 @@ import FarmerDrawer from "../../components/FarmerDrawer";
 import AnimalCard from "../../components/AnimalCard";
 import AnimalDrawer from "../../components/AnimalDrawer";
 import CollectFloater from "../../components/CollectFloater";
-import CampfireScene from "../../components/CampfireScene";
 
-const BG = require("../../assets/home-assets/background-image-3.png");
-const TAB_AVATARS = {
-  champions: require("../../assets/icons/icon-fighters.webp"),
-  farmers: require("../../assets/icons/icon-farmers.webp"),
-  animals: require("../../assets/icons/icon-animals.webp"),
+const TAB_BACKGROUNDS = {
+  champions: require("../../assets/fighters-bg.webp"),
+  farmers: require("../../assets/farmers-bg.webp"),
+  animals: require("../../assets/animals-bg.webp"),
 } as const;
 const ICON_SETTINGS = require("../../assets/icons/icon-settings.webp");
 const ICON_FIGHTERS = require("../../assets/icons/icon-fighters.webp");
@@ -136,6 +133,10 @@ export default function MainScreen() {
   const [pvpTrophies, setPvpTrophies] = useState<number>(10);
   const [closedEyesCat, setClosedEyesCat] = useState<string | null>(null);
   const closedEyesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Background crossfade
+  const [displayedBg, setDisplayedBg] = useState<TabName>("champions");
+  const bgFadeAnim = useRef(new Animated.Value(0)).current;
 
   // Feed serialization: prevents concurrent feed requests from over-spending resources.
   // Each tap increments the buffer; only one request is in-flight at a time;
@@ -361,13 +362,29 @@ export default function MainScreen() {
       friction: 14,
     }).start();
     setActiveTab(tab);
+
+    // Fade out old bg — new tab already rendered underneath
+    bgFadeAnim.setValue(1);
+    Animated.timing(bgFadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => {
+      setDisplayedBg(tab);
+    });
   }
 
   const hasCards =
     champions.length > 0 || farmers.length > 0 || animals.length > 0;
 
   return (
-    <ImageBackground source={BG} style={styles.bg} resizeMode="cover">
+    <View style={styles.bg}>
+      {/* Back layer — new tab, pre-rendered underneath */}
+      <ImageBackground source={TAB_BACKGROUNDS[activeTab]} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      {/* Front layer — old tab fades out, revealing new tab beneath */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgFadeAnim }]}>
+        <ImageBackground source={TAB_BACKGROUNDS[displayedBg]} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      </Animated.View>
       <SafeAreaView style={styles.safeArea}>
         {/* Top bar */}
         <View style={styles.topBar}>
@@ -381,7 +398,7 @@ export default function MainScreen() {
               {/* Circle sits on top (zIndex 2), overlaps the banner */}
               <View style={styles.avatarCircle}>
                 <Image
-                  source={TAB_AVATARS[activeTab]}
+                  source={ICON_FIGHTERS}
                   style={styles.avatarImg}
                   resizeMode="contain"
                 />
@@ -526,16 +543,7 @@ export default function MainScreen() {
 
         {/* Center — cats around campfire / farmer scene */}
         <View style={styles.centerFill}>
-          {(champions.length > 0 || farmers.length > 0) && (
-            <CampfireScene
-              champions={champions}
-              farmers={farmers}
-              animals={animals}
-              activeTab={activeTab}
-              closedEyesCat={closedEyesCat}
-              onCatPress={handleCatPress}
-            />
-          )}
+          {/* CampfireScene removed — background image now handles per-tab visuals */}
         </View>
 
         {/* Cards section */}
@@ -734,7 +742,11 @@ export default function MainScreen() {
           setSelectedChampion(null);
           try {
             const res = await api.post(`/api/champions/${champion.id}/revive`);
-            setResources((r) => ({ ...r, milk: res.data.milk, wool: res.data.wool }));
+            setResources((r) => ({
+              ...r,
+              milk: res.data.milk,
+              wool: res.data.wool,
+            }));
             api.get("/api/champions").then((r) => setChampions(r.data));
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Canlandırma başarısız");
@@ -743,14 +755,20 @@ export default function MainScreen() {
         onHeal={async (champion) => {
           try {
             const res = await api.post(`/api/champions/${champion.id}/heal`);
-            setResources((r) => ({ ...r, milk: res.data.milk, egg: res.data.egg }));
+            setResources((r) => ({
+              ...r,
+              milk: res.data.milk,
+              egg: res.data.egg,
+            }));
             setChampions((prev) =>
               prev.map((c) =>
-                c.id === champion.id ? { ...c, current_hp: res.data.newHp } : c
-              )
+                c.id === champion.id ? { ...c, current_hp: res.data.newHp } : c,
+              ),
             );
             setSelectedChampion((prev) =>
-              prev?.id === champion.id ? { ...prev, current_hp: res.data.newHp } : prev
+              prev?.id === champion.id
+                ? { ...prev, current_hp: res.data.newHp }
+                : prev,
             );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
@@ -764,8 +782,8 @@ export default function MainScreen() {
             setCoins(res.data.coins);
             setChampions((prev) =>
               prev.map((c) =>
-                c.id === champion.id ? { ...c, ...res.data.champion } : c
-              )
+                c.id === champion.id ? { ...c, ...res.data.champion } : c,
+              ),
             );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
@@ -857,14 +875,18 @@ export default function MainScreen() {
             setCoins(res.data.coins);
             setChampions((prev) =>
               prev.map((c) =>
-                c.id === champion.id ? { ...c, ...res.data.champion } : c
-              )
+                c.id === champion.id ? { ...c, ...res.data.champion } : c,
+              ),
             );
             setSelectedChampion((prev) =>
-              prev?.id === champion.id ? { ...prev, ...res.data.champion } : prev
+              prev?.id === champion.id
+                ? { ...prev, ...res.data.champion }
+                : prev,
             );
           } catch (err: any) {
-            alert(err.response?.data?.error ?? "Coin ile iyileştirme başarısız");
+            alert(
+              err.response?.data?.error ?? "Coin ile iyileştirme başarısız",
+            );
           }
         }}
         onSkipMission={async (champion) => {
@@ -1332,8 +1354,15 @@ export default function MainScreen() {
               </Text>
               <View style={styles.modalRewardRow}>
                 {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    {claimResult.rewardResource && RESOURCE_META[claimResult.rewardResource]?.image ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {claimResult.rewardResource &&
+                    RESOURCE_META[claimResult.rewardResource]?.image ? (
                       <Image
                         source={RESOURCE_META[claimResult.rewardResource].image}
                         style={{ width: 24, height: 24 }}
@@ -1598,7 +1627,8 @@ export default function MainScreen() {
                             const blocked = entry.damage === 0;
                             const newRound =
                               i === 0 ||
-                              pvpResult.combat_log[i - 1]?.round !== entry.round;
+                              pvpResult.combat_log[i - 1]?.round !==
+                                entry.round;
                             const atkName = isChamp
                               ? pvpResult.attacker_champion_name
                               : pvpResult.defender_champion_name;
@@ -1618,7 +1648,9 @@ export default function MainScreen() {
                                 <View
                                   style={[
                                     styles.logLine,
-                                    isChamp ? styles.logLineChamp : styles.logLineEnemy,
+                                    isChamp
+                                      ? styles.logLineChamp
+                                      : styles.logLineEnemy,
                                   ]}
                                 >
                                   {/* Attacker side */}
@@ -1626,18 +1658,24 @@ export default function MainScreen() {
                                     <Text
                                       style={[
                                         styles.logSideName,
-                                        isChamp ? styles.logActorChamp : styles.logActorEnemy,
+                                        isChamp
+                                          ? styles.logActorChamp
+                                          : styles.logActorEnemy,
                                       ]}
                                     >
                                       {isChamp ? "⚔️" : "👹"} {atkName}
                                     </Text>
-                                    <Text style={styles.logSideHp}>{atkHp} HP</Text>
+                                    <Text style={styles.logSideHp}>
+                                      {atkHp} HP
+                                    </Text>
                                     <View style={styles.logSideStatRow}>
                                       <Text style={styles.logAtkVal}>
                                         ATK {entry.attackValue}
                                       </Text>
                                       {entry.atkBoosted && (
-                                        <Text style={styles.logCritBadge}>KRİT</Text>
+                                        <Text style={styles.logCritBadge}>
+                                          KRİT
+                                        </Text>
                                       )}
                                     </View>
                                   </View>
@@ -1648,13 +1686,17 @@ export default function MainScreen() {
                                     <View
                                       style={[
                                         styles.logDmgPill,
-                                        blocked ? styles.logDmgPillBlock : styles.logDmgPillHit,
+                                        blocked
+                                          ? styles.logDmgPillBlock
+                                          : styles.logDmgPillHit,
                                       ]}
                                     >
                                       <Text
                                         style={[
                                           styles.logDmgText,
-                                          blocked ? styles.logDmgTextBlock : styles.logDmgTextHit,
+                                          blocked
+                                            ? styles.logDmgTextBlock
+                                            : styles.logDmgTextHit,
                                         ]}
                                       >
                                         {blocked ? "BLOK" : `−${entry.damage}`}
@@ -1663,11 +1705,18 @@ export default function MainScreen() {
                                   </View>
 
                                   {/* Defender side */}
-                                  <View style={[styles.logSide, styles.logSideRight]}>
+                                  <View
+                                    style={[
+                                      styles.logSide,
+                                      styles.logSideRight,
+                                    ]}
+                                  >
                                     <Text
                                       style={[
                                         styles.logSideName,
-                                        isChamp ? styles.logActorEnemy : styles.logActorChamp,
+                                        isChamp
+                                          ? styles.logActorEnemy
+                                          : styles.logActorChamp,
                                       ]}
                                     >
                                       {isChamp ? "👹" : "⚔️"} {defName}
@@ -1680,9 +1729,16 @@ export default function MainScreen() {
                                     >
                                       {defHp} HP
                                     </Text>
-                                    <View style={[styles.logSideStatRow, styles.logSideStatRight]}>
+                                    <View
+                                      style={[
+                                        styles.logSideStatRow,
+                                        styles.logSideStatRight,
+                                      ]}
+                                    >
                                       {entry.defBoosted && (
-                                        <Text style={styles.logBlockBadge}>BLOK</Text>
+                                        <Text style={styles.logBlockBadge}>
+                                          BLOK
+                                        </Text>
                                       )}
                                       <Text style={styles.logDefVal}>
                                         DEF {entry.defenseValue}
@@ -1708,7 +1764,7 @@ export default function MainScreen() {
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+    </View>
   );
 }
 

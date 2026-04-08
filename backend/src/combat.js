@@ -19,7 +19,7 @@ function simulateCombat(attacker, defender) {
   let defenderHp = defender.current_hp ?? defender.max_hp ?? 100;
   const log = [];
 
-  for (let round = 0; round < 10; round++) {
+  for (let round = 0; round < 100; round++) {
     // --- Attacker's turn ---
     const atkBoosted = Math.random() * 100 < (attacker.chance || 0);
     const atkValue = atkBoosted ? attacker.attack * 1.3 : attacker.attack;
