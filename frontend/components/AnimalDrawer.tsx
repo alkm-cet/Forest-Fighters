@@ -272,13 +272,11 @@ export default function AnimalDrawer({
         style={[styles.drawer, { transform: [{ translateY }] }]}
         {...panResponder.panHandlers}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          {/* Handle (center) */}
+        {/* Top bar: handle + close */}
+        <View style={styles.topBar}>
           <View style={styles.handleWrap}>
             <View style={styles.handle} />
           </View>
-
-          {/* CLOSE button */}
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={onClose}
@@ -288,55 +286,31 @@ export default function AnimalDrawer({
           </TouchableOpacity>
         </View>
 
-        {/* ─── Top bar: level badge │ handle │ close ─── */}
-        <View style={styles.topBar}>
-          {/* Upgrade cost preview (left) */}
-          {!isMaxLevel && (
-            <View style={styles.upgradeMini}>
-              {res1Meta?.image && (
-                <Image
-                  source={res1Meta.image}
-                  style={styles.upgradeMiniIcon}
-                  resizeMode="contain"
-                />
-              )}
-              <Text
-                style={[
-                  styles.upgradeMiniCost,
-                  ((resources?.[res1 as keyof Resources] as number) ?? 0) <
-                    upgradeCost && styles.costShort,
-                ]}
-              >
-                ×{upgradeCost}
-              </Text>
-              <Text style={styles.upgradeMiniPlus}>+</Text>
-              {res2Meta?.image && (
-                <Image
-                  source={res2Meta.image}
-                  style={styles.upgradeMiniIcon}
-                  resizeMode="contain"
-                />
-              )}
-              <Text
-                style={[
-                  styles.upgradeMiniCost,
-                  ((resources?.[res2 as keyof Resources] as number) ?? 0) <
-                    upgradeCost && styles.costShort,
-                ]}
-              >
-                ×{upgradeCost}
-              </Text>
-              <Text style={styles.upgradeMiniArrow}>→</Text>
-              <Text style={styles.upgradeMiniLevel}>LV {animal.level + 1}</Text>
-            </View>
-          )}
-          {isMaxLevel && (
-            <View style={styles.upgradeMini}>
-              <Text style={styles.upgradeMiniLevel}>MAX</Text>
-            </View>
-          )}
-
-          {/* Level badge (right) */}
+        {/* Header row: upgrade cost + level badge */}
+        <View style={styles.headerRow}>
+          <View style={styles.upgradeMini}>
+            {!isMaxLevel ? (
+              <>
+                {res1Meta?.image && (
+                  <Image source={res1Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+                )}
+                <Text style={[styles.upgradeMiniCost, ((resources?.[res1 as keyof Resources] as number) ?? 0) < upgradeCost && styles.costShort]}>
+                  ×{upgradeCost}
+                </Text>
+                <Text style={styles.upgradeMiniPlus}>+</Text>
+                {res2Meta?.image && (
+                  <Image source={res2Meta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
+                )}
+                <Text style={[styles.upgradeMiniCost, ((resources?.[res2 as keyof Resources] as number) ?? 0) < upgradeCost && styles.costShort]}>
+                  ×{upgradeCost}
+                </Text>
+                <Text style={styles.upgradeMiniArrow}>→</Text>
+                <Text style={styles.upgradeMiniLevel}>LV {animal.level + 1}</Text>
+              </>
+            ) : (
+              <Text style={styles.upgradeMiniLevel}>{t("maxLevel")} {animal.level}</Text>
+            )}
+          </View>
           <View style={styles.levelBadge}>
             <Text style={styles.levelBadgeLabel}>LV</Text>
             <Text style={styles.levelBadgeNum}>{animal.level}</Text>
@@ -672,41 +646,45 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
 
-  // ── Top bar (same layout as FarmerDrawer) ──
-  topBar: {
+  // ── Top bar (handle + close — matches FarmerDrawer) ──
+  topBar: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  handleWrap: { flex: 1, alignItems: "center", paddingLeft: 38 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#c8a96e" },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#e8d5a8",
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // ── Header row (upgrade cost + level badge — matches FarmerDrawer) ──
+  headerRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 4,
-    paddingTop: 12,
   },
   upgradeMini: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    flex: 1,
+    gap: 4,
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
   },
-  upgradeMiniIcon: { width: 18, height: 18 },
-  upgradeMiniCost: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#3a2a10",
-  },
+  upgradeMiniIcon: { width: 20, height: 20 },
+  upgradeMiniCost: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
   costShort: { color: "#c0392b" },
-  upgradeMiniPlus: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
-  upgradeMiniArrow: { fontSize: 11, color: "#9a7040", fontWeight: "700" },
+  upgradeMiniPlus: { fontSize: 13, fontWeight: "700", color: "#9a7040" },
+  upgradeMiniArrow: { fontSize: 11, fontWeight: "700", color: "#9a7040", marginLeft: 2 },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
-  handleWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#c8a96e",
-    marginTop: 4,
-  },
   levelBadge: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -722,35 +700,30 @@ const styles = StyleSheet.create({
   levelBadgeLabel: { fontSize: 10, fontWeight: "700", color: "#7a5020" },
   levelBadgeNum: { fontSize: 18, fontWeight: "900", color: "#3a1e00" },
 
-  // Close button — below topBar, right-aligned
-  closeBtn: {
-    alignSelf: "flex-end",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#e8d5a8",
-    borderWidth: 1.5,
+  animalName: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#3a1e00",
+    marginBottom: 12,
+  },
+  imageFrame: {
+    alignSelf: "center",
+    width: 148,
+    height: 148,
+    backgroundColor: "#ede0c4",
+    borderRadius: 20,
+    borderWidth: 2,
     borderColor: "#c8a96e",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
-    marginTop: -2,
+    marginBottom: 16,
+    shadowColor: "#b8893a",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-
-  animalName: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#3a1e00",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  imageFrame: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 90,
-    marginBottom: 4,
-  },
-  animalImage: { width: 80, height: 80 },
+  animalImage: { width: 120, height: 120 },
 
   divider: { height: 1, backgroundColor: "#d4b896", marginVertical: 8 },
 
@@ -771,17 +744,13 @@ const styles = StyleSheet.create({
   productionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 6,
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
-  productionBlock: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 3,
-  },
-  productionValue: { fontSize: 20, fontWeight: "900", color: "#3a1e00" },
-  productionSep: { fontSize: 14, color: "#9a7040" },
-  productionInterval: { fontSize: 12, fontWeight: "600", color: "#7a5030" },
+  productionBlock: { flexDirection: "row", alignItems: "baseline", gap: 4 },
+  productionValue: { fontSize: 28, fontWeight: "800", color: "#3a1e00" },
+  productionSep: { fontSize: 20, color: "#9a7040" },
+  productionInterval: { fontSize: 16, fontWeight: "700", color: "#7a5a30" },
   pendingBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -790,7 +759,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  pendingText: { fontSize: 12, fontWeight: "800", color: "#fff" },
+  pendingText: { fontSize: 13, fontWeight: "800", color: "#fff" },
 
   // ── Timer progress row (birebir FarmerDrawer) ──
   nextReadyRow: {
@@ -812,13 +781,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 10,
   },
-  nextReadyLabel: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "black",
+  nextReadyLabel: { fontSize: 12, fontWeight: "700", color: "black" },
+  nextReadyTimer: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#4a2e0a",
+    letterSpacing: 1,
   },
-  nextReadyTimer: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
 
   actionBtn: { marginBottom: 2 },
   bottomBtnRow: {
