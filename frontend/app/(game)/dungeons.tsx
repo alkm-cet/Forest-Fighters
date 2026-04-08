@@ -42,6 +42,7 @@ import CountdownTimer from "../../components/CountdownTimer";
 const DUNGEON_BG = require("../../assets/dungeon/dungeon-screen-bg.webp");
 const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
 const DUNGEON_TAB_IMG = require("../../assets/icons/icon-dungeon.webp");
+const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 
 type TabKey = "harvest" | "adventure" | "event";
 
@@ -386,6 +387,7 @@ export default function DungeonsScreen() {
             totalStars={totalStars}
             runs={runs}
             championId={championId}
+            championClass={championClass}
             championIsBusy={championIsBusy}
             onEnter={handleEnter}
             onClaim={handleClaim}
@@ -511,9 +513,12 @@ export default function DungeonsScreen() {
             {/* Coin reward */}
             {(claimResult?.coinReward ?? 0) > 0 && (
               <View style={styles.resultRewardRow}>
-                <Text style={styles.resultCoin}>
-                  🪙 +{claimResult!.coinReward} {t("coinRewardLabel")}
-                </Text>
+                <View style={styles.resultCoinRow}>
+                  <Image source={COIN_IMG} style={styles.resultCoinImg} resizeMode="contain" />
+                  <Text style={styles.resultCoin}>
+                    +{claimResult!.coinReward} {t("coinRewardLabel")}
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -869,6 +874,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: "#4a7c3f",
+  },
+  resultCoinRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  resultCoinImg: {
+    width: 22,
+    height: 22,
   },
   resultCoin: {
     fontSize: 18,

@@ -1,5 +1,7 @@
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Text } from "./StyledText";
+
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 import { useCoinConfirm } from "../lib/coin-confirm-context";
 import { useLanguage } from "../lib/i18n";
 
@@ -29,7 +31,8 @@ export default function InGameCoinConfirmModal({ coins }: { coins: number }) {
       <View style={styles.centered} pointerEvents="box-none">
         <View style={styles.card}>
           <View style={styles.costBadge}>
-            <Text style={styles.costText}>🪙 ×{config.transactionCost}</Text>
+            <Image source={COIN_IMG} style={styles.coinImg} resizeMode="contain" />
+            <Text style={styles.costText}>×{config.transactionCost}</Text>
           </View>
 
           <Text style={styles.title}>{config.transactionTitle}</Text>
@@ -85,6 +88,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 2,
     borderColor: "#8b6508",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  coinImg: {
+    width: 22,
+    height: 22,
   },
   costText: {
     fontSize: 20,

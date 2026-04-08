@@ -13,6 +13,7 @@ import { Text } from "./StyledText";
 import { X, Sprout, Package, ArrowUp, Timer } from "lucide-react-native";
 import { Farmer, Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 import CustomButton from "./CustomButton";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
@@ -408,7 +409,10 @@ export default function FarmerDrawer({
                 text={isFull ? t("storageFull") : t("fillStorage")}
                 subContent={
                   !isFull ? (
-                    <Text style={styles.costText}>🪙 ×{fillCost}</Text>
+                    <View style={styles.costRow}>
+                      <Image source={COIN_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Text style={styles.costText}>×{fillCost}</Text>
+                    </View>
                   ) : undefined
                 }
                 onClick={() => !isFull && onFillStorage && triggerCoinConfirm({

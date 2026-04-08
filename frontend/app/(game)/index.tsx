@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
-import { AlertTriangle, Trophy } from "lucide-react-native";
+import { AlertTriangle, Trophy, Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
@@ -32,6 +32,7 @@ import {
 } from "../../types";
 import ResourceBar from "../../components/ResourceBar";
 import { RESOURCE_META } from "../../constants/resources";
+import { getLeagueMeta } from "../../constants/leagues";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ChampionCard from "../../components/ChampionCard";
 import ChampionDrawer from "../../components/ChampionDrawer";
@@ -50,6 +51,7 @@ const ICON_SETTINGS = require("../../assets/icons/icon-settings.webp");
 const ICON_FIGHTERS = require("../../assets/icons/icon-fighters.webp");
 const ICON_FARMERS = require("../../assets/icons/icon-farmers.webp");
 const ICON_ANIMALS = require("../../assets/icons/icon-animals.webp");
+const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 
 export default function MainScreen() {
   const router = useRouter();
@@ -380,10 +382,20 @@ export default function MainScreen() {
   return (
     <View style={styles.bg}>
       {/* Back layer — new tab, pre-rendered underneath */}
-      <ImageBackground source={TAB_BACKGROUNDS[activeTab]} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      <ImageBackground
+        source={TAB_BACKGROUNDS[activeTab]}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+      />
       {/* Front layer — old tab fades out, revealing new tab beneath */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgFadeAnim }]}>
-        <ImageBackground source={TAB_BACKGROUNDS[displayedBg]} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      <Animated.View
+        style={[StyleSheet.absoluteFillObject, { opacity: bgFadeAnim }]}
+      >
+        <ImageBackground
+          source={TAB_BACKGROUNDS[displayedBg]}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
       </Animated.View>
       <SafeAreaView style={styles.safeArea}>
         {/* Top bar */}
@@ -414,28 +426,32 @@ export default function MainScreen() {
                   {player ? player.username : t("appName")}
                 </Text>
                 <View style={styles.trophyPillRow}>
-                  <Trophy
-                    size={10}
-                    color="#60552f"
-                    strokeWidth={2.5}
-                    fill="#60552f"
+                  {/* League */}
+                  <Image
+                    source={getLeagueMeta(pvpTrophies).image}
+                    style={styles.leagueImg}
+                    resizeMode="contain"
                   />
+                  <Text style={[styles.leagueName, { color: getLeagueMeta(pvpTrophies).color }]}>
+                    {getLeagueMeta(pvpTrophies).label}
+                  </Text>
+                  <View style={styles.pillDivider} />
+                  {/* Trophy */}
+                  <Trophy size={10} color="#60552f" strokeWidth={2.5} fill="#60552f" />
                   <Text style={styles.trophyCount}>{pvpTrophies}</Text>
+                  <View style={styles.pillDivider} />
+                  {/* Coin */}
+                  <Image source={COIN_IMG} style={styles.coinImg} resizeMode="contain" />
+                  <Text style={styles.coinCount}>{coins}</Text>
                 </View>
               </View>
             </TouchableOpacity>
-
-            {/* Coin pill */}
-            <View style={styles.coinPill}>
-              <Text style={styles.coinIcon}>🪙</Text>
-              <Text style={styles.coinCount}>{coins}</Text>
-            </View>
           </View>
           <TouchableOpacity
             onPress={() => router.push("/(game)/settings")}
             style={styles.settingsBtn}
           >
-            <Image source={ICON_SETTINGS} style={styles.settingsBtnIcon} />
+            <Settings size={22} color="#7a5a30" strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
@@ -769,21 +785,6 @@ export default function MainScreen() {
               prev?.id === champion.id
                 ? { ...prev, current_hp: res.data.newHp }
                 : prev,
-            );
-          } catch (err: any) {
-            alert(err.response?.data?.error ?? "İyileştirme başarısız");
-          }
-        }}
-        onCoinHeal={async (champion) => {
-          try {
-            const res = await api.post("/api/coins/heal-champion", {
-              champion_id: champion.id,
-            });
-            setCoins(res.data.coins);
-            setChampions((prev) =>
-              prev.map((c) =>
-                c.id === champion.id ? { ...c, ...res.data.champion } : c,
-              ),
             );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
@@ -1795,9 +1796,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 50,
     borderWidth: 2,
     borderColor: "#c8a96e",
     backgroundColor: "#f5edd8",
@@ -1807,8 +1808,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarImg: {
-    width: 55,
-    height: 55,
+    width: 45,
+    height: 45,
   },
   avatarLeagueBadge: {
     position: "absolute",
@@ -1843,39 +1844,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  leagueImg: {
+    width: 16,
+    height: 16,
+  },
+  leagueName: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
   trophyCount: {
     color: "#60552f",
     fontSize: 12,
     fontWeight: "800",
   },
-  coinPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+  pillDivider: {
+    width: 1,
+    height: 10,
+    backgroundColor: "#a08050",
+    opacity: 0.6,
+    marginHorizontal: 2,
   },
-  coinIcon: {
-    fontSize: 11,
+  coinImg: {
+    width: 13,
+    height: 13,
   },
   coinCount: {
-    color: "#ffe082",
+    color: "#60552f",
     fontSize: 12,
     fontWeight: "800",
   },
   settingsBtn: {
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 20,
-    width: 36,
-    height: 36,
+    backgroundColor: "#f5edd8",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    width: 46,
+    height: 46,
     justifyContent: "center",
     alignItems: "center",
   },
   settingsBtnIcon: {
-    width: 24,
-    height: 24,
+    width: 26,
+    height: 26,
   },
   errorBanner: {
     marginHorizontal: 16,

@@ -13,6 +13,7 @@ import { Text } from "./StyledText";
 import { X, Sprout, Package, ArrowUp, Timer } from "lucide-react-native";
 import { Animal, Resources } from "../types";
 import { ANIMAL_META, RESOURCE_META } from "../constants/resources";
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 import { useLanguage } from "../lib/i18n";
 import CustomButton from "./CustomButton";
 import CustomModal from "./CustomModal";
@@ -599,7 +600,10 @@ export default function AnimalDrawer({
                 text={isFull ? t("storageFull") : t("fillStorage")}
                 subContent={
                   !isFull ? (
-                    <Text style={styles.costText}>🪙 ×{fillCost}</Text>
+                    <View style={styles.costRow}>
+                      <Image source={COIN_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Text style={styles.costText}>×{fillCost}</Text>
+                    </View>
                   ) : undefined
                 }
                 onClick={() => !isFull && onFillStorage && triggerCoinConfirm({

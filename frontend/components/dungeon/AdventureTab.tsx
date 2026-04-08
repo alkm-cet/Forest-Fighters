@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -7,8 +7,17 @@ import {
   StyleSheet,
   Modal,
   useWindowDimensions,
+  Animated,
 } from "react-native";
-import { Lock, Crown, Swords, Shield, Zap, HeartPulse, Clock } from "lucide-react-native";
+import {
+  Lock,
+  Crown,
+  Swords,
+  Shield,
+  Zap,
+  HeartPulse,
+  Clock,
+} from "lucide-react-native";
 import { Text } from "../StyledText";
 import {
   AdventureDungeon,
@@ -22,6 +31,12 @@ import CustomButton from "../CustomButton";
 import { RESOURCE_META } from "../../constants/resources";
 
 const CAT_PAWN = require("../../assets/icons/icon-cat-pawn.webp");
+const COIN_IMG = require("../../assets/icons/icon-coin.webp");
+const CHAMP_IMAGES: Record<string, ReturnType<typeof require>> = {
+  Warrior: require("../../assets/cats/warrior-cat.webp"),
+  Archer: require("../../assets/cats/archer-cat.webp"),
+  Mage: require("../../assets/cats/mage-cat.webp"),
+};
 const STAR_IMG = require("../../assets/icons/icon-star.webp");
 const DUNGEON_IMG = require("../../assets/icons/icon-dungeon.webp");
 
@@ -58,6 +73,7 @@ interface Props {
   totalStars: number;
   runs: DungeonRun[];
   championId: string | undefined;
+  championClass: string | undefined;
   championIsBusy: boolean;
   onEnter: (dungeon: Dungeon) => void;
   onClaim: (run: DungeonRun) => void;
@@ -84,7 +100,7 @@ function renderDottedSegment(
   a: { x: number; y: number },
   b: { x: number; y: number },
   color: string,
-  keyPrefix: string
+  keyPrefix: string,
 ) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -119,7 +135,7 @@ function renderSConnector(
   from: { x: number; y: number },
   to: { x: number; y: number },
   color: string,
-  index: number
+  index: number,
 ) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -146,7 +162,7 @@ function renderSConnector(
   ];
 
   return segments.flatMap(([a, b], si) =>
-    renderDottedSegment(a, b, color, `connector-${index}-${si}`)
+    renderDottedSegment(a, b, color, `connector-${index}-${si}`),
   );
 }
 
@@ -157,13 +173,36 @@ export default function AdventureTab({
   totalStars,
   runs,
   championId,
+  championClass,
   championIsBusy,
   onEnter,
   onClaim,
   onMilestoneClaim,
 }: Props) {
   const { width } = useWindowDimensions();
-  const [selectedDungeon, setSelectedDungeon] = useState<AdventureDungeon | null>(null);
+  const [selectedDungeon, setSelectedDungeon] =
+    useState<AdventureDungeon | null>(null);
+
+  // Pulse animation for active run nodes
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
 
   const ZIGZAG_X = [width * 0.5, width * 0.73, width * 0.5, width * 0.27];
   const nodePositions = dungeons.map((_, i) => ({
@@ -174,7 +213,7 @@ export default function AdventureTab({
 
   const nextMilestone = milestones.find((m) => !m.claimed);
   const nextClaimable = milestones.find(
-    (m) => !m.claimed && totalStars >= m.required_stars
+    (m) => !m.claimed && totalStars >= m.required_stars,
   );
 
   function getProgress(dungeonId: string): AdventureProgress | undefined {
@@ -188,7 +227,9 @@ export default function AdventureTab({
   }
 
   function getRunForDungeon(dungeonId: string): DungeonRun | undefined {
-    return runs.find((r) => r.dungeon_id === dungeonId && r.status === "active");
+    return runs.find(
+      (r) => r.dungeon_id === dungeonId && r.status === "active",
+    );
   }
 
   return (
@@ -208,7 +249,7 @@ export default function AdventureTab({
                   {
                     width: `${Math.min(
                       100,
-                      (totalStars / nextMilestone.required_stars) * 100
+                      (totalStars / nextMilestone.required_stars) * 100,
                     )}%` as any,
                   },
                 ]}
@@ -221,9 +262,10 @@ export default function AdventureTab({
               onPress={() => onMilestoneClaim(nextClaimable.required_stars)}
             >
               <Text style={styles.milestoneClaimText}>CLAIM</Text>
-              <Text style={styles.milestoneCoins}>
-                +{nextClaimable.reward_coins} 🪙
-              </Text>
+              <View style={styles.milestoneCoinsRow}>
+                <Image source={COIN_IMG} style={styles.milestoneCoinImg} resizeMode="contain" />
+                <Text style={styles.milestoneCoins}>+{nextClaimable.reward_coins}</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
@@ -231,7 +273,10 @@ export default function AdventureTab({
 
       {/* Map */}
       <ScrollView
-        contentContainerStyle={[styles.mapContainer, { height: totalMapHeight }]}
+        contentContainerStyle={[
+          styles.mapContainer,
+          { height: totalMapHeight },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* S-shaped dotted connectors */}
@@ -274,8 +319,46 @@ export default function AdventureTab({
             }
           }
 
+          // Floating indicator side: if node is on right half → indicator on left, else on right
+          const indicatorOnLeft = pos.x > width / 2;
+          const CARD_W = 110;
+          const CARD_H = 52;
+          const cardLeft = indicatorOnLeft
+            ? pos.x - nodeSize / 2 - CARD_W - 10
+            : pos.x + nodeSize / 2 + 10;
+          const cardTop = pos.y - CARD_H / 2;
+          const champImg = championClass ? CHAMP_IMAGES[championClass] : null;
+
+          const pulseScale = pulseAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.55],
+          });
+          const pulseOpacity = pulseAnim.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.7, 0.4, 0],
+          });
+
           return (
             <View key={dungeon.id}>
+              {/* Pulse ring */}
+              {activeRun && !locked && (
+                <Animated.View
+                  style={{
+                    position: "absolute",
+                    left: pos.x - nodeSize / 2,
+                    top: pos.y - nodeSize / 2,
+                    width: nodeSize,
+                    height: nodeSize,
+                    borderRadius: nodeSize / 2,
+                    borderWidth: 3,
+                    borderColor: "#5352ed",
+                    transform: [{ scale: pulseScale }],
+                    opacity: pulseOpacity,
+                  }}
+                  pointerEvents="none"
+                />
+              )}
+
               <TouchableOpacity
                 style={[
                   styles.node,
@@ -286,7 +369,11 @@ export default function AdventureTab({
                     left: pos.x - nodeSize / 2,
                     top: pos.y - nodeSize / 2,
                     backgroundColor: nodeBg,
-                    borderColor: isBoss ? "#f9ca24" : nodeBorder,
+                    borderColor: activeRun
+                      ? "#5352ed"
+                      : isBoss
+                        ? "#f9ca24"
+                        : nodeBorder,
                     borderWidth: isBoss ? 3 : 2.5,
                     opacity: locked ? 0.45 : 1,
                   },
@@ -319,13 +406,45 @@ export default function AdventureTab({
                 {/* Boss crown badge */}
                 {isBoss && !locked && (
                   <View style={styles.crownBadge}>
-                    <Crown size={11} color="#f9ca24" strokeWidth={2} fill="#f9ca24" />
+                    <Crown
+                      size={11}
+                      color="#f9ca24"
+                      strokeWidth={2}
+                      fill="#f9ca24"
+                    />
                   </View>
                 )}
-
-                {/* Active run indicator */}
-                {activeRun && !locked && <View style={styles.runDot} />}
               </TouchableOpacity>
+
+              {/* Floating active-run card */}
+              {activeRun && !locked && (
+                <View
+                  style={[
+                    styles.runCard,
+                    {
+                      left: cardLeft,
+                      top: cardTop,
+                      width: CARD_W,
+                      height: CARD_H,
+                    },
+                  ]}
+                >
+                  {champImg && (
+                    <Image
+                      source={champImg}
+                      style={styles.runCardChampImg}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <View style={styles.runCardInfo}>
+                    <CountdownTimer
+                      endsAt={activeRun.ends_at}
+                      style={styles.runCardTimer}
+                      onExpire={() => {}}
+                    />
+                  </View>
+                </View>
+              )}
 
               {/* Stars row — outside the circle, centered below */}
               {!locked && (
@@ -376,7 +495,9 @@ export default function AdventureTab({
                 </Text>
               </View>
 
-              <Text style={styles.sheetDesc}>{selectedDungeon.description}</Text>
+              <Text style={styles.sheetDesc}>
+                {selectedDungeon.description}
+              </Text>
 
               {/* Duration */}
               <View style={styles.durationRow}>
@@ -390,31 +511,50 @@ export default function AdventureTab({
 
               {/* Enemy stats */}
               {(() => {
-                const enemyKey = selectedDungeon.enemy_name?.toLowerCase() ?? "";
+                const enemyKey =
+                  selectedDungeon.enemy_name?.toLowerCase() ?? "";
                 const enemyImg = ENEMY_IMAGES[enemyKey] ?? null;
                 return (
                   <View style={styles.enemyBlock}>
                     {enemyImg && (
-                      <Image source={enemyImg} style={styles.enemyImg} resizeMode="contain" />
+                      <Image
+                        source={enemyImg}
+                        style={styles.enemyImg}
+                        resizeMode="contain"
+                      />
                     )}
                     <View style={styles.enemyInfo}>
-                      <Text style={styles.enemyName}>{selectedDungeon.enemy_name}</Text>
+                      <Text style={styles.enemyName}>
+                        {selectedDungeon.enemy_name}
+                      </Text>
                       <View style={styles.statRow}>
                         <View style={styles.statItem}>
                           <Swords size={12} color="#c0392b" strokeWidth={2.5} />
-                          <Text style={styles.statText}>{selectedDungeon.enemy_attack}</Text>
+                          <Text style={styles.statText}>
+                            {selectedDungeon.enemy_attack}
+                          </Text>
                         </View>
                         <View style={styles.statItem}>
                           <Shield size={12} color="#5d7f8a" strokeWidth={2.5} />
-                          <Text style={styles.statText}>{selectedDungeon.enemy_defense}</Text>
+                          <Text style={styles.statText}>
+                            {selectedDungeon.enemy_defense}
+                          </Text>
                         </View>
                         <View style={styles.statItem}>
                           <Zap size={12} color="#8a6c2a" strokeWidth={2.5} />
-                          <Text style={styles.statText}>{selectedDungeon.enemy_chance}%</Text>
+                          <Text style={styles.statText}>
+                            {selectedDungeon.enemy_chance}%
+                          </Text>
                         </View>
                         <View style={styles.statItem}>
-                          <HeartPulse size={12} color="#c0392b" strokeWidth={2.5} />
-                          <Text style={styles.statText}>{selectedDungeon.enemy_hp}</Text>
+                          <HeartPulse
+                            size={12}
+                            color="#c0392b"
+                            strokeWidth={2.5}
+                          />
+                          <Text style={styles.statText}>
+                            {selectedDungeon.enemy_hp}
+                          </Text>
                         </View>
                       </View>
                     </View>
@@ -438,9 +578,8 @@ export default function AdventureTab({
               <View style={styles.sheetRewardRow}>
                 {(selectedDungeon.coin_reward ?? 0) > 0 && (
                   <View style={styles.rewardPill}>
-                    <Text style={styles.rewardPillText}>
-                      🪙 {selectedDungeon.coin_reward}
-                    </Text>
+                    <Image source={COIN_IMG} style={{ width: 16, height: 16 }} resizeMode="contain" />
+                    <Text style={styles.rewardPillText}>{selectedDungeon.coin_reward}</Text>
                   </View>
                 )}
                 {selectedDungeon.xp_reward > 0 && (
@@ -453,7 +592,9 @@ export default function AdventureTab({
                 {RESOURCE_META[selectedDungeon.reward_resource] && (
                   <View style={styles.rewardPill}>
                     <Image
-                      source={RESOURCE_META[selectedDungeon.reward_resource].image}
+                      source={
+                        RESOURCE_META[selectedDungeon.reward_resource].image
+                      }
                       style={{ width: 16, height: 16 }}
                       resizeMode="contain"
                     />
@@ -579,6 +720,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#fff",
   },
+  milestoneCoinsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  milestoneCoinImg: {
+    width: 13,
+    height: 13,
+  },
   milestoneCoins: {
     fontSize: 11,
     fontWeight: "700",
@@ -623,16 +773,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#f9ca24",
   },
-  runDot: {
+  runCard: {
     position: "absolute",
-    top: 4,
-    left: 4,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: "#e67e22",
+    backgroundColor: "rgba(20,15,40,0.88)",
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: "#fff",
+    borderColor: "#5352ed",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  runCardChampImg: {
+    width: 44,
+    height: 44,
+    marginLeft: -4,
+  },
+  runCardInfo: {
+    flex: 1,
+    alignItems: "center",
+  },
+  runCardTimer: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#a8a4f8",
+    letterSpacing: 0.5,
   },
   overlay: {
     flex: 1,

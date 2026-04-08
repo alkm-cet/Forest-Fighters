@@ -122,6 +122,10 @@ const translations = {
     boostActiveUntil: "Active until next battle",
     boostAlreadyActive: "Already active",
     boostSection: "BATTLE BOOSTS",
+    historyBack: "BACK",
+    history: "HISTORY",
+    defenderBanner: "DEFENDER",
+    pvpLevelRequired: "PvP Lv3 Required",
 
     // Coins
     coins: "Coins",
@@ -320,6 +324,10 @@ const translations = {
     boostActiveUntil: "Bir sonraki savaşa kadar aktif",
     boostAlreadyActive: "Zaten aktif",
     boostSection: "SAVAŞ BOOSTLARI",
+    historyBack: "GERİ DÖN",
+    history: "GEÇMİŞ",
+    defenderBanner: "SAVUNUCU",
+    pvpLevelRequired: "PvP Lv3 Gerekli",
 
     // Coins
     coins: "Altın",

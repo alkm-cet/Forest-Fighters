@@ -54,6 +54,7 @@ const WOOL_IMG = require("../assets/resource-images/wool.png");
 const EGG_IMG = require("../assets/resource-images/egg.png");
 const HEALTH_POTION_IMG = require("../assets/icons/icon-health-potion.webp");
 const SHIELD_IMG = require("../assets/icons/shield.webp");
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 type StatKey = "attack" | "defense" | "chance";
 
@@ -147,31 +148,33 @@ function StatRow({
   return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.barTrack}>
-        <View
-          style={[
-            styles.barFill,
-            { width: `${Math.round(pct * 100)}%` as any },
-          ]}
-        />
-      </View>
-      <View style={styles.statValueRow}>
-        <Text style={styles.statValue}>{value}</Text>
-        {(boost ?? 0) > 0 && <Text style={styles.statBoost}> +{boost}</Text>}
-      </View>
-      {canUpgrade && (
-        <TouchableOpacity
-          onPress={onUpgrade}
-          activeOpacity={0.75}
-          style={styles.statPlusWrap}
-        >
-          <Image
-            source={PLUS_BTN}
-            style={styles.statPlusBtn}
-            resizeMode="contain"
+      <View style={styles.statBarLine}>
+        <View style={styles.barTrack}>
+          <View
+            style={[
+              styles.barFill,
+              { width: `${Math.round(pct * 100)}%` as any },
+            ]}
           />
-        </TouchableOpacity>
-      )}
+        </View>
+        <View style={styles.statValueRow}>
+          <Text style={styles.statValue}>{value}</Text>
+          {(boost ?? 0) > 0 && <Text style={styles.statBoost}> +{boost}</Text>}
+        </View>
+        {canUpgrade && (
+          <TouchableOpacity
+            onPress={onUpgrade}
+            activeOpacity={0.75}
+            style={styles.statPlusWrap}
+          >
+            <Image
+              source={PLUS_BTN}
+              style={styles.statPlusBtn}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -335,15 +338,16 @@ export default function ChampionDrawer({
                 historyTab && styles.classBadgeTextActive,
               ]}
             >
-              {historyTab ? "GERİ DÖN" : "HISTORY"}
+              {historyTab ? t("historyBack") : t("history")}
             </Text>
           </TouchableOpacity>
           <View style={styles.bannerLeftWrapper}>
-            {/* Defender banner — always visible */}
             {isDefenderChamp && (
               <View style={styles.defenderBannerStrip}>
                 <Shield size={14} color="#fff" strokeWidth={2.5} />
-                <Text style={styles.defenderBannerText}>SAVUNUCU</Text>
+                <Text style={styles.defenderBannerText}>
+                  {t("defenderBanner")}
+                </Text>
               </View>
             )}
             <View style={styles.levelBadge}>
@@ -351,6 +355,28 @@ export default function ChampionDrawer({
               <Text style={styles.levelBadgeNum}>{champion.level}</Text>
             </View>
           </View>
+        </View>
+
+        {/* XP progress bar — fixed, always visible */}
+        <View style={styles.xpRow}>
+          <View style={styles.xpBarTrack}>
+            <View
+              style={[
+                styles.xpBarFill,
+                {
+                  width: `${Math.min(
+                    100,
+                    Math.round(
+                      (champion.xp / champion.xp_to_next_level) * 100,
+                    ),
+                  )}%` as any,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.xpLabel}>
+            {champion.xp} / {champion.xp_to_next_level} XP
+          </Text>
         </View>
 
         {/* History tab content */}
@@ -458,28 +484,6 @@ export default function ChampionDrawer({
             }}
             scrollEventThrottle={16}
           >
-            {/* XP progress bar */}
-            <View style={styles.xpRow}>
-              <View style={styles.xpBarTrack}>
-                <View
-                  style={[
-                    styles.xpBarFill,
-                    {
-                      width: `${Math.min(
-                        100,
-                        Math.round(
-                          (champion.xp / champion.xp_to_next_level) * 100,
-                        ),
-                      )}%` as any,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.xpLabel}>
-                {champion.xp} / {champion.xp_to_next_level} XP
-              </Text>
-            </View>
-
             {/* Champion name */}
             <Text style={styles.champName}>{champion.name}</Text>
 
@@ -525,75 +529,39 @@ export default function ChampionDrawer({
                 )}
               </View>
 
-              {/* Boost buttons */}
-              <View style={styles.boostBtns}>
-                {(Object.keys(BOOST_META) as BoostType[]).map((type) => {
-                  const bm = BOOST_META[type];
-                  const resKey = BOOST_RESOURCE[type];
-                  const isActive = ((champion[bm.boostCol] as number) ?? 0) > 0;
-                  const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
-                  const disabled =
-                    isActive || !canAfford || !!isPvpBattle || !!isOnMission;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.boostBtn,
-                        isActive && styles.boostBtnActive,
-                        disabled && !isActive && styles.boostBtnDisabled,
-                      ]}
-                      onPress={() => !disabled && setPendingBoost(type)}
-                      activeOpacity={0.75}
-                    >
-                      {type === "hp" && (
-                        <Image
-                          source={require("../assets/icons/heart.webp")}
-                          style={styles.boostBtnCostIcon}
-                          resizeMode="contain"
-                        />
-                      )}
-                      {type === "defense" && (
-                        <Image
-                          source={require("../assets/icons/shield.webp")}
-                          style={styles.boostBtnCostIcon}
-                          resizeMode="contain"
-                        />
-                      )}
-                      {type === "chance" && (
-                        <Image
-                          source={require("../assets/icons/lightning.webp")}
-                          style={styles.boostBtnCostIcon}
-                          resizeMode="contain"
-                        />
-                      )}
-                      <Text
-                        style={[
-                          styles.boostBtnLabel,
-                          isActive && styles.boostBtnLabelActive,
-                        ]}
-                      >
-                        {bm.label}
+              {/* Right col — basic stats */}
+              <View style={styles.statSideCol}>
+                <View style={styles.sectionLabelRow}>
+                  <Swords size={12} color="#9a7040" strokeWidth={2} />
+                  <Text style={styles.sectionLabel}>{t("baseStatistics")}</Text>
+                  {champion.stat_points > 0 && (
+                    <View style={styles.statPointsBadge}>
+                      <Text style={styles.statPointsText}>
+                        +{champion.stat_points}
                       </Text>
-                      {!isActive && (
-                        <View style={styles.boostBtnCostRow}>
-                          <Image
-                            source={bm.costImage}
-                            style={styles.boostBtnCostIcon}
-                            resizeMode="contain"
-                          />
-                          <Text
-                            style={[
-                              styles.boostBtnCost,
-                              !canAfford && styles.boostBtnCostRed,
-                            ]}
-                          >
-                            ×{bm.cost}
-                          </Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                    </View>
+                  )}
+                </View>
+                <StatRow
+                  label={t("attack")}
+                  value={champion.attack}
+                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                  onUpgrade={() => setPendingStat("attack")}
+                />
+                <StatRow
+                  label={t("defense")}
+                  value={champion.defense}
+                  boost={champion.boost_defense || undefined}
+                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                  onUpgrade={() => setPendingStat("defense")}
+                />
+                <StatRow
+                  label={t("chance")}
+                  value={champion.chance}
+                  boost={champion.boost_chance || undefined}
+                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                  onUpgrade={() => setPendingStat("chance")}
+                />
               </View>
             </View>
 
@@ -645,9 +613,20 @@ export default function ChampionDrawer({
               const hpColor =
                 hpPct > 0.6 ? "#2d8a3e" : hpPct > 0.3 ? "#d4a017" : "#c0392b";
               return (
-                <View style={styles.hpSection}>
+                <View
+                  style={[
+                    styles.hpSection,
+                    {
+                      backgroundColor: `${hpColor}18`,
+                      borderRadius: 12,
+                      padding: 10,
+                      borderWidth: 1.5,
+                      borderColor: `${hpColor}55`,
+                    },
+                  ]}
+                >
                   <View style={styles.hpLabelRow}>
-                    <HeartPulse size={14} color={hpColor} strokeWidth={2.5} />
+                    <HeartPulse size={16} color={hpColor} strokeWidth={2.5} />
                     <Text style={[styles.hpTitle, { color: hpColor }]}>
                       {champion.current_hp} / {champion.max_hp}
                       {boostHp > 0 && (
@@ -675,38 +654,79 @@ export default function ChampionDrawer({
             {/* Divider */}
             <View style={styles.divider} />
 
-            {/* Stats */}
+            {/* Boost buttons — row */}
             <View style={styles.sectionLabelRow}>
-              <Swords size={12} color="#9a7040" strokeWidth={2} />
-              <Text style={styles.sectionLabel}>{t("baseStatistics")}</Text>
-              {champion.stat_points > 0 && (
-                <View style={styles.statPointsBadge}>
-                  <Text style={styles.statPointsText}>
-                    +{champion.stat_points} {t("statPoints")}
-                  </Text>
-                </View>
-              )}
+              <Text style={styles.sectionLabel}>{t("boostSection")}</Text>
             </View>
-            <StatRow
-              label={t("attack")}
-              value={champion.attack}
-              canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-              onUpgrade={() => setPendingStat("attack")}
-            />
-            <StatRow
-              label={t("defense")}
-              value={champion.defense}
-              boost={champion.boost_defense || undefined}
-              canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-              onUpgrade={() => setPendingStat("defense")}
-            />
-            <StatRow
-              label={t("chance")}
-              value={champion.chance}
-              boost={champion.boost_chance || undefined}
-              canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-              onUpgrade={() => setPendingStat("chance")}
-            />
+            <View style={styles.boostBtns}>
+              {(Object.keys(BOOST_META) as BoostType[]).map((type) => {
+                const bm = BOOST_META[type];
+                const resKey = BOOST_RESOURCE[type];
+                const isActive = ((champion[bm.boostCol] as number) ?? 0) > 0;
+                const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
+                const disabled =
+                  isActive || !canAfford || !!isPvpBattle || !!isOnMission;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.boostBtn,
+                      isActive && styles.boostBtnActive,
+                      disabled && !isActive && styles.boostBtnDisabled,
+                    ]}
+                    onPress={() => !disabled && setPendingBoost(type)}
+                    activeOpacity={0.75}
+                  >
+                    {type === "hp" && (
+                      <Image
+                        source={require("../assets/icons/heart.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                    {type === "defense" && (
+                      <Image
+                        source={require("../assets/icons/shield.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                    {type === "chance" && (
+                      <Image
+                        source={require("../assets/icons/lightning.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.boostBtnLabel,
+                        isActive && styles.boostBtnLabelActive,
+                      ]}
+                    >
+                      {bm.label}
+                    </Text>
+                    {!isActive && (
+                      <View style={styles.boostBtnCostRow}>
+                        <Image
+                          source={bm.costImage}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.boostBtnCost,
+                            !canAfford && styles.boostBtnCostRed,
+                          ]}
+                        >
+                          ×{bm.cost}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             {/* Stat upgrade confirmation modal */}
             {pendingStat && (
@@ -784,9 +804,17 @@ export default function ChampionDrawer({
                   text={t("revive")}
                   subContent={
                     <View style={styles.costRow}>
-                      <Image source={MILK_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Image
+                        source={MILK_IMG}
+                        style={styles.costIcon}
+                        resizeMode="contain"
+                      />
                       <Text style={styles.costText}>×{REVIVE_MILK_COST}</Text>
-                      <Image source={WOOL_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Image
+                        source={WOOL_IMG}
+                        style={styles.costIcon}
+                        resizeMode="contain"
+                      />
                       <Text style={styles.costText}>×{REVIVE_WOOL_COST}</Text>
                     </View>
                   }
@@ -803,7 +831,10 @@ export default function ChampionDrawer({
                   btnImage={HEALTH_POTION_IMG}
                   text={t("coinRevive")}
                   subContent={
-                    <Text style={styles.costText}>🪙 ×{COIN_REVIVE_COST}</Text>
+                    <View style={styles.costRow}>
+                      <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
+                      <Text style={styles.costText}>×{COIN_REVIVE_COST}</Text>
+                    </View>
                   }
                   onClick={() =>
                     triggerCoinConfirm({
@@ -943,9 +974,10 @@ export default function ChampionDrawer({
                                   }
                                   activeOpacity={0.8}
                                 >
-                                  <Text style={styles.missionSkipText}>
-                                    🪙 ×{skipCost}
-                                  </Text>
+                                  <View style={styles.missionSkipRow}>
+                                    <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
+                                    <Text style={styles.missionSkipText}>×{skipCost}</Text>
+                                  </View>
                                 </TouchableOpacity>
                               );
                             })()}
@@ -983,16 +1015,28 @@ export default function ChampionDrawer({
                         const coinHealCost =
                           Math.ceil(missingHp / 20) * COIN_HEAL_PER_20HP;
                         return (
-                          <View style={[styles.btnRow, { marginTop: 8 }]}>
+                          <View style={[styles.btnRow, { marginTop: 0 }]}>
                             <CustomButton
                               btnImage={HEALTH_POTION_IMG}
                               text="+20 HP"
                               subContent={
                                 <View style={styles.costRow}>
-                                  <Image source={MILK_IMG} style={styles.costIcon} resizeMode="contain" />
-                                  <Text style={styles.costText}>×{HEAL_MILK_COST}</Text>
-                                  <Image source={EGG_IMG} style={styles.costIcon} resizeMode="contain" />
-                                  <Text style={styles.costText}>×{HEAL_EGG_COST}</Text>
+                                  <Image
+                                    source={MILK_IMG}
+                                    style={styles.costIcon}
+                                    resizeMode="contain"
+                                  />
+                                  <Text style={styles.costText}>
+                                    ×{HEAL_MILK_COST}
+                                  </Text>
+                                  <Image
+                                    source={EGG_IMG}
+                                    style={styles.costIcon}
+                                    resizeMode="contain"
+                                  />
+                                  <Text style={styles.costText}>
+                                    ×{HEAL_EGG_COST}
+                                  </Text>
                                 </View>
                               }
                               onClick={() => onHeal?.(champion)}
@@ -1006,7 +1050,8 @@ export default function ChampionDrawer({
                               text={t("heal")}
                               subContent={
                                 <View style={styles.costRow}>
-                                  <Text style={styles.costText}>🪙 ×{coinHealCost}</Text>
+                                  <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
+                                  <Text style={styles.costText}>×{coinHealCost}</Text>
                                   <Text style={styles.costTextDim}>+{missingHp} HP</Text>
                                 </View>
                               }
@@ -1040,7 +1085,7 @@ export default function ChampionDrawer({
                       champion.is_deployed ||
                       champion.current_hp <= 0;
                     const label = pvpLocked
-                      ? "PvP Lv3 Gerekli"
+                      ? t("pvpLevelRequired")
                       : champion.last_defender
                         ? t("defenderCooldown")
                         : t("setDefender");
@@ -1429,12 +1474,15 @@ const styles = StyleSheet.create({
     right: 1,
   },
   boostBtns: {
-    flex: 1,
+    flexDirection: "row",
     gap: 8,
+    marginBottom: 12,
   },
   boostBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
     backgroundColor: "#ede0c4",
     borderRadius: 10,
@@ -1444,8 +1492,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   boostBtnActive: {
-    backgroundColor: "#3a1e00",
-    borderColor: "#6a3e00",
+    backgroundColor: "#feca57",
+    borderColor: "#7877f0",
   },
   boostBtnDisabled: {
     opacity: 0.45,
@@ -1457,7 +1505,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   boostBtnLabelActive: {
-    color: "#f5c842",
+    color: "#ffffff",
   },
   boostBtnCostRow: {
     flexDirection: "row",
@@ -1570,16 +1618,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statRow: {
+    flexDirection: "column",
+    marginBottom: 8,
+    gap: 3,
+  },
+  statBarLine: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
-    gap: 10,
+    gap: 6,
   },
   statLabel: {
-    width: 56,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#4a2e0a",
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#9a7040",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   barTrack: {
     flex: 1,
@@ -1727,7 +1780,7 @@ const styles = StyleSheet.create({
   btnRow: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 20,
+    marginTop: 4,
     paddingBottom: 12,
   },
   btnFlex: {
@@ -1778,6 +1831,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   costRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  costCoinImg: {
+    width: 14,
+    height: 14,
+  },
+  missionSkipRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -1974,5 +2036,102 @@ const styles = StyleSheet.create({
     color: "#7a5a30",
     minWidth: 45,
     textAlign: "right",
+  },
+
+  // ── Mini stat cards (left col next to image) ──
+  statSideCol: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  miniStatCard: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    paddingVertical: 6,
+    marginBottom: 6,
+  },
+  miniStatValue: {
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  miniStatLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#9a7040",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+
+  // ── Stat upgrade row (replaces old StatRow bars) ──
+  statUpgradeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  statUpgradeCard: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    paddingVertical: 8,
+    gap: 2,
+  },
+  statUpgradeCardActive: {
+    borderColor: "#f5c842",
+    backgroundColor: "#3a1e00",
+  },
+  statUpgradeValue: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  statUpgradeBoost: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#8a5cc7",
+  },
+  statUpgradeLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#9a7040",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  statUpgradeHint: {
+    fontSize: 9,
+    color: "#f5c842",
+    fontWeight: "900",
+  },
+
+  // ── Defender pill in header ──
+  defenderPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#2a4a2a",
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#4a9a4a",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  defenderPillDisabled: {
+    backgroundColor: "#2a3a2a",
+    borderColor: "#3a5a3a",
+  },
+  defenderPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#a8e0a0",
+    letterSpacing: 0.5,
+  },
+  defenderPillTextDisabled: {
+    color: "#5a7a5a",
   },
 });
