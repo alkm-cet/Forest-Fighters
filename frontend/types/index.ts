@@ -77,20 +77,41 @@ export type Player = {
   coins: number;
 };
 
+export type DungeonType = "harvest" | "adventure" | "event";
+
 export type Dungeon = {
   id: string;
   name: string;
   description: string;
+  dungeon_type: DungeonType;
   enemy_name: string;
   enemy_attack: number;
   enemy_defense: number;
   enemy_chance: number;
   enemy_hp: number;
   duration_minutes: number;
-  reward_resource: "strawberry" | "pinecone" | "blueberry";
+  duration_seconds?: number | null;
+  reward_resource: string;
   reward_amount: number;
+  reward_resource_2?: string | null;
+  reward_amount_2?: number;
   xp_reward: number;
+  coin_reward?: number;
+  reward_multiplier?: number;
+  // Harvest
+  cooldown_minutes?: number | null;
+  daily_run_limit?: number | null;
+  // Adventure
+  stage_number?: number | null;
+  is_boss_stage?: boolean;
+  // Event
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
 };
+
+export type HarvestDungeon = Dungeon & { dungeon_type: "harvest" };
+export type AdventureDungeon = Dungeon & { dungeon_type: "adventure"; stage_number: number };
+export type EventDungeon = Dungeon & { dungeon_type: "event" };
 
 export type DungeonRun = {
   id: string;
@@ -104,6 +125,50 @@ export type DungeonRun = {
   winner: "champion" | "enemy" | null;
   reward_resource: string | null;
   reward_amount: number | null;
+  stars_earned: number | null;
+  dungeon_type?: DungeonType;
+  reward_resource_2?: string | null;
+  reward_amount_2?: number | null;
+};
+
+export type AdventureProgress = {
+  dungeon_id: string;
+  stage_number: number;
+  best_stars: number;
+  cleared_at: string | null;
+  name: string;
+};
+
+export type HarvestCooldown = {
+  dungeon_id: string;
+  last_run_at: string;
+  runs_today: number;
+  day_reset_at: string;
+  cooldown_minutes: number | null;
+  daily_run_limit: number | null;
+};
+
+export type AdventureMilestone = {
+  required_stars: number;
+  reward_coins: number;
+  reward_resource: string | null;
+  reward_amount: number;
+  label: string;
+  claimed: boolean;
+};
+
+export type ClaimResult = {
+  winner: "champion" | "enemy";
+  rewardResource: string;
+  rewardAmount: number;
+  rewardResource2: string | null;
+  rewardAmount2: number;
+  coinReward: number;
+  starsEarned: number | null;
+  log: any[];
+  xpGained: number;
+  levelsGained: number;
+  newLevel: number;
 };
 
 export type PvpStatus = {

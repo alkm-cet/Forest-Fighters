@@ -40,6 +40,15 @@ type Props = {
   onEnter: (dungeon: Dungeon) => void;
   onClaim: (run: DungeonRun) => void;
   disabled?: boolean;
+  // Harvest-specific optional props
+  isOnCooldown?: boolean;
+  remainingCooldownSeconds?: number;
+  runsToday?: number;
+  dailyRunLimit?: number | null;
+  // Dungeon type display
+  isBossStage?: boolean;
+  rewardResource2?: string | null;
+  rewardAmount2?: number;
 };
 
 function formatDuration(minutes: number) {
@@ -53,9 +62,17 @@ export default function DungeonCard({
   onEnter,
   onClaim,
   disabled,
+  isOnCooldown,
+  remainingCooldownSeconds,
+  runsToday,
+  dailyRunLimit,
+  isBossStage,
+  rewardResource2,
+  rewardAmount2,
 }: Props) {
   const { t } = useLanguage();
   const rewardMeta = RESOURCE_META[dungeon.reward_resource];
+  const reward2Meta = rewardResource2 ? RESOURCE_META[rewardResource2] : null;
   const enemyKey = dungeon.enemy_name?.toLowerCase() ?? "";
   const enemyImg = ENEMY_IMAGES[enemyKey] ?? null;
 
@@ -73,12 +90,24 @@ export default function DungeonCard({
         {/* Top: name + description + rock badge */}
         <View style={styles.topSection}>
           <View style={styles.nameBlock}>
-            <Text style={styles.dungeonName}>{dungeon.name}</Text>
+            <View style={styles.nameBadgeRow}>
+              <Text style={styles.dungeonName}>{dungeon.name}</Text>
+              {isBossStage && (
+                <View style={styles.bossBadge}>
+                  <Text style={styles.bossBadgeText}>👑 BOSS</Text>
+                </View>
+              )}
+            </View>
             {dungeon.description ? (
               <Text style={styles.dungeonDesc} numberOfLines={2}>
                 {dungeon.description}
               </Text>
             ) : null}
+            {dailyRunLimit != null && (
+              <Text style={styles.dailyLimitText}>
+                {runsToday ?? 0}/{dailyRunLimit} {t("dungeonCooldown")}
+              </Text>
+            )}
           </View>
 
           <ImageBackground
@@ -153,15 +182,27 @@ export default function DungeonCard({
                   ×{dungeon.reward_amount}
                 </Text>
               </View>
-              <View style={styles.xpRow}>
-                <Star
-                  size={11}
-                  color="#c8900a"
-                  strokeWidth={2}
-                  fill="#c8900a"
-                />
-                <Text style={styles.xpText}>+{dungeon.xp_reward} XP</Text>
-              </View>
+              {reward2Meta && (rewardAmount2 ?? 0) > 0 && (
+                <View style={styles.rewardRow}>
+                  <Image
+                    source={reward2Meta.image}
+                    style={styles.rewardImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.rewardAmount}>×{rewardAmount2}</Text>
+                </View>
+              )}
+              {(dungeon.xp_reward ?? 0) > 0 && (
+                <View style={styles.xpRow}>
+                  <Star
+                    size={11}
+                    color="#c8900a"
+                    strokeWidth={2}
+                    fill="#c8900a"
+                  />
+                  <Text style={styles.xpText}>+{dungeon.xp_reward} XP</Text>
+                </View>
+              )}
             </View>
           </ImageBackground>
         </View>
@@ -188,6 +229,15 @@ export default function DungeonCard({
             />
             <Text style={styles.claimBtnText}>{t("claimReward")}</Text>
           </TouchableOpacity>
+        ) : isOnCooldown && remainingCooldownSeconds != null ? (
+          <View style={styles.cooldownBlock}>
+            <Text style={styles.cooldownLabel}>{t("dungeonCooldown")}</Text>
+            <CountdownTimer
+              endsAt={new Date(Date.now() + remainingCooldownSeconds * 1000).toISOString()}
+              style={styles.countdownText}
+              onExpire={() => {}}
+            />
+          </View>
         ) : (
           <CustomButton
             btnImage={require("../assets/dungeon.png")}
@@ -332,6 +382,44 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#8a6010",
+  },
+  nameBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  bossBadge: {
+    backgroundColor: "#f39c12",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  bossBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  dailyLimitText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a5a30",
+    marginTop: 2,
+  },
+  cooldownBlock: {
+    backgroundColor: "#5d3b8a",
+    borderRadius: 10,
+    alignItems: "center",
+    width: "90%",
+    gap: 3,
+    paddingVertical: 10,
+  },
+  cooldownLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#ce93d8",
+    letterSpacing: 1.5,
   },
   missionBlock: {
     backgroundColor: "#30336b",

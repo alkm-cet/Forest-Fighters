@@ -14,6 +14,7 @@ type Props = {
   btnIcon?: ReactNode;
   btnImagePos?: "left" | "right";
   text: string;
+  subContent?: ReactNode;
   onClick: () => void;
   bgColor?: string;
   borderColor?: string;
@@ -26,6 +27,7 @@ export default function CustomButton({
   btnIcon,
   btnImagePos = "left",
   text,
+  subContent,
   onClick,
   bgColor = "#6B8D9F",
   borderColor = "#4a5f72",
@@ -53,7 +55,10 @@ export default function CustomButton({
     >
       <View style={styles.inner}>
         {btnImagePos === "left" && leadEl}
-        <Text style={styles.label}>{text}</Text>
+        <View style={styles.textCol}>
+          <Text style={styles.label}>{text}</Text>
+          {subContent}
+        </View>
         {btnImagePos === "right" && leadEl}
       </View>
     </TouchableOpacity>
@@ -93,6 +98,12 @@ const styles = StyleSheet.create({
   icon: {
     width: 44,
     height: 44,
+  },
+  textCol: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
   },
   label: {
     fontSize: 15,

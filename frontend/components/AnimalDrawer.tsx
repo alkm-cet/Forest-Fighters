@@ -508,6 +508,14 @@ export default function AnimalDrawer({
           >
             <Text
               style={[
+                styles.feedBtnLabel,
+                !canFeedOne && styles.feedBtnTextDisabled,
+              ]}
+            >
+              Yemle
+            </Text>
+            <Text
+              style={[
                 styles.feedBtnText,
                 !canFeedOne && styles.feedBtnTextDisabled,
               ]}
@@ -533,6 +541,14 @@ export default function AnimalDrawer({
           >
             <Text
               style={[
+                styles.feedBtnLabel,
+                !feedNeededForMax && styles.feedBtnTextDisabled,
+              ]}
+            >
+              Yemle
+            </Text>
+            <Text
+              style={[
                 styles.feedMaxBtnText,
                 !feedNeededForMax && styles.feedBtnTextDisabled,
               ]}
@@ -547,11 +563,25 @@ export default function AnimalDrawer({
         {/* ─── Upgrade + Fill Storage buttons row ─── */}
         <View style={styles.bottomBtnRow}>
           <CustomButton
-            btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
+            btnIcon={<ArrowUp size={22} color="#fff" strokeWidth={2.5} />}
             text={
               isMaxLevel
-                ? `${t("maxLevel")} ${animal.level}`
-                : `${t("upgrade")} → ${t("lv")} ${animal.level + 1}`
+                ? `${t("maxLevel")} LV ${animal.level}`
+                : `${t("upgrade")} → LV ${animal.level + 1}`
+            }
+            subContent={
+              !isMaxLevel ? (
+                <View style={styles.costRow}>
+                  {res1Meta?.image && (
+                    <Image source={res1Meta.image} style={styles.costIcon} resizeMode="contain" />
+                  )}
+                  <Text style={styles.costText}>×{upgradeCost}</Text>
+                  {res2Meta?.image && (
+                    <Image source={res2Meta.image} style={styles.costIcon} resizeMode="contain" />
+                  )}
+                  <Text style={styles.costText}>×{upgradeCost}</Text>
+                </View>
+              ) : undefined
             }
             onClick={() => onUpgrade(animal)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
@@ -565,7 +595,13 @@ export default function AnimalDrawer({
             const canFill = !isFull && coins >= fillCost;
             return (
               <CustomButton
-                text={isFull ? t("storageFull") : `${t("fillStorage")} 🪙×${fillCost}`}
+                btnIcon={<Package size={22} color="#fff" strokeWidth={2} />}
+                text={isFull ? t("storageFull") : t("fillStorage")}
+                subContent={
+                  !isFull ? (
+                    <Text style={styles.costText}>🪙 ×{fillCost}</Text>
+                  ) : undefined
+                }
                 onClick={() => !isFull && onFillStorage && triggerCoinConfirm({
                   transactionCost: fillCost,
                   transactionTitle: t("fillStorage"),
@@ -845,10 +881,11 @@ const styles = StyleSheet.create({
     borderColor: "#2d5a24",
     borderRadius: 12,
     paddingVertical: 11,
-    gap: 6,
+    gap: 5,
   },
   feedMaxBtn: {
     flex: 1.5,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#c8781a",
@@ -856,10 +893,12 @@ const styles = StyleSheet.create({
     borderColor: "#9a5010",
     borderRadius: 12,
     paddingVertical: 11,
+    gap: 5,
   },
   feedBtnDisabled: { opacity: 0.4 },
   feedBtnText: { fontSize: 16, fontWeight: "900", color: "#fff" },
   feedMaxBtnText: { fontSize: 14, fontWeight: "900", color: "#fff" },
+  feedBtnLabel: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.8)" },
   feedBtnTextDisabled: { color: "#fff" },
   feedBtnIcon: { width: 18, height: 18 },
 
@@ -876,5 +915,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#c0392b",
     marginTop: 8,
+  },
+
+  // ── Cost row (inside CustomButton subContent) ──
+  costRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  costIcon: {
+    width: 16,
+    height: 16,
+  },
+  costText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
   },
 });

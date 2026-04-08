@@ -3,7 +3,7 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 
-const COIN_REVIVE_COST = 5;
+const COIN_REVIVE_COST = 15;
 const MAX_COINS = 999999;
 
 // Helper: get current coin balance
@@ -306,6 +306,51 @@ router.post('/revive-champion', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to revive champion with coins' });
+  }
+});
+
+// POST /api/coins/heal-champion — spend coins to fully heal an injured champion
+// Cost: ceil(missingHp / 20) * 4 coins
+router.post('/heal-champion', authMiddleware, async (req, res) => {
+  const { champion_id } = req.body;
+  if (!champion_id) return res.status(400).json({ error: 'champion_id required' });
+
+  const playerId = req.player.id;
+
+  try {
+    const rows = await query(
+      'SELECT id, current_hp, max_hp, boost_hp FROM champions WHERE id = $1 AND player_id = $2',
+      [champion_id, playerId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Champion not found' });
+
+    const champion = rows[0];
+    const effectiveMaxHp = champion.max_hp + (champion.boost_hp || 0);
+    if (champion.current_hp <= 0) {
+      return res.status(400).json({ error: 'Champion is dead, use revive' });
+    }
+    if (champion.current_hp >= effectiveMaxHp) {
+      return res.status(400).json({ error: 'Champion is already at full HP' });
+    }
+
+    const missingHp = effectiveMaxHp - champion.current_hp;
+    const cost = Math.ceil(missingHp / 20) * 4;
+
+    const currentCoins = await getCoins(playerId);
+    if (currentCoins < cost) {
+      return res.status(400).json({ error: 'Not enough coins', cost, coins: currentCoins });
+    }
+
+    await query('UPDATE players SET coins = coins - $1 WHERE id = $2', [cost, playerId]);
+    await query('UPDATE champions SET current_hp = $1 WHERE id = $2', [effectiveMaxHp, champion_id]);
+
+    const updated = await query('SELECT * FROM champions WHERE id = $1', [champion_id]);
+    const newCoins = await getCoins(playerId);
+
+    return res.json({ coins: newCoins, champion: updated[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to heal champion with coins' });
   }
 });
 

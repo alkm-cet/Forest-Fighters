@@ -15,20 +15,35 @@ import {
   Swords,
   Shield,
   Zap,
-  Trophy,
   HeartPulse,
+  Star,
 } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import { useLanguage } from "../../lib/i18n";
-import { Dungeon, DungeonRun } from "../../types";
+import {
+  Dungeon,
+  DungeonRun,
+  HarvestDungeon,
+  AdventureDungeon,
+  EventDungeon,
+  AdventureProgress,
+  HarvestCooldown,
+  AdventureMilestone,
+  ClaimResult,
+} from "../../types";
 import DungeonCard from "../../components/DungeonCard";
-import { CLASS_META } from "../../constants/resources";
+import AdventureTab from "../../components/dungeon/AdventureTab";
+import { CLASS_META, RESOURCE_META } from "../../constants/resources";
 import CustomModal from "../../components/CustomModal";
+import CountdownTimer from "../../components/CountdownTimer";
 
 const DUNGEON_BG = require("../../assets/dungeon/dungeon-screen-bg.webp");
 const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
+const DUNGEON_TAB_IMG = require("../../assets/icons/icon-dungeon.webp");
+
+type TabKey = "harvest" | "adventure" | "event";
 
 export default function DungeonsScreen() {
   const router = useRouter();
@@ -59,32 +74,52 @@ export default function DungeonsScreen() {
     championBoostHp: string;
   }>();
 
-  const [dungeons, setDungeons] = useState<Dungeon[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>("adventure");
+  const [harvestDungeons, setHarvestDungeons] = useState<HarvestDungeon[]>([]);
+  const [adventureDungeons, setAdventureDungeons] = useState<AdventureDungeon[]>([]);
+  const [eventDungeons, setEventDungeons] = useState<EventDungeon[]>([]);
   const [runs, setRuns] = useState<DungeonRun[]>([]);
-  const [claimResult, setClaimResult] = useState<{
-    winner: "champion" | "enemy";
-    rewardResource: string;
-    rewardAmount: number;
-    log: any[];
-    xpGained: number;
-    levelsGained: number;
-    newLevel: number;
-  } | null>(null);
+  const [adventureProgress, setAdventureProgress] = useState<AdventureProgress[]>([]);
+  const [harvestCooldowns, setHarvestCooldowns] = useState<HarvestCooldown[]>([]);
+  const [milestones, setMilestones] = useState<AdventureMilestone[]>([]);
+  const [totalStars, setTotalStars] = useState(0);
+  const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, []),
+    }, [])
   );
 
   async function loadData() {
     try {
-      const [dungeonsRes, runsRes] = await Promise.all([
-        api.get("/api/dungeons"),
-        api.get("/api/dungeons/runs"),
-      ]);
-      setDungeons(dungeonsRes.data);
+      const [dungeonsRes, runsRes, progressRes, cooldownRes, milestoneRes] =
+        await Promise.all([
+          api.get("/api/dungeons"),
+          api.get("/api/dungeons/runs"),
+          api.get("/api/dungeons/adventure/progress"),
+          api.get("/api/dungeons/harvest/cooldowns"),
+          api.get("/api/dungeons/milestones"),
+        ]);
+
+      const all: Dungeon[] = dungeonsRes.data;
+      setHarvestDungeons(
+        all.filter((d) => d.dungeon_type === "harvest") as HarvestDungeon[]
+      );
+      setAdventureDungeons(
+        (all.filter((d) => d.dungeon_type === "adventure") as AdventureDungeon[]).sort(
+          (a, b) => (a.stage_number ?? 0) - (b.stage_number ?? 0)
+        )
+      );
+      setEventDungeons(
+        all.filter((d) => d.dungeon_type === "event") as EventDungeon[]
+      );
+
       setRuns(runsRes.data);
+      setAdventureProgress(progressRes.data);
+      setHarvestCooldowns(cooldownRes.data);
+      setMilestones(milestoneRes.data.milestones ?? []);
+      setTotalStars(milestoneRes.data.total_stars ?? 0);
     } catch {
       // silent
     }
@@ -92,8 +127,12 @@ export default function DungeonsScreen() {
 
   function getRunForDungeon(dungeonId: string): DungeonRun | undefined {
     return runs.find(
-      (r) => r.dungeon_id === dungeonId && r.status === "active",
+      (r) => r.dungeon_id === dungeonId && r.status === "active"
     );
+  }
+
+  function getHarvestCooldown(dungeonId: string): HarvestCooldown | undefined {
+    return harvestCooldowns.find((c) => c.dungeon_id === dungeonId);
   }
 
   async function handleEnter(dungeon: Dungeon) {
@@ -121,14 +160,21 @@ export default function DungeonsScreen() {
     }
   }
 
+  async function handleMilestoneClaim(requiredStars: number) {
+    try {
+      await api.post(`/api/dungeons/milestones/${requiredStars}/claim`);
+      await loadData();
+      Alert.alert("Milestone claimed!");
+    } catch (err: any) {
+      Alert.alert(err.response?.data?.error || "Failed to claim milestone");
+    }
+  }
+
   const championIsBusy = runs.some(
-    (r) => r.champion_id === championId && r.status === "active",
+    (r) => r.champion_id === championId && r.status === "active"
   );
 
-  const classMeta = CLASS_META[championClass ?? ""] ?? {
-    image: null,
-    color: "#888",
-  };
+  const classMeta = CLASS_META[championClass ?? ""] ?? { image: null, color: "#888" };
   const atk = parseInt(championAttack ?? "0");
   const def =
     parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0");
@@ -141,7 +187,35 @@ export default function DungeonsScreen() {
   const boostHp = parseInt(championBoostHp ?? "0");
   const effectiveMaxHp = maxHp + boostHp;
   const hpPct = effectiveMaxHp > 0 ? currentHp / effectiveMaxHp : 0;
-  const hpColor = hpPct > 0.6 ? "#4caf50" : hpPct > 0.3 ? "#f39c12" : "#e57373";
+  const hpColor =
+    hpPct > 0.6 ? "#4caf50" : hpPct > 0.3 ? "#f39c12" : "#e57373";
+
+  // Compute harvest cooldown info for each dungeon
+  function getHarvestCardProps(dungeon: HarvestDungeon) {
+    const cooldown = getHarvestCooldown(dungeon.id);
+    let isOnCooldown = false;
+    let remainingCooldownSeconds: number | undefined;
+    let runsToday: number | undefined;
+
+    if (cooldown) {
+      if (dungeon.cooldown_minutes) {
+        const cooldownMs = dungeon.cooldown_minutes * 60 * 1000;
+        const elapsed = Date.now() - new Date(cooldown.last_run_at).getTime();
+        if (elapsed < cooldownMs) {
+          isOnCooldown = true;
+          remainingCooldownSeconds = Math.ceil((cooldownMs - elapsed) / 1000);
+        }
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const rowDate = String(cooldown.day_reset_at).slice(0, 10);
+      if (rowDate === today) {
+        runsToday = cooldown.runs_today;
+      } else {
+        runsToday = 0;
+      }
+    }
+    return { isOnCooldown, remainingCooldownSeconds, runsToday };
+  }
 
   return (
     <ImageBackground
@@ -152,10 +226,7 @@ export default function DungeonsScreen() {
       <SafeAreaView style={styles.safe}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ChevronLeft size={26} color="#b0c4de" strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={styles.title}>{t("dungeons")}</Text>
@@ -170,7 +241,6 @@ export default function DungeonsScreen() {
             resizeMode="stretch"
           >
             <View style={styles.champCardContent}>
-              {/* Champion image — left */}
               {classMeta.image && (
                 <Image
                   source={classMeta.image}
@@ -178,18 +248,13 @@ export default function DungeonsScreen() {
                   resizeMode="contain"
                 />
               )}
-
-              {/* Info — right */}
               <View style={styles.champRight}>
-                {/* Name + class */}
                 <View style={styles.champNameRow}>
                   <Text style={styles.champName}>{championName}</Text>
                   <Text style={[styles.champClass, { color: classMeta.color }]}>
                     {championClass?.toUpperCase()}
                   </Text>
                 </View>
-
-                {/* HP bar */}
                 <View style={styles.champHpRow}>
                   <HeartPulse size={11} color={hpColor} strokeWidth={2.5} />
                   <View style={styles.champHpTrack}>
@@ -210,8 +275,6 @@ export default function DungeonsScreen() {
                     )}
                   </Text>
                 </View>
-
-                {/* Stat pills */}
                 <View style={styles.champStats}>
                   <View style={styles.champStatPill}>
                     <Swords size={10} color="#e57373" strokeWidth={2.5} />
@@ -248,31 +311,136 @@ export default function DungeonsScreen() {
           </ImageBackground>
         ) : null}
 
-        {/* Dungeon list */}
-        <ScrollView
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {dungeons.length === 0 ? (
-            <Text style={styles.empty}>{t("noDungeons")}</Text>
-          ) : (
-            dungeons.map((dungeon) => {
-              const run = getRunForDungeon(dungeon.id);
-              const enterDisabled =
-                championIsBusy && (!run || run.champion_id !== championId);
-              return (
-                <DungeonCard
-                  key={dungeon.id}
-                  dungeon={dungeon}
-                  activeRun={run}
-                  onEnter={handleEnter}
-                  onClaim={handleClaim}
-                  disabled={enterDisabled}
-                />
-              );
-            })
-          )}
-        </ScrollView>
+        {/* Tab bar */}
+        <View style={styles.tabBar}>
+          {(["adventure", "harvest", "event"] as TabKey[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabPill, activeTab === tab && styles.tabPillActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              {tab === "adventure" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Image
+                    source={DUNGEON_TAB_IMG}
+                    style={{ width: 16, height: 16 }}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                    {t("adventureTab")}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                  {tab === "harvest" ? `🌾 ${t("harvestTab")}` : `✨ ${t("eventsTab")}`}
+                </Text>
+              )}
+              {tab === "event" && eventDungeons.length > 0 && (
+                <View style={styles.eventDot} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Tab content */}
+        {activeTab === "harvest" && (
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {harvestDungeons.length === 0 ? (
+              <Text style={styles.empty}>{t("noDungeons")}</Text>
+            ) : (
+              harvestDungeons.map((dungeon) => {
+                const run = getRunForDungeon(dungeon.id);
+                const { isOnCooldown, remainingCooldownSeconds, runsToday } =
+                  getHarvestCardProps(dungeon);
+                const enterDisabled =
+                  championIsBusy && (!run || run.champion_id !== championId);
+                return (
+                  <DungeonCard
+                    key={dungeon.id}
+                    dungeon={dungeon}
+                    activeRun={run}
+                    onEnter={handleEnter}
+                    onClaim={handleClaim}
+                    disabled={enterDisabled || isOnCooldown}
+                    isOnCooldown={isOnCooldown}
+                    remainingCooldownSeconds={remainingCooldownSeconds}
+                    runsToday={runsToday}
+                    dailyRunLimit={dungeon.daily_run_limit}
+                    rewardResource2={dungeon.reward_resource_2}
+                    rewardAmount2={dungeon.reward_amount_2}
+                  />
+                );
+              })
+            )}
+          </ScrollView>
+        )}
+
+        {activeTab === "adventure" && (
+          <AdventureTab
+            dungeons={adventureDungeons}
+            progress={adventureProgress}
+            milestones={milestones}
+            totalStars={totalStars}
+            runs={runs}
+            championId={championId}
+            championIsBusy={championIsBusy}
+            onEnter={handleEnter}
+            onClaim={handleClaim}
+            onMilestoneClaim={handleMilestoneClaim}
+          />
+        )}
+
+        {activeTab === "event" && (
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {eventDungeons.length === 0 ? (
+              <View style={styles.emptyEvents}>
+                <Text style={styles.emptyEventsText}>{t("noActiveEvents")}</Text>
+              </View>
+            ) : (
+              eventDungeons.map((dungeon) => {
+                const run = getRunForDungeon(dungeon.id);
+                const enterDisabled =
+                  championIsBusy && (!run || run.champion_id !== championId);
+                return (
+                  <View key={dungeon.id}>
+                    {dungeon.event_ends_at && (
+                      <View style={styles.eventTimerRow}>
+                        <Text style={styles.eventTimerLabel}>
+                          {t("eventEndsIn")}:{" "}
+                        </Text>
+                        <CountdownTimer
+                          endsAt={dungeon.event_ends_at}
+                          style={styles.eventTimerText}
+                          onExpire={loadData}
+                        />
+                        {(dungeon.reward_multiplier ?? 1) > 1 && (
+                          <View style={styles.multiplierBadge}>
+                            <Text style={styles.multiplierText}>
+                              {dungeon.reward_multiplier}x REWARDS
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    <DungeonCard
+                      dungeon={dungeon}
+                      activeRun={run}
+                      onEnter={handleEnter}
+                      onClaim={handleClaim}
+                      disabled={enterDisabled}
+                    />
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        )}
 
         {/* Claim result modal */}
         <CustomModal
@@ -286,29 +454,81 @@ export default function DungeonsScreen() {
           cancelText={t("cancelBtn")}
         >
           <View style={styles.resultBody}>
-            {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
+            {/* Stars (adventure only) */}
+            {claimResult?.starsEarned != null && (
+              <View style={styles.starsRow}>
+                {[0, 1, 2].map((i) => (
+                  <Star
+                    key={i}
+                    size={28}
+                    color="#f9ca24"
+                    strokeWidth={2}
+                    fill={
+                      i < (claimResult?.starsEarned ?? 0)
+                        ? "#f9ca24"
+                        : "transparent"
+                    }
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* Primary reward */}
+            {(claimResult?.rewardAmount ?? 0) > 0 ? (
               <View style={styles.resultRewardRow}>
-                <Trophy
-                  size={18}
-                  color="#ffd54f"
-                  strokeWidth={2}
-                  fill="#ffd54f"
-                />
+                {claimResult!.rewardResource && RESOURCE_META[claimResult!.rewardResource]?.image ? (
+                  <Image
+                    source={RESOURCE_META[claimResult!.rewardResource].image}
+                    style={{ width: 22, height: 22 }}
+                    resizeMode="contain"
+                  />
+                ) : null}
                 <Text style={styles.resultReward}>
-                  +{claimResult.rewardAmount} {claimResult.rewardResource}
+                  +{claimResult!.rewardAmount}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.resultNoReward}>Bu sefer ödül yok</Text>
+              <Text style={styles.resultNoReward}>{t("noRewardThisTime")}</Text>
             )}
+
+            {/* Secondary reward */}
+            {(claimResult?.rewardAmount2 ?? 0) > 0 &&
+              claimResult?.rewardResource2 && (
+                <View style={styles.resultRewardRow}>
+                  {RESOURCE_META[claimResult.rewardResource2] && (
+                    <Image
+                      source={RESOURCE_META[claimResult.rewardResource2].image}
+                      style={{ width: 22, height: 22 }}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <Text style={styles.resultReward}>
+                    +{claimResult.rewardAmount2}
+                  </Text>
+                </View>
+              )}
+
+            {/* Coin reward */}
+            {(claimResult?.coinReward ?? 0) > 0 && (
+              <View style={styles.resultRewardRow}>
+                <Text style={styles.resultCoin}>
+                  🪙 +{claimResult!.coinReward} {t("coinRewardLabel")}
+                </Text>
+              </View>
+            )}
+
+            {/* XP */}
             {(claimResult?.xpGained ?? 0) > 0 && (
-              <Text style={styles.resultXp}>+{claimResult!.xpGained} XP</Text>
+              <Text style={styles.resultXp}>
+                +{claimResult!.xpGained} XP
+              </Text>
             )}
             {(claimResult?.levelsGained ?? 0) > 0 && (
               <Text style={styles.resultLevelUp}>
-                ⬆️ SEVİYE ATLADI! LV {claimResult!.newLevel}
+                ⬆️ {t("levelUpLabel")} LV {claimResult!.newLevel}
               </Text>
             )}
+
             {/* Battle log */}
             {(claimResult?.log?.length ?? 0) > 0 && (
               <ScrollView
@@ -317,34 +537,101 @@ export default function DungeonsScreen() {
               >
                 {claimResult!.log.map((entry: any, i: number) => {
                   const isChamp = entry.actor === "attacker";
+                  const atkHp = isChamp
+                    ? entry.attackerHpAfter
+                    : entry.defenderHpAfter;
+                  const defHp = isChamp
+                    ? entry.defenderHpAfter
+                    : entry.attackerHpAfter;
+                  const blocked = entry.damage === 0;
                   const newRound =
-                    i === 0 || claimResult!.log[i - 1]?.round !== entry.round;
+                    i === 0 ||
+                    claimResult!.log[i - 1]?.round !== entry.round;
                   return (
-                    <View key={i}>
+                    <View key={i} style={styles.logEntryWrapper}>
                       {newRound && (
-                        <Text style={styles.logRound}>
-                          — Tur {entry.round + 1} —
-                        </Text>
+                        <View style={styles.roundBadge}>
+                          <Text style={styles.roundBadgeText}>
+                            {t("roundLabel")} {entry.round + 1}
+                          </Text>
+                        </View>
                       )}
-                      <View style={styles.logRow}>
-                        <Text
-                          style={[
-                            styles.logActor,
-                            isChamp ? styles.logChamp : styles.logEnemy,
-                          ]}
-                        >
-                          {isChamp ? "⚔️ Şampiyon" : "👹 Düşman"}
-                        </Text>
-                        <Text style={styles.logDmg}>
-                          {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
-                          {entry.atkBoosted ? " 💥" : ""}
-                        </Text>
-                        <Text style={styles.logHp}>
-                          {isChamp
-                            ? entry.defenderHpAfter
-                            : entry.attackerHpAfter}{" "}
-                          HP
-                        </Text>
+                      <View
+                        style={[
+                          styles.logLine,
+                          isChamp ? styles.logLineChamp : styles.logLineEnemy,
+                        ]}
+                      >
+                        {/* Attacker side */}
+                        <View style={styles.logSide}>
+                          <Text
+                            style={[
+                              styles.logSideName,
+                              isChamp ? styles.logActorChamp : styles.logActorEnemy,
+                            ]}
+                          >
+                            {isChamp ? "⚔️" : "👹"}{" "}
+                            {isChamp ? t("championLabel") : t("enemyLabel")}
+                          </Text>
+                          <Text style={styles.logSideHp}>{atkHp} HP</Text>
+                          <View style={styles.logSideStatRow}>
+                            <Text style={styles.logAtkVal}>
+                              ATK {entry.attackValue}
+                            </Text>
+                            {entry.atkBoosted && (
+                              <Text style={styles.logCritBadge}>KRİT</Text>
+                            )}
+                          </View>
+                        </View>
+
+                        {/* Center */}
+                        <View style={styles.logCenter}>
+                          <Text style={styles.logArrow}>→</Text>
+                          <View
+                            style={[
+                              styles.logDmgPill,
+                              blocked ? styles.logDmgPillBlock : styles.logDmgPillHit,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.logDmgText,
+                                blocked ? styles.logDmgTextBlock : styles.logDmgTextHit,
+                              ]}
+                            >
+                              {blocked ? "BLOK" : `−${entry.damage}`}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Defender side */}
+                        <View style={[styles.logSide, styles.logSideRight]}>
+                          <Text
+                            style={[
+                              styles.logSideName,
+                              isChamp ? styles.logActorEnemy : styles.logActorChamp,
+                            ]}
+                          >
+                            {isChamp ? "👹" : "⚔️"}{" "}
+                            {isChamp ? t("enemyLabel") : t("championLabel")}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.logSideHp,
+                              !blocked && styles.logSideHpDamaged,
+                            ]}
+                          >
+                            {defHp} HP
+                          </Text>
+                          <View style={[styles.logSideStatRow, styles.logSideStatRight]}>
+                            {entry.defBoosted && (
+                              <Text style={styles.logBlockBadge}>BLOK</Text>
+                            )}
+                            <Text style={styles.logDefVal}>
+                              DEF {entry.defenseValue}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
                     </View>
                   );
@@ -384,34 +671,31 @@ const styles = StyleSheet.create({
   },
   champCardBg: {
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   champCardContent: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 40,
-    paddingTop: 26,
-    paddingBottom: 26,
+    paddingTop: 22,
+    paddingBottom: 22,
     gap: 12,
   },
   champImage: {
-    width: 72,
-    height: 72,
+    width: 64,
+    height: 64,
   },
   champRight: {
     flex: 1,
-    gap: 7,
+    gap: 6,
   },
   champNameRow: {
     gap: 2,
   },
   champName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
     color: "#3a2a10",
-    textShadowColor: "rgba(255,255,255,0.4)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   champClass: {
     fontSize: 10,
@@ -469,6 +753,45 @@ const styles = StyleSheet.create({
   champStatBoosted: {
     color: "#7a30c0",
   },
+  // Tab bar
+  tabBar: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 12,
+    padding: 3,
+    gap: 3,
+  },
+  tabPill: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 9,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 4,
+  },
+  tabPillActive: {
+    backgroundColor: "#f5e9cc",
+  },
+  tabText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.65)",
+    letterSpacing: 0.3,
+  },
+  tabTextActive: {
+    color: "#3a2a10",
+  },
+  eventDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#e67e22",
+    marginLeft: -2,
+  },
+  // Dungeon list
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
@@ -479,15 +802,63 @@ const styles = StyleSheet.create({
     marginTop: 60,
     fontSize: 15,
   },
+  // Event tab
+  emptyEvents: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 80,
+    paddingHorizontal: 32,
+  },
+  emptyEventsText: {
+    color: "#b0c4de",
+    fontSize: 15,
+    textAlign: "center",
+    fontWeight: "600",
+    lineHeight: 22,
+  },
+  eventTimerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 4,
+    flexWrap: "wrap",
+  },
+  eventTimerLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#b0c4de",
+  },
+  eventTimerText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#81c784",
+  },
+  multiplierBadge: {
+    backgroundColor: "#e67e22",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  multiplierText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  // Claim modal
   resultBody: {
     alignItems: "center",
     gap: 8,
     paddingBottom: 4,
   },
-  resultSub: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#7a5a30",
+  starsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 4,
   },
   resultRewardRow: {
     flexDirection: "row",
@@ -498,6 +869,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: "#4a7c3f",
+  },
+  resultCoin: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#c8900a",
   },
   resultNoReward: {
     fontSize: 14,
@@ -517,51 +893,134 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   logScroll: {
-    maxHeight: 180,
+    maxHeight: 260,
     marginTop: 10,
     width: "100%",
   },
-  logRound: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9a7040",
-    textAlign: "center",
-    marginVertical: 4,
-    letterSpacing: 1,
-  },
-  logRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    backgroundColor: "#f0e4c8",
-    borderRadius: 6,
+  logEntryWrapper: {
     marginBottom: 2,
   },
-  logActor: {
-    fontSize: 12,
+  roundBadge: {
+    alignSelf: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    marginVertical: 4,
+  },
+  roundBadgeText: {
+    fontSize: 11,
     fontWeight: "700",
+    color: "#7a5030",
+    letterSpacing: 0.8,
+  },
+  logLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
+    borderWidth: 1.5,
+  },
+  logLineChamp: {
+    backgroundColor: "#f0faf0",
+    borderColor: "#b2d8b2",
+  },
+  logLineEnemy: {
+    backgroundColor: "#fdf0f0",
+    borderColor: "#e0b8b8",
+  },
+  logSide: {
     flex: 1,
+    gap: 2,
   },
-  logChamp: {
-    color: "#2d5a24",
+  logSideRight: {
+    alignItems: "flex-end",
   },
-  logEnemy: {
-    color: "#c0392b",
-  },
-  logDmg: {
+  logSideName: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#3a2a10",
-    minWidth: 50,
-    textAlign: "center",
   },
-  logHp: {
+  logActorChamp: {
+    color: "#2d6e24",
+  },
+  logActorEnemy: {
+    color: "#a02020",
+  },
+  logSideHp: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#555",
+  },
+  logSideHpDamaged: {
+    color: "#c0392b",
+  },
+  logSideStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  logSideStatRight: {
+    justifyContent: "flex-end",
+  },
+  logAtkVal: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#7a5a30",
-    minWidth: 45,
-    textAlign: "right",
+    color: "#888",
+  },
+  logDefVal: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#888",
+  },
+  logCritBadge: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+    backgroundColor: "#e67e22",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  logBlockBadge: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+    backgroundColor: "#5d7f8a",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  logCenter: {
+    alignItems: "center",
+    gap: 3,
+    minWidth: 52,
+  },
+  logArrow: {
+    fontSize: 14,
+    color: "#aaa",
+  },
+  logDmgPill: {
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  logDmgPillHit: {
+    backgroundColor: "#c0392b",
+  },
+  logDmgPillBlock: {
+    backgroundColor: "#5d7f8a",
+  },
+  logDmgText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  logDmgTextHit: {
+    color: "#fff",
+  },
+  logDmgTextBlock: {
+    color: "#fff",
   },
 });

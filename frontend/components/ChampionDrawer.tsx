@@ -19,8 +19,6 @@ import {
   Swords,
   Gift,
   MapPin,
-  Heart,
-  Sparkles,
   HeartPulse,
   Shield,
   Zap,
@@ -39,11 +37,23 @@ import { useLanguage } from "../lib/i18n";
 
 import PvpBattleButton from "./PvpBattleButton";
 import EnterDungeonButton from "./EnterDungeonButton";
+import CustomButton from "./CustomButton";
 import CountdownTimer from "./CountdownTimer";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
 import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 
-const REVIVE_COST = 3;
+const REVIVE_MILK_COST = 4;
+const REVIVE_WOOL_COST = 4;
+const COIN_REVIVE_COST = 15;
+const HEAL_MILK_COST = 2;
+const HEAL_EGG_COST = 2;
+const COIN_HEAL_PER_20HP = 4;
+
+const MILK_IMG = require("../assets/resource-images/milk.png");
+const WOOL_IMG = require("../assets/resource-images/wool.png");
+const EGG_IMG = require("../assets/resource-images/egg.png");
+const HEALTH_POTION_IMG = require("../assets/icons/icon-health-potion.webp");
+const SHIELD_IMG = require("../assets/icons/shield.webp");
 
 type StatKey = "attack" | "defense" | "chance";
 
@@ -74,6 +84,7 @@ type Props = {
   onViewPvpResult?: () => void;
   coins?: number;
   onCoinRevive?: (champion: Champion) => void;
+  onCoinHeal?: (champion: Champion) => void;
   onSkipMission?: (champion: Champion) => void;
 };
 
@@ -190,6 +201,7 @@ export default function ChampionDrawer({
   onViewPvpResult,
   coins = 0,
   onCoinRevive,
+  onCoinHeal,
   onSkipMission,
 }: Props) {
   const { t } = useLanguage();
@@ -440,6 +452,7 @@ export default function ChampionDrawer({
             showsVerticalScrollIndicator={false}
             bounces={false}
             style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
+            contentContainerStyle={{ paddingBottom: 24 }}
             onScroll={(e) => {
               contentScrollY.current = e.nativeEvent.contentOffset.y;
             }}
@@ -766,44 +779,45 @@ export default function ChampionDrawer({
             {champion.current_hp <= 0 ? (
               // Dead champion — show both revive options
               <View style={styles.btnRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.reviveBtn,
-                    styles.btnFlex,
-                    (resources?.strawberry ?? 0) < REVIVE_COST &&
-                      styles.btnDisabled,
-                  ]}
-                  onPress={() =>
-                    (resources?.strawberry ?? 0) >= REVIVE_COST &&
-                    onRevive?.(champion)
+                <CustomButton
+                  btnImage={HEALTH_POTION_IMG}
+                  text={t("revive")}
+                  subContent={
+                    <View style={styles.costRow}>
+                      <Image source={MILK_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Text style={styles.costText}>×{REVIVE_MILK_COST}</Text>
+                      <Image source={WOOL_IMG} style={styles.costIcon} resizeMode="contain" />
+                      <Text style={styles.costText}>×{REVIVE_WOOL_COST}</Text>
+                    </View>
                   }
-                  activeOpacity={0.8}
-                >
-                  <Sparkles size={16} color="#fff" strokeWidth={2} />
-                  <Text style={styles.reviveBtnText}>{t("revive")}</Text>
-                  <Text style={styles.reviveCost}>🍓 ×{REVIVE_COST}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.coinReviveBtn,
-                    styles.btnFlex,
-                    coins < 5 && styles.btnDisabled,
-                  ]}
-                  onPress={() =>
-                    coins >= 5 &&
+                  onClick={() => onRevive?.(champion)}
+                  bgColor="#7a3a9a"
+                  borderColor="#5a2d78"
+                  disabled={
+                    (resources?.milk ?? 0) < REVIVE_MILK_COST ||
+                    (resources?.wool ?? 0) < REVIVE_WOOL_COST
+                  }
+                  style={styles.btnFlex}
+                />
+                <CustomButton
+                  btnImage={HEALTH_POTION_IMG}
+                  text={t("coinRevive")}
+                  subContent={
+                    <Text style={styles.costText}>🪙 ×{COIN_REVIVE_COST}</Text>
+                  }
+                  onClick={() =>
                     triggerCoinConfirm({
-                      transactionCost: 5,
+                      transactionCost: COIN_REVIVE_COST,
                       transactionTitle: t("coinRevive"),
                       transactionDesc: `${champion.name} anında canlandırılsın mı?`,
                       onConfirm: () => onCoinRevive?.(champion),
                     })
                   }
-                  activeOpacity={0.8}
-                >
-                  <Sparkles size={16} color="#fff" strokeWidth={2} />
-                  <Text style={styles.reviveBtnText}>{t("coinRevive")}</Text>
-                  <Text style={styles.reviveCost}>🪙 ×5</Text>
-                </TouchableOpacity>
+                  bgColor="#b8860b"
+                  borderColor="#8b6508"
+                  disabled={coins < COIN_REVIVE_COST}
+                  style={styles.btnFlex}
+                />
               </View>
             ) : (
               <>
@@ -955,36 +969,61 @@ export default function ChampionDrawer({
                       )}
                     </View>
 
-                    {/* Heal button — only when injured and not on mission */}
+                    {/* Heal buttons — only when injured and not on mission */}
                     {!isOnMission &&
                       champion.current_hp <
                         champion.max_hp + (champion.boost_hp ?? 0) &&
                       (() => {
                         const effectiveMax =
                           champion.max_hp + (champion.boost_hp ?? 0);
-                        const healCost = Math.ceil(
-                          (effectiveMax - champion.current_hp) / 35,
-                        );
+                        const missingHp = effectiveMax - champion.current_hp;
                         const canHeal =
-                          (resources?.strawberry ?? 0) >= healCost;
+                          (resources?.milk ?? 0) >= HEAL_MILK_COST &&
+                          (resources?.egg ?? 0) >= HEAL_EGG_COST;
+                        const coinHealCost =
+                          Math.ceil(missingHp / 20) * COIN_HEAL_PER_20HP;
                         return (
-                          <TouchableOpacity
-                            style={[
-                              styles.healBtn,
-                              !canHeal && styles.btnDisabled,
-                            ]}
-                            onPress={() => canHeal && onHeal?.(champion)}
-                            activeOpacity={0.8}
-                          >
-                            <Heart
-                              size={15}
-                              color="#fff"
-                              strokeWidth={2}
-                              fill="#fff"
+                          <View style={[styles.btnRow, { marginTop: 8 }]}>
+                            <CustomButton
+                              btnImage={HEALTH_POTION_IMG}
+                              text="+20 HP"
+                              subContent={
+                                <View style={styles.costRow}>
+                                  <Image source={MILK_IMG} style={styles.costIcon} resizeMode="contain" />
+                                  <Text style={styles.costText}>×{HEAL_MILK_COST}</Text>
+                                  <Image source={EGG_IMG} style={styles.costIcon} resizeMode="contain" />
+                                  <Text style={styles.costText}>×{HEAL_EGG_COST}</Text>
+                                </View>
+                              }
+                              onClick={() => onHeal?.(champion)}
+                              bgColor="#c0392b"
+                              borderColor="#922b21"
+                              disabled={!canHeal}
+                              style={styles.btnFlex}
                             />
-                            <Text style={styles.healBtnText}>{t("heal")}</Text>
-                            <Text style={styles.healCost}>🍓 ×{healCost}</Text>
-                          </TouchableOpacity>
+                            <CustomButton
+                              btnImage={HEALTH_POTION_IMG}
+                              text={t("heal")}
+                              subContent={
+                                <View style={styles.costRow}>
+                                  <Text style={styles.costText}>🪙 ×{coinHealCost}</Text>
+                                  <Text style={styles.costTextDim}>+{missingHp} HP</Text>
+                                </View>
+                              }
+                              onClick={() =>
+                                triggerCoinConfirm({
+                                  transactionCost: coinHealCost,
+                                  transactionTitle: t("heal"),
+                                  transactionDesc: `${champion.name} tam olarak iyileştirilsin mi?`,
+                                  onConfirm: () => onCoinHeal?.(champion),
+                                })
+                              }
+                              bgColor="#b8860b"
+                              borderColor="#8b6508"
+                              disabled={coins < coinHealCost}
+                              style={styles.btnFlex}
+                            />
+                          </View>
                         );
                       })()}
                   </>
@@ -1000,33 +1039,21 @@ export default function ChampionDrawer({
                       champion.last_defender ||
                       champion.is_deployed ||
                       champion.current_hp <= 0;
+                    const label = pvpLocked
+                      ? "PvP Lv3 Gerekli"
+                      : champion.last_defender
+                        ? t("defenderCooldown")
+                        : t("setDefender");
                     return (
-                      <TouchableOpacity
-                        style={[
-                          styles.defenderBtn,
-                          isDisabled && styles.btnDisabled,
-                        ]}
-                        onPress={() => !isDisabled && onSetDefender(champion)}
-                        activeOpacity={isDisabled ? 1 : 0.8}
-                      >
-                        <Shield
-                          size={14}
-                          color={isDisabled ? "#7f8c9a" : "#4a7c3f"}
-                          strokeWidth={2.5}
-                        />
-                        <Text
-                          style={[
-                            styles.defenderBtnText,
-                            isDisabled && styles.defenderBtnTextDim,
-                          ]}
-                        >
-                          {pvpLocked
-                            ? "PvP Lv3 Gerekli"
-                            : champion.last_defender
-                              ? t("defenderCooldown")
-                              : t("setDefender")}
-                        </Text>
-                      </TouchableOpacity>
+                      <CustomButton
+                        btnImage={SHIELD_IMG}
+                        text={label}
+                        onClick={() => !isDisabled && onSetDefender(champion)}
+                        bgColor={isDisabled ? "#2e3e2e" : "#1e2d1e"}
+                        borderColor={isDisabled ? "#3a4e3a" : "#4a7c3f"}
+                        disabled={isDisabled}
+                        style={{ marginTop: 8 }}
+                      />
                     );
                   })()}
               </>
@@ -1750,38 +1777,20 @@ const styles = StyleSheet.create({
     color: "#2d5a24",
     letterSpacing: 1.2,
   },
-  reviveBtn: {
+  costRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#7b3fa0",
-    borderRadius: 14,
-    paddingVertical: 14,
-    borderWidth: 2,
-    borderColor: "#5a2d78",
+    gap: 3,
   },
-  reviveBtnText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.4,
-  },
-  reviveCost: {
-    fontSize: 13,
+  costText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#e8c8f8",
+    color: "rgba(255,255,255,0.85)",
   },
-  coinReviveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#b8860b",
-    borderRadius: 14,
-    paddingVertical: 14,
-    borderWidth: 2,
-    borderColor: "#8b6508",
+  costTextDim: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.55)",
   },
   missionSkipBtn: {
     backgroundColor: "#b8860b",
@@ -1797,52 +1806,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#fff",
   },
-  healBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#c0392b",
-    borderRadius: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: "#922b21",
-  },
-  healBtnText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.4,
-  },
-  healCost: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#f5c6c0",
+  costIcon: {
+    width: 16,
+    height: 16,
   },
   btnDisabled: {
     opacity: 0.45,
-  },
-  defenderBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#1e2d1e",
-    borderRadius: 14,
-    paddingVertical: 12,
-    marginTop: 8,
-    borderWidth: 1.5,
-    borderColor: "#4a7c3f",
-  },
-  defenderBtnText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#4a7c3f",
-    letterSpacing: 0.5,
-  },
-  defenderBtnTextDim: {
-    color: "#7f8c9a",
   },
   defenderActiveRow: {
     flexDirection: "row",

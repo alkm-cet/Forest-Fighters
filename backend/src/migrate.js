@@ -265,6 +265,138 @@ async function migrate() {
     await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS coins INT DEFAULT 0`);
     console.log('Coins column added to players');
 
+    // ── Dungeon System v2 ────────────────────────────────────────────────────
+    // Extend dungeons table with type-specific columns
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS dungeon_type VARCHAR(20) DEFAULT 'adventure'`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS cooldown_minutes INT DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS daily_run_limit INT DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS stage_number INT DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS is_boss_stage BOOLEAN DEFAULT FALSE`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS coin_reward INT DEFAULT 0`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS reward_resource_2 VARCHAR(50) DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS reward_amount_2 INT DEFAULT 0`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS event_starts_at TIMESTAMPTZ DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS event_ends_at TIMESTAMPTZ DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS reward_multiplier FLOAT DEFAULT 1.0`);
+
+    // Extend dungeon_runs table
+    await query(`ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS stars_earned INT DEFAULT NULL`);
+
+    // Reclassify existing 5 dungeons as adventure stages 1-5 (idempotent: only when stage_number is NULL)
+    await query(`
+      UPDATE dungeons SET dungeon_type = 'adventure',
+        stage_number = CASE name
+          WHEN 'Whispering Woods' THEN 1
+          WHEN 'Mossy Ruins'      THEN 2
+          WHEN 'Troll Bridge'     THEN 3
+          WHEN 'Orcish Camp'      THEN 4
+          WHEN 'Dark Sanctum'     THEN 5
+        END,
+        is_boss_stage = CASE name WHEN 'Dark Sanctum' THEN TRUE ELSE FALSE END
+      WHERE name IN ('Whispering Woods','Mossy Ruins','Troll Bridge','Orcish Camp','Dark Sanctum')
+        AND stage_number IS NULL
+    `);
+
+    // New tables for dungeon v2
+    await query(`
+      CREATE TABLE IF NOT EXISTS adventure_progress (
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id  UUID REFERENCES players(id) ON DELETE CASCADE,
+        dungeon_id UUID REFERENCES dungeons(id),
+        best_stars INT NOT NULL DEFAULT 0,
+        cleared_at TIMESTAMPTZ DEFAULT NULL,
+        UNIQUE (player_id, dungeon_id)
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS harvest_cooldowns (
+        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id    UUID REFERENCES players(id) ON DELETE CASCADE,
+        dungeon_id   UUID REFERENCES dungeons(id),
+        last_run_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        runs_today   INT NOT NULL DEFAULT 1,
+        day_reset_at DATE NOT NULL DEFAULT CURRENT_DATE,
+        UNIQUE (player_id, dungeon_id)
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS adventure_star_milestones (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        required_stars  INT NOT NULL UNIQUE,
+        reward_coins    INT NOT NULL DEFAULT 0,
+        reward_resource VARCHAR(50) DEFAULT NULL,
+        reward_amount   INT DEFAULT 0,
+        label           VARCHAR(100)
+      )
+    `);
+    await query(`
+      INSERT INTO adventure_star_milestones (required_stars, reward_coins, label)
+      VALUES (10, 50, 'First Explorer'), (25, 150, 'Dungeon Delver'), (45, 300, 'Champion')
+      ON CONFLICT (required_stars) DO NOTHING
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS adventure_milestone_claims (
+        player_id      UUID REFERENCES players(id) ON DELETE CASCADE,
+        required_stars INT NOT NULL,
+        claimed_at     TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (player_id, required_stars)
+      )
+    `);
+
+    // Seed harvest dungeons (idempotent)
+    const harvestDungeons = [
+      { name: 'Berry Cave', desc: 'A cozy cave filled with wild berries.', enemy: 'Chipmunk', atk: 6, def: 3, chc: 10, hp: 50, dur: 15, res: 'strawberry', amt: 6, res2: 'pinecone', amt2: 4, cooldown: 30, limit: null },
+      { name: 'Chicken Nest', desc: 'A fox guards a hidden nest of eggs.', enemy: 'Fox', atk: 10, def: 6, chc: 15, hp: 65, dur: 20, res: 'egg', amt: 8, res2: null, amt2: 0, cooldown: 60, limit: 3 },
+      { name: 'Sheep Meadow', desc: 'A peaceful meadow where wolves prowl.', enemy: 'Wolf', atk: 14, def: 8, chc: 12, hp: 80, dur: 25, res: 'wool', amt: 8, res2: null, amt2: 0, cooldown: 60, limit: 3 },
+      { name: 'Golden Farm', desc: 'A prosperous farm guarded by bandits.', enemy: 'Bandit', atk: 20, def: 14, chc: 20, hp: 90, dur: 30, res: 'milk', amt: 5, res2: 'egg', amt2: 5, cooldown: 120, limit: 2 },
+    ];
+    for (const d of harvestDungeons) {
+      await query(`
+        INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
+          duration_minutes, reward_resource, reward_amount, reward_resource_2, reward_amount_2,
+          dungeon_type, cooldown_minutes, daily_run_limit, xp_reward)
+        SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
+               $8::INT, $9::VARCHAR, $10::INT, $11::VARCHAR, $12::INT, 'harvest', $13::INT, $14::INT, 0
+        WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
+      `, [d.name, d.desc, d.enemy, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null]);
+    }
+
+    // Seed adventure stages 6-15 (idempotent)
+    const adventureStages = [
+      { stage: 6,  name: 'Fungal Cavern',     desc: 'Mushrooms sprout from the walls of this damp cavern.', enemy: 'Mushroom Golem', atk: 30, def: 18, chc: 15, hp: 120, dur: 35, coins: 15, xp: 130, boss: false },
+      { stage: 7,  name: 'Bandit Hideout',    desc: 'A network of tunnels used by forest bandits.', enemy: 'Bandit Chief', atk: 32, def: 20, chc: 22, hp: 125, dur: 35, coins: 15, xp: 140, boss: false },
+      { stage: 8,  name: 'Frozen Tundra',     desc: 'A frozen wasteland where an ice witch lurks.', enemy: 'Ice Witch', atk: 34, def: 16, chc: 30, hp: 110, dur: 40, coins: 20, xp: 150, boss: false },
+      { stage: 9,  name: 'Lava Fields',       desc: 'Volcanic fields that burn with ancient fire.', enemy: 'Fire Imp', atk: 36, def: 22, chc: 18, hp: 130, dur: 40, coins: 20, xp: 160, boss: false },
+      { stage: 10, name: 'Magma Fortress',    desc: 'A fortress forged from volcanic rock, home to a mighty titan.', enemy: 'Lava Titan', atk: 44, def: 30, chc: 25, hp: 180, dur: 50, coins: 40, xp: 200, boss: true },
+      { stage: 11, name: 'Haunted Graveyard', desc: 'Ancient tombstones hide a wailing banshee.', enemy: 'Banshee', atk: 40, def: 18, chc: 40, hp: 130, dur: 50, coins: 25, xp: 210, boss: false },
+      { stage: 12, name: 'Shadow Realm',      desc: 'A realm of darkness where shadows take form.', enemy: 'Shadow Knight', atk: 44, def: 28, chc: 28, hp: 145, dur: 55, coins: 25, xp: 220, boss: false },
+      { stage: 13, name: 'Ancient Tomb',      desc: 'A buried tomb where an ancient mummy slumbers.', enemy: 'Mummy Lord', atk: 46, def: 32, chc: 22, hp: 155, dur: 55, coins: 30, xp: 230, boss: false },
+      { stage: 14, name: 'Dragon Lair',       desc: 'A mountain cave where a fearsome wyvern nests.', enemy: 'Wyvern', atk: 50, def: 28, chc: 32, hp: 160, dur: 60, coins: 30, xp: 240, boss: false },
+      { stage: 15, name: 'Void Gate',         desc: 'A tear in reality guarded by an ancient void lich.', enemy: 'Void Lich', atk: 60, def: 35, chc: 45, hp: 200, dur: 60, coins: 60, xp: 300, boss: true },
+    ];
+    for (const s of adventureStages) {
+      await query(`
+        INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
+          duration_minutes, reward_resource, reward_amount, dungeon_type, stage_number, is_boss_stage, coin_reward, xp_reward)
+        SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
+               $8::INT, 'pinecone', 5, 'adventure', $9::INT, $10::BOOLEAN, $11::INT, $12::INT
+        WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
+      `, [s.name, s.desc, s.enemy, s.atk, s.def, s.chc, s.hp, s.dur, s.stage, s.boss, s.coins, s.xp]);
+    }
+
+    // Seed event dungeon (idempotent)
+    await query(`
+      INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
+        duration_minutes, reward_resource, reward_amount, dungeon_type, event_starts_at, event_ends_at, reward_multiplier, xp_reward)
+      SELECT 'Harvest Festival', 'A festive dungeon with double rewards! Limited time only.', 'Party Goblin',
+             10, 5, 20, 70, 10, 'strawberry', 10, 'event', NOW(), NOW() + INTERVAL '7 days', 2.0, 30
+      WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = 'Harvest Festival')
+    `);
+
+    console.log('Dungeon System v2 migrated');
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

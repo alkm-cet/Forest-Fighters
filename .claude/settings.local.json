@@ -35,7 +35,8 @@
       "Bash(rm -f Assets.xcassets/AppIcon.appiconset/Contents.json)",
       "Bash(rm -f appstore.png)",
       "Bash(rm -rf android)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

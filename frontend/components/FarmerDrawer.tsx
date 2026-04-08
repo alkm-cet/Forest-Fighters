@@ -376,6 +376,21 @@ export default function FarmerDrawer({
                 ? `${t("maxLevel")} ${farmer.level}`
                 : `${t("upgrade")} → ${t("lv")} ${farmer.level + 1}`
             }
+            subContent={
+              !isMaxLevel ? (
+                <View style={styles.costRow}>
+                  {res1Meta?.image && (
+                    <Image source={res1Meta.image} style={styles.costIcon} resizeMode="contain" />
+                  )}
+                  <Text style={styles.costText}>×{upgradeCost}</Text>
+                  <Text style={styles.costText}> + </Text>
+                  {res2Meta?.image && (
+                    <Image source={res2Meta.image} style={styles.costIcon} resizeMode="contain" />
+                  )}
+                  <Text style={styles.costText}>×{upgradeCost}</Text>
+                </View>
+              ) : undefined
+            }
             onClick={() => onUpgrade(farmer)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
             borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
@@ -389,7 +404,13 @@ export default function FarmerDrawer({
             const canFill = !isFull && coins >= fillCost;
             return (
               <CustomButton
-                text={isFull ? t("storageFull") : `${t("fillStorage")} 🪙×${fillCost}`}
+                btnIcon={<Package size={20} color="#fff" strokeWidth={2.5} />}
+                text={isFull ? t("storageFull") : t("fillStorage")}
+                subContent={
+                  !isFull ? (
+                    <Text style={styles.costText}>🪙 ×{fillCost}</Text>
+                  ) : undefined
+                }
                 onClick={() => !isFull && onFillStorage && triggerCoinConfirm({
                   transactionCost: fillCost,
                   transactionTitle: t("fillStorage"),
@@ -587,5 +608,21 @@ const styles = StyleSheet.create({
   },
   bottomBtnFlex: {
     flex: 1,
+  },
+
+  // ── Cost row (inside CustomButton subContent) ──
+  costRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  costIcon: {
+    width: 16,
+    height: 16,
+  },
+  costText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
   },
 });

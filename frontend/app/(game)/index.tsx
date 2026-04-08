@@ -734,18 +734,39 @@ export default function MainScreen() {
           setSelectedChampion(null);
           try {
             const res = await api.post(`/api/champions/${champion.id}/revive`);
-            setResources((r) => ({ ...r, strawberry: res.data.strawberry }));
+            setResources((r) => ({ ...r, milk: res.data.milk, wool: res.data.wool }));
             api.get("/api/champions").then((r) => setChampions(r.data));
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Canlandırma başarısız");
           }
         }}
         onHeal={async (champion) => {
-          setSelectedChampion(null);
           try {
             const res = await api.post(`/api/champions/${champion.id}/heal`);
-            setResources((r) => ({ ...r, strawberry: res.data.strawberry }));
-            api.get("/api/champions").then((r) => setChampions(r.data));
+            setResources((r) => ({ ...r, milk: res.data.milk, egg: res.data.egg }));
+            setChampions((prev) =>
+              prev.map((c) =>
+                c.id === champion.id ? { ...c, current_hp: res.data.newHp } : c
+              )
+            );
+            setSelectedChampion((prev) =>
+              prev?.id === champion.id ? { ...prev, current_hp: res.data.newHp } : prev
+            );
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "İyileştirme başarısız");
+          }
+        }}
+        onCoinHeal={async (champion) => {
+          try {
+            const res = await api.post("/api/coins/heal-champion", {
+              champion_id: champion.id,
+            });
+            setCoins(res.data.coins);
+            setChampions((prev) =>
+              prev.map((c) =>
+                c.id === champion.id ? { ...c, ...res.data.champion } : c
+              )
+            );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
           }
@@ -826,6 +847,24 @@ export default function MainScreen() {
             alert(
               err.response?.data?.error ?? "Coin ile canlandırma başarısız",
             );
+          }
+        }}
+        onCoinHeal={async (champion) => {
+          try {
+            const res = await api.post("/api/coins/heal-champion", {
+              champion_id: champion.id,
+            });
+            setCoins(res.data.coins);
+            setChampions((prev) =>
+              prev.map((c) =>
+                c.id === champion.id ? { ...c, ...res.data.champion } : c
+              )
+            );
+            setSelectedChampion((prev) =>
+              prev?.id === champion.id ? { ...prev, ...res.data.champion } : prev
+            );
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Coin ile iyileştirme başarısız");
           }
         }}
         onSkipMission={async (champion) => {
@@ -1293,9 +1332,18 @@ export default function MainScreen() {
               </Text>
               <View style={styles.modalRewardRow}>
                 {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
-                  <Text style={styles.modalReward}>
-                    +{claimResult.rewardAmount} {claimResult.rewardResource}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    {claimResult.rewardResource && RESOURCE_META[claimResult.rewardResource]?.image ? (
+                      <Image
+                        source={RESOURCE_META[claimResult.rewardResource].image}
+                        style={{ width: 24, height: 24 }}
+                        resizeMode="contain"
+                      />
+                    ) : null}
+                    <Text style={styles.modalReward}>
+                      +{claimResult.rewardAmount}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={styles.modalNoReward}>Ödül yok</Text>
                 )}
@@ -1532,53 +1580,121 @@ export default function MainScreen() {
                     </View>
                     {/* Battle log */}
                     {(pvpResult.combat_log?.length ?? 0) > 0 && (
-                      <ScrollView
-                        style={styles.pvpLogScroll}
-                        showsVerticalScrollIndicator={false}
-                        nestedScrollEnabled
-                      >
-                        {pvpResult.combat_log.map((entry: any, i: number) => {
-                          const isAtk = entry.actor === "attacker";
-                          const newRound =
-                            i === 0 ||
-                            pvpResult.combat_log[i - 1]?.round !== entry.round;
-                          return (
-                            <View key={i}>
-                              {newRound && (
-                                <Text style={styles.pvpLogRound}>
-                                  — Tur {entry.round + 1} —
-                                </Text>
-                              )}
-                              <View style={styles.pvpLogRow}>
-                                <Text
+                      <>
+                        <Text style={styles.logTitle}>Savaş Günlüğü</Text>
+                        <ScrollView
+                          style={styles.logScroll}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                        >
+                          {pvpResult.combat_log.map((entry: any, i: number) => {
+                            const isChamp = entry.actor === "attacker";
+                            const atkHp = isChamp
+                              ? entry.attackerHpAfter
+                              : entry.defenderHpAfter;
+                            const defHp = isChamp
+                              ? entry.defenderHpAfter
+                              : entry.attackerHpAfter;
+                            const blocked = entry.damage === 0;
+                            const newRound =
+                              i === 0 ||
+                              pvpResult.combat_log[i - 1]?.round !== entry.round;
+                            const atkName = isChamp
+                              ? pvpResult.attacker_champion_name
+                              : pvpResult.defender_champion_name;
+                            const defName = isChamp
+                              ? pvpResult.defender_champion_name
+                              : pvpResult.attacker_champion_name;
+
+                            return (
+                              <View key={i} style={styles.logRow}>
+                                {newRound && (
+                                  <View style={styles.roundBadge}>
+                                    <Text style={styles.roundBadgeText}>
+                                      Tur {entry.round + 1}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View
                                   style={[
-                                    styles.pvpLogActor,
-                                    isAtk
-                                      ? styles.pvpLogChamp
-                                      : styles.pvpLogEnemy,
+                                    styles.logLine,
+                                    isChamp ? styles.logLineChamp : styles.logLineEnemy,
                                   ]}
                                 >
-                                  {isAtk
-                                    ? `⚔️ ${pvpResult.attacker_champion_name}`
-                                    : `🛡️ ${pvpResult.defender_champion_name}`}
-                                </Text>
-                                <Text style={styles.pvpLogDmg}>
-                                  {entry.damage === 0
-                                    ? "BLOK"
-                                    : `−${entry.damage}`}
-                                  {entry.isCrit ? " 💥" : ""}
-                                </Text>
-                                <Text style={styles.pvpLogHp}>
-                                  {isAtk
-                                    ? entry.defenderHpAfter
-                                    : entry.attackerHpAfter}{" "}
-                                  HP
-                                </Text>
+                                  {/* Attacker side */}
+                                  <View style={styles.logSide}>
+                                    <Text
+                                      style={[
+                                        styles.logSideName,
+                                        isChamp ? styles.logActorChamp : styles.logActorEnemy,
+                                      ]}
+                                    >
+                                      {isChamp ? "⚔️" : "👹"} {atkName}
+                                    </Text>
+                                    <Text style={styles.logSideHp}>{atkHp} HP</Text>
+                                    <View style={styles.logSideStatRow}>
+                                      <Text style={styles.logAtkVal}>
+                                        ATK {entry.attackValue}
+                                      </Text>
+                                      {entry.atkBoosted && (
+                                        <Text style={styles.logCritBadge}>KRİT</Text>
+                                      )}
+                                    </View>
+                                  </View>
+
+                                  {/* Center */}
+                                  <View style={styles.logCenter}>
+                                    <Text style={styles.logArrow}>→</Text>
+                                    <View
+                                      style={[
+                                        styles.logDmgPill,
+                                        blocked ? styles.logDmgPillBlock : styles.logDmgPillHit,
+                                      ]}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.logDmgText,
+                                          blocked ? styles.logDmgTextBlock : styles.logDmgTextHit,
+                                        ]}
+                                      >
+                                        {blocked ? "BLOK" : `−${entry.damage}`}
+                                      </Text>
+                                    </View>
+                                  </View>
+
+                                  {/* Defender side */}
+                                  <View style={[styles.logSide, styles.logSideRight]}>
+                                    <Text
+                                      style={[
+                                        styles.logSideName,
+                                        isChamp ? styles.logActorEnemy : styles.logActorChamp,
+                                      ]}
+                                    >
+                                      {isChamp ? "👹" : "⚔️"} {defName}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.logSideHp,
+                                        !blocked && styles.logSideHpDamaged,
+                                      ]}
+                                    >
+                                      {defHp} HP
+                                    </Text>
+                                    <View style={[styles.logSideStatRow, styles.logSideStatRight]}>
+                                      {entry.defBoosted && (
+                                        <Text style={styles.logBlockBadge}>BLOK</Text>
+                                      )}
+                                      <Text style={styles.logDefVal}>
+                                        DEF {entry.defenseValue}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </View>
                               </View>
-                            </View>
-                          );
-                        })}
-                      </ScrollView>
+                            );
+                          })}
+                        </ScrollView>
+                      </>
                     )}
                     <TouchableOpacity
                       style={styles.modalBtn}

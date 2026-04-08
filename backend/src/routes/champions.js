@@ -37,11 +37,12 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Revive a dead champion — costs 3 strawberries, restores to max HP
+// Revive a dead champion — costs 4 milk + 4 wool, restores to max HP
 router.post('/:id/revive', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const championId = req.params.id;
-  const REVIVE_COST = 3;
+  const MILK_COST = 4;
+  const WOOL_COST = 4;
 
   try {
     const champRows = await query(
@@ -52,26 +53,32 @@ router.post('/:id/revive', authMiddleware, async (req, res) => {
     const champ = champRows[0];
     if (champ.current_hp > 0) return res.status(400).json({ error: 'Champion is not dead' });
 
-    const resRows = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);
-    if (resRows.length === 0 || resRows[0].strawberry < REVIVE_COST) {
-      return res.status(400).json({ error: `Not enough strawberries (need ${REVIVE_COST})` });
+    const resRows = await query('SELECT milk, wool FROM player_resources WHERE player_id = $1', [playerId]);
+    if (resRows.length === 0 || resRows[0].milk < MILK_COST || resRows[0].wool < WOOL_COST) {
+      return res.status(400).json({ error: `Not enough resources (need ${MILK_COST} milk + ${WOOL_COST} wool)` });
     }
 
-    await query('UPDATE player_resources SET strawberry = GREATEST(strawberry - $1, 0) WHERE player_id = $2', [REVIVE_COST, playerId]);
+    await query(
+      'UPDATE player_resources SET milk = GREATEST(milk - $1, 0), wool = GREATEST(wool - $2, 0) WHERE player_id = $3',
+      [MILK_COST, WOOL_COST, playerId]
+    );
     await query('UPDATE champions SET current_hp = max_hp WHERE id = $1', [championId]);
 
-    const updated = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);
-    res.json({ success: true, strawberry: updated[0].strawberry });
+    const updated = await query('SELECT milk, wool FROM player_resources WHERE player_id = $1', [playerId]);
+    res.json({ success: true, milk: updated[0].milk, wool: updated[0].wool });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Revive failed' });
   }
 });
 
-// Heal an injured champion — costs ceil(missingHp / 35) strawberries, restores to max HP
+// Heal an injured champion — costs 2 milk + 2 egg, restores +20 HP (capped at max)
 router.post('/:id/heal', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const championId = req.params.id;
+  const MILK_COST = 2;
+  const EGG_COST = 2;
+  const HEAL_AMOUNT = 20;
 
   try {
     const champRows = await query(
@@ -84,19 +91,20 @@ router.post('/:id/heal', authMiddleware, async (req, res) => {
     if (champ.current_hp <= 0) return res.status(400).json({ error: 'Champion is dead, use revive' });
     if (champ.current_hp >= effectiveMaxHp) return res.status(400).json({ error: 'Champion is already at full HP' });
 
-    const missingHp = effectiveMaxHp - champ.current_hp;
-    const healCost = Math.ceil(missingHp / 35);
-
-    const resRows = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);
-    if (resRows.length === 0 || resRows[0].strawberry < healCost) {
-      return res.status(400).json({ error: `Not enough strawberries (need ${healCost})` });
+    const resRows = await query('SELECT milk, egg FROM player_resources WHERE player_id = $1', [playerId]);
+    if (resRows.length === 0 || resRows[0].milk < MILK_COST || resRows[0].egg < EGG_COST) {
+      return res.status(400).json({ error: `Not enough resources (need ${MILK_COST} milk + ${EGG_COST} egg)` });
     }
 
-    await query('UPDATE player_resources SET strawberry = GREATEST(strawberry - $1, 0) WHERE player_id = $2', [healCost, playerId]);
-    await query('UPDATE champions SET current_hp = $1 WHERE id = $2', [effectiveMaxHp, championId]);
+    const newHp = Math.min(champ.current_hp + HEAL_AMOUNT, effectiveMaxHp);
+    await query(
+      'UPDATE player_resources SET milk = GREATEST(milk - $1, 0), egg = GREATEST(egg - $2, 0) WHERE player_id = $3',
+      [MILK_COST, EGG_COST, playerId]
+    );
+    await query('UPDATE champions SET current_hp = $1 WHERE id = $2', [newHp, championId]);
 
-    const updated = await query('SELECT strawberry FROM player_resources WHERE player_id = $1', [playerId]);
-    res.json({ success: true, strawberry: updated[0].strawberry, healCost });
+    const updated = await query('SELECT milk, egg FROM player_resources WHERE player_id = $1', [playerId]);
+    res.json({ success: true, milk: updated[0].milk, egg: updated[0].egg, newHp });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Heal failed' });
