@@ -1,4 +1,5 @@
-import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { useRef, useEffect } from "react";
+import { View, Image, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { Text } from "./StyledText";
 import { Animal } from "../types";
 import { ANIMAL_META, RESOURCE_META } from "../constants/resources";
@@ -8,6 +9,8 @@ type Props = {
   animal: Animal;
   onPress?: (animal: Animal) => void;
 };
+
+const getMaxCapacity = (level: number) => 9 + level;
 
 export default function AnimalCard({ animal, onPress }: Props) {
   const { t } = useLanguage();
@@ -35,7 +38,23 @@ export default function AnimalCard({ animal, onPress }: Props) {
   const feedPct =
     animal.max_feed > 0 ? Math.min(liveFeedUnits / animal.max_feed, 1) : 0;
 
+  const isFull = (animal.pending ?? 0) >= getMaxCapacity(animal.level);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!isFull) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => { loop.stop(); pulseAnim.setValue(1); };
+  }, [isFull]);
+
   return (
+    <View style={styles.wrapper}>
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.85}
@@ -104,6 +123,12 @@ export default function AnimalCard({ animal, onPress }: Props) {
         </Text>
       </View>
     </TouchableOpacity>
+    {isFull && (
+      <Animated.View style={[styles.fullBadge, { transform: [{ scale: pulseAnim }] }]}>
+        <Text style={styles.fullBadgeText}>FULL</Text>
+      </Animated.View>
+    )}
+    </View>
   );
 }
 
@@ -117,6 +142,10 @@ function StatCell({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    position: "relative",
+  },
   card: {
     flex: 1,
     backgroundColor: "#f5edd8",
@@ -229,5 +258,23 @@ const styles = StyleSheet.create({
     color: "#3a2a10",
     minWidth: 32,
     textAlign: "right",
+  },
+  fullBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#e67e22",
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    zIndex: 10,
+  },
+  fullBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.5,
   },
 });

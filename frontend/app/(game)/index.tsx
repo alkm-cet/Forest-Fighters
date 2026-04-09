@@ -191,6 +191,27 @@ export default function MainScreen() {
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // Notification dot pulse
+  const dotPulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotPulse, {
+          toValue: 1.6,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotPulse, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
   // ── Seed state from loading-screen snapshot (first mount only) ──────────
   const { snapshot } = useGameData();
   const seededRef = useRef(false);
@@ -432,16 +453,30 @@ export default function MainScreen() {
                     style={styles.leagueImg}
                     resizeMode="contain"
                   />
-                  <Text style={[styles.leagueName, { color: getLeagueMeta(pvpTrophies).color }]}>
+                  <Text
+                    style={[
+                      styles.leagueName,
+                      { color: getLeagueMeta(pvpTrophies).color },
+                    ]}
+                  >
                     {getLeagueMeta(pvpTrophies).label}
                   </Text>
                   <View style={styles.pillDivider} />
                   {/* Trophy */}
-                  <Trophy size={10} color="#60552f" strokeWidth={2.5} fill="#60552f" />
+                  <Trophy
+                    size={10}
+                    color="#60552f"
+                    strokeWidth={2.5}
+                    fill="#60552f"
+                  />
                   <Text style={styles.trophyCount}>{pvpTrophies}</Text>
                   <View style={styles.pillDivider} />
                   {/* Coin */}
-                  <Image source={COIN_IMG} style={styles.coinImg} resizeMode="contain" />
+                  <Image
+                    source={COIN_IMG}
+                    style={styles.coinImg}
+                    resizeMode="contain"
+                  />
                   <Text style={styles.coinCount}>{coins}</Text>
                 </View>
               </View>
@@ -566,48 +601,96 @@ export default function MainScreen() {
         {hasCards && (
           <View style={styles.cardsSection}>
             {/* Section header with 3-tab buttons */}
-
-            <View style={styles.tabRow}>
-              {(["champions", "farmers", "animals"] as TabName[]).map((tab) => {
-                const isActive = activeTab === tab;
-                const tabIcon =
-                  tab === "champions"
-                    ? ICON_FIGHTERS
-                    : tab === "farmers"
-                      ? ICON_FARMERS
-                      : ICON_ANIMALS;
-                const tabLabel =
-                  tab === "champions"
-                    ? t("champions")
-                    : tab === "farmers"
-                      ? t("farmers")
-                      : "Animals";
-                return (
-                  <TouchableOpacity
-                    key={tab}
-                    style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-                    onPress={() => switchTab(tab)}
-                    activeOpacity={0.75}
-                  >
-                    <Image
-                      source={tabIcon}
-                      style={[
-                        styles.tabBtnIcon,
-                        !isActive && styles.tabBtnIconInactive,
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.tabBtnText,
-                        isActive && styles.tabBtnTextActive,
-                      ]}
-                    >
-                      {tabLabel}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {(() => {
+              const farmerMaxCap = (level: number) => 4 + level;
+              const calcFarmerPending = (f: (typeof farmers)[0]) => {
+                const maxCap = farmerMaxCap(f.level);
+                if (
+                  !f._fetched_at_ms ||
+                  !f.interval_minutes ||
+                  f.next_ready_in_seconds == null
+                )
+                  return Math.min(f.pending ?? 0, maxCap);
+                const elapsed = (Date.now() - f._fetched_at_ms) / 1000;
+                const cycle = f.interval_minutes * 60;
+                const rawLeft = Math.max(0, f.next_ready_in_seconds - elapsed);
+                const burned = f.next_ready_in_seconds - rawLeft;
+                const extra =
+                  cycle > 0
+                    ? Math.floor(
+                        (cycle - f.next_ready_in_seconds + burned) / cycle,
+                      )
+                    : 0;
+                return Math.min((f.pending ?? 0) + extra, maxCap);
+              };
+              const allFarmersFull =
+                farmers.slice(0, 3).length === 3 &&
+                farmers
+                  .slice(0, 3)
+                  .every((f) => calcFarmerPending(f) >= farmerMaxCap(f.level));
+              const allAnimalsReady =
+                animals.slice(0, 3).length === 3 &&
+                animals.slice(0, 3).every((a) => (a.pending ?? 0) > 1);
+              return (
+                <View style={styles.tabRow}>
+                  {(["champions", "farmers", "animals"] as TabName[]).map(
+                    (tab) => {
+                      const isActive = activeTab === tab;
+                      const tabIcon =
+                        tab === "champions"
+                          ? ICON_FIGHTERS
+                          : tab === "farmers"
+                            ? ICON_FARMERS
+                            : ICON_ANIMALS;
+                      const tabLabel =
+                        tab === "champions"
+                          ? t("champions")
+                          : tab === "farmers"
+                            ? t("farmers")
+                            : "Animals";
+                      const showDot =
+                        (tab === "farmers" && allFarmersFull) ||
+                        (tab === "animals" && allAnimalsReady);
+                      return (
+                        <TouchableOpacity
+                          key={tab}
+                          style={[
+                            styles.tabBtn,
+                            isActive && styles.tabBtnActive,
+                          ]}
+                          onPress={() => switchTab(tab)}
+                          activeOpacity={0.75}
+                        >
+                          <Image
+                            source={tabIcon}
+                            style={[
+                              styles.tabBtnIcon,
+                              !isActive && styles.tabBtnIconInactive,
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.tabBtnText,
+                              isActive && styles.tabBtnTextActive,
+                            ]}
+                          >
+                            {tabLabel}
+                          </Text>
+                          {showDot && (
+                            <Animated.View
+                              style={[
+                                styles.notifDot,
+                                { transform: [{ scale: dotPulse }] },
+                              ]}
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    },
+                  )}
+                </View>
+              );
+            })()}
 
             {/* Collect floater — rendered outside slideClip to avoid overflow:hidden clipping */}
             {collectAnim && activeTab === "farmers" && (
@@ -2040,6 +2123,15 @@ const styles = StyleSheet.create({
     color: "#3a1e00",
     fontWeight: "900",
   },
+  notifDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#e67e22",
+    borderWidth: 1,
+    borderColor: "#fff",
+    marginLeft: 2,
+  },
   slideClip: {
     overflow: "hidden",
   },
@@ -2050,6 +2142,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 12,
+    paddingTop: 8,
   },
   modalOverlay: {
     flex: 1,

@@ -1,4 +1,11 @@
-import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
+import { useRef, useEffect } from "react";
+import {
+  View,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import { Text } from "./StyledText";
 import { Sprout } from "lucide-react-native";
 import { Farmer } from "../types";
@@ -14,14 +21,23 @@ const getMaxCapacity = (level: number) => 4 + level;
 
 function calcLivePending(farmer: Farmer): number {
   const maxCap = getMaxCapacity(farmer.level);
-  if (!farmer._fetched_at_ms || !farmer.interval_minutes || farmer.next_ready_in_seconds == null) {
+  if (
+    !farmer._fetched_at_ms ||
+    !farmer.interval_minutes ||
+    farmer.next_ready_in_seconds == null
+  ) {
     return Math.min(farmer.pending ?? 0, maxCap);
   }
   const elapsedSec = (Date.now() - farmer._fetched_at_ms) / 1000;
   const cycleSec = farmer.interval_minutes * 60;
   const rawTimeLeft = Math.max(0, farmer.next_ready_in_seconds - elapsedSec);
   const burned = farmer.next_ready_in_seconds - rawTimeLeft;
-  const extraCycles = cycleSec > 0 ? Math.floor((cycleSec - farmer.next_ready_in_seconds + burned) / cycleSec) : 0;
+  const extraCycles =
+    cycleSec > 0
+      ? Math.floor(
+          (cycleSec - farmer.next_ready_in_seconds + burned) / cycleSec,
+        )
+      : 0;
   return Math.min(farmer.pending + extraCycles, maxCap);
 }
 
@@ -34,52 +50,94 @@ export default function FarmerCard({ farmer, onPress }: Props) {
   };
 
   const livePending = calcLivePending(farmer);
+  const maxCap = getMaxCapacity(farmer.level);
+  const isFull = livePending >= maxCap;
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!isFull) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.25,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      pulseAnim.setValue(1);
+    };
+  }, [isFull]);
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={() => onPress?.(farmer)}
-    >
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <StatCell label={t("lvl")} value={String(farmer.level)} />
-        <View style={styles.statDivider} />
-        <StatCell label="ÜRT" value={`1/${Number(farmer.interval_minutes).toFixed(1)}m`} />
-      </View>
-
-      {/* Farmer cat image */}
-      <View style={styles.imageWrapper}>
-        {meta.catImage ? (
-          <Image
-            source={meta.catImage}
-            style={styles.resourceImage}
-            resizeMode="contain"
-          />
-        ) : null}
-      </View>
-
-      {/* Farmer name */}
-      <Text style={styles.name}>{farmer.name}</Text>
-
-      {/* Production bar footer */}
-      <View style={styles.prodRow}>
-        <Sprout size={11} color="#4a8c3f" strokeWidth={2} />
-        <View style={styles.prodTrack}>
-          <View
-            style={[
-              styles.prodFill,
-              {
-                width:
-                  `${Math.min((livePending / getMaxCapacity(farmer.level)) * 100, 100)}%` as any,
-                backgroundColor: meta.color,
-              },
-            ]}
+    <View style={styles.wrapper}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={() => onPress?.(farmer)}
+      >
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <StatCell label={t("lvl")} value={String(farmer.level)} />
+          <View style={styles.statDivider} />
+          <StatCell
+            label="ÜRT"
+            value={`1/${Number(farmer.interval_minutes).toFixed(1)}m`}
           />
         </View>
-        <Text style={styles.prodValue}>{livePending}/{getMaxCapacity(farmer.level)}</Text>
-      </View>
-    </TouchableOpacity>
+
+        {/* Farmer cat image */}
+        <View style={styles.imageWrapper}>
+          {meta.catImage ? (
+            <Image
+              source={meta.catImage}
+              style={styles.resourceImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </View>
+
+        {/* Farmer name */}
+        <Text style={styles.name}>{farmer.name}</Text>
+
+        {/* Production bar footer */}
+        <View style={styles.prodRow}>
+          <Sprout size={11} color="#4a8c3f" strokeWidth={2} />
+          <View style={styles.prodTrack}>
+            <View
+              style={[
+                styles.prodFill,
+                {
+                  width:
+                    `${Math.min((livePending / maxCap) * 100, 100)}%` as any,
+                  backgroundColor: meta.color,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.prodValue}>
+            {livePending}/{maxCap}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      {/* Pulsing FULL badge */}
+      {isFull && (
+        <Animated.View
+          style={[styles.fullBadge, { transform: [{ scale: pulseAnim }] }]}
+        >
+          <Text style={styles.fullBadgeText}>FULL</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -103,6 +161,10 @@ function StatCell({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    position: "relative",
+  },
   card: {
     flex: 1,
     backgroundColor: "#f5edd8",
@@ -113,7 +175,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     paddingTop: 8,
   },
-
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -124,15 +185,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 2,
   },
-  statCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: "#c8aa82",
-  },
+  statCell: { flex: 1, alignItems: "center" },
+  statDivider: { width: 1, height: 20, backgroundColor: "#c8aa82" },
   statLabel: {
     fontSize: 9,
     fontWeight: "700",
@@ -140,11 +194,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
-  statValue: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#3a2a10",
-  },
+  statValue: { fontSize: 13, fontWeight: "800", color: "#3a2a10" },
 
   imageWrapper: {
     width: "100%",
@@ -152,17 +202,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  resourceImage: {
-    width: 70,
-    height: 70,
-  },
+  resourceImage: { width: 70, height: 70 },
 
-  name: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#3a2a10",
-    marginBottom: 4,
-  },
+  name: { fontSize: 13, fontWeight: "800", color: "#3a2a10", marginBottom: 4 },
 
   prodRow: {
     flexDirection: "row",
@@ -178,19 +220,35 @@ const styles = StyleSheet.create({
   prodTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: "#d4b896",
+    backgroundColor: "rgba(0,0,0,0.15)",
     borderRadius: 3,
     overflow: "hidden",
   },
-  prodFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
+  prodFill: { height: "100%", borderRadius: 3 },
   prodValue: {
     fontSize: 10,
     fontWeight: "700",
     color: "#3a2a10",
     minWidth: 28,
     textAlign: "right",
+  },
+
+  fullBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#e67e22",
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    zIndex: 10,
+  },
+  fullBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.5,
   },
 });
