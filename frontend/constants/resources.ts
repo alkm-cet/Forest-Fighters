@@ -75,6 +75,47 @@ export const ANIMAL_META: Record<
   },
 };
 
+export const FARM_META: Record<
+  string,
+  {
+    image: ReturnType<typeof require>;
+    label: string;
+    farmLabel: string;
+    consumeResource: string;
+    produceResource: string;
+    color: string;
+    upgradeCostPerLevel: number; // pinecone cost = farmLevel * upgradeCostPerLevel
+  }
+> = {
+  chicken: {
+    image: require("../assets/animals/chicken.png"),
+    label: "Chicken",
+    farmLabel: "Chicken Farm",
+    consumeResource: "strawberry",
+    produceResource: "egg",
+    color: "#e8534a",
+    upgradeCostPerLevel: 10,
+  },
+  sheep: {
+    image: require("../assets/animals/sheep.png"),
+    label: "Sheep",
+    farmLabel: "Sheep Farm",
+    consumeResource: "pinecone",
+    produceResource: "wool",
+    color: "#5a8a3c",
+    upgradeCostPerLevel: 10,
+  },
+  cow: {
+    image: require("../assets/animals/cow.png"),
+    label: "Cow",
+    farmLabel: "Cow Farm",
+    consumeResource: "blueberry",
+    produceResource: "milk",
+    color: "#5b6bbf",
+    upgradeCostPerLevel: 10,
+  },
+};
+
 export const CLASS_META: Record<
   string,
   {

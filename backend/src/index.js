@@ -12,6 +12,7 @@ const farmerRoutes = require('./routes/farmers');
 const dungeonRoutes = require('./routes/dungeons');
 const pvpRoutes = require('./routes/pvp');
 const animalRoutes = require('./routes/animals');
+const farmRoutes   = require('./routes/farms');
 const coinRoutes = require('./routes/coins');
 const playerRoutes = require('./routes/players');
 
@@ -40,6 +41,7 @@ app.use('/api/farmers', farmerRoutes);
 app.use('/api/dungeons', dungeonRoutes);
 app.use('/api/pvp', pvpRoutes);
 app.use('/api/animals', animalRoutes);
+app.use('/api/farms',   farmRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/players', playerRoutes);
 

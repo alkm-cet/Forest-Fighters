@@ -261,6 +261,19 @@ async function migrate() {
     `);
     console.log('Animals system migrated');
 
+    // ── Farm system ─────────────────────────────────────────────────────────
+    await query(`
+      CREATE TABLE IF NOT EXISTS player_farms (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        farm_type VARCHAR(20) NOT NULL,
+        level INT DEFAULT 1,
+        UNIQUE(player_id, farm_type)
+      )
+    `);
+    await query(`ALTER TABLE player_animals ADD COLUMN IF NOT EXISTS farm_id UUID REFERENCES player_farms(id)`);
+    console.log('Farm system migrated');
+
     // ── In-game coin system ─────────────────────────────────────────────────
     await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS coins INT DEFAULT 0`);
     console.log('Coins column added to players');

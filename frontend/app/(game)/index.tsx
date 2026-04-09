@@ -26,6 +26,7 @@ import {
   Champion,
   Farmer,
   Animal,
+  Farm,
   Player,
   DungeonRun,
   PvpBattle,
@@ -40,6 +41,8 @@ import FarmerCard from "../../components/FarmerCard";
 import FarmerDrawer from "../../components/FarmerDrawer";
 import AnimalCard from "../../components/AnimalCard";
 import AnimalDrawer from "../../components/AnimalDrawer";
+import FarmCard from "../../components/FarmCard";
+import FarmDrawer from "../../components/FarmDrawer";
 import CollectFloater from "../../components/CollectFloater";
 
 const TAB_BACKGROUNDS = {
@@ -102,11 +105,13 @@ export default function MainScreen() {
   } | null>(null);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
+  const [farms, setFarms] = useState<Farm[]>([]);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
+  const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [collectAnim, setCollectAnim] = useState<{
     farmerId: string;
     amount: number;
@@ -224,6 +229,10 @@ export default function MainScreen() {
     setChampions(snapshot.champions);
     setFarmers(snapshot.farmers);
     setAnimals(snapshot.animals);
+    setFarms(snapshot.farms ?? []);
+    setSelectedFarm((prev) =>
+      prev ? (snapshot.farms?.find((f) => f.id === prev.id) ?? prev) : null,
+    );
     setSelectedAnimal((prev) =>
       prev ? (snapshot.animals.find((a) => a.id === prev.id) ?? prev) : null,
     );
@@ -271,6 +280,17 @@ export default function MainScreen() {
             prev
               ? (stamped.find((a: Animal) => a.id === prev.id) ?? prev)
               : null,
+          );
+        }),
+        api.get("/api/farms").then((r) => {
+          const now = Date.now();
+          const stamped = r.data.map((farm: Farm) => ({
+            ...farm,
+            animals: (farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+          }));
+          setFarms(stamped);
+          setSelectedFarm((prev) =>
+            prev ? (stamped.find((f: Farm) => f.id === prev.id) ?? prev) : null,
           );
         }),
         api.get("/api/dungeons/runs").then((r) => {
@@ -398,7 +418,7 @@ export default function MainScreen() {
   }
 
   const hasCards =
-    champions.length > 0 || farmers.length > 0 || animals.length > 0;
+    champions.length > 0 || farmers.length > 0 || animals.length > 0 || farms.length > 0;
 
   return (
     <View style={styles.bg}>
@@ -629,8 +649,8 @@ export default function MainScreen() {
                   .slice(0, 3)
                   .every((f) => calcFarmerPending(f) >= farmerMaxCap(f.level));
               const allAnimalsReady =
-                animals.slice(0, 3).length === 3 &&
-                animals.slice(0, 3).every((a) => (a.pending ?? 0) > 1);
+                farms.length === 3 &&
+                farms.every((f) => (f.total_pending ?? 0) > 0);
               return (
                 <View style={styles.tabRow}>
                   {(["champions", "farmers", "animals"] as TabName[]).map(
@@ -754,13 +774,13 @@ export default function MainScreen() {
                   ))}
                 </View>
 
-                {/* Animals row */}
+                {/* Animals row — farm cards */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
-                  {animals.slice(0, 3).map((a) => (
-                    <AnimalCard
-                      key={a.id}
-                      animal={a}
-                      onPress={setSelectedAnimal}
+                  {farms.slice(0, 3).map((f) => (
+                    <FarmCard
+                      key={f.id}
+                      farm={f}
+                      onPress={setSelectedFarm}
                     />
                   ))}
                 </View>
@@ -1082,6 +1102,42 @@ export default function MainScreen() {
             setSelectedFarmer(fresh);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Geliştirme başarısız");
+          }
+        }}
+      />
+
+      <FarmDrawer
+        farm={selectedFarm}
+        resources={resources}
+        onClose={() => setSelectedFarm(null)}
+        onCollect={async (farm) => {
+          try {
+            const res = await api.post(`/api/farms/${farm.farm_type}/collect`);
+            const now = Date.now();
+            const updated: Farm = {
+              ...res.data.farm,
+              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+            };
+            setResources(res.data.resources);
+            setFarms((prev) => prev.map((f) => (f.id === farm.id ? updated : f)));
+            setSelectedFarm(updated);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Collect failed");
+          }
+        }}
+        onUpgrade={async (farm) => {
+          try {
+            const res = await api.post(`/api/farms/${farm.farm_type}/upgrade`);
+            const now = Date.now();
+            const updated: Farm = {
+              ...res.data.farm,
+              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+            };
+            setResources(res.data.resources);
+            setFarms((prev) => prev.map((f) => (f.id === farm.id ? updated : f)));
+            setSelectedFarm(updated);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Farm upgrade failed");
           }
         }}
       />

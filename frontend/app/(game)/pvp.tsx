@@ -274,26 +274,6 @@ export default function PvpScreen() {
                 ) : (
                   opponent && (
                     <>
-                      {/* My champion */}
-                      <ChampionCard
-                        name={championName ?? ""}
-                        className={championClass ?? ""}
-                        meta={myMeta}
-                        atk={atk}
-                        def={def}
-                        chc={chc}
-                        hp={hp}
-                        maxHp={maxHp}
-                        hpColor={hpColor}
-                        label="SEN"
-                        labelColor="#81c784"
-                      />
-
-                      {/* VS badge */}
-                      <View style={styles.vsBadge}>
-                        <Text style={styles.vsText}>VS</Text>
-                      </View>
-
                       {/* Loot + Trophy preview */}
                       <View style={styles.lootCard}>
                         <Text style={styles.lootTitle}>
@@ -325,10 +305,7 @@ export default function PvpScreen() {
                                   style={styles.lootIcon}
                                 />
                                 <Text
-                                  style={[
-                                    styles.lootVal,
-                                    { color: "#e8534a" },
-                                  ]}
+                                  style={[styles.lootVal, { color: "#e8534a" }]}
                                 >
                                   +{opponent.preview_strawberry}
                                 </Text>
@@ -341,10 +318,7 @@ export default function PvpScreen() {
                                   style={styles.lootIcon}
                                 />
                                 <Text
-                                  style={[
-                                    styles.lootVal,
-                                    { color: "#6dbf67" },
-                                  ]}
+                                  style={[styles.lootVal, { color: "#6dbf67" }]}
                                 >
                                   +{opponent.preview_pinecone}
                                 </Text>
@@ -357,10 +331,7 @@ export default function PvpScreen() {
                                   style={styles.lootIcon}
                                 />
                                 <Text
-                                  style={[
-                                    styles.lootVal,
-                                    { color: "#8b9cf7" },
-                                  ]}
+                                  style={[styles.lootVal, { color: "#8b9cf7" }]}
                                 >
                                   +{opponent.preview_blueberry}
                                 </Text>
@@ -368,6 +339,26 @@ export default function PvpScreen() {
                             )}
                           </View>
                         )}
+                      </View>
+
+                      {/* My champion */}
+                      <ChampionCard
+                        name={championName ?? ""}
+                        className={championClass ?? ""}
+                        meta={myMeta}
+                        atk={atk}
+                        def={def}
+                        chc={chc}
+                        hp={hp}
+                        maxHp={maxHp}
+                        hpColor={hpColor}
+                        label="SEN"
+                        labelColor="#81c784"
+                      />
+
+                      {/* VS badge */}
+                      <View style={styles.vsBadge}>
+                        <Text style={styles.vsText}>VS</Text>
                       </View>
 
                       {/* Opponent */}
@@ -746,7 +737,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 6,
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   lootTitle: {
     fontSize: 14,

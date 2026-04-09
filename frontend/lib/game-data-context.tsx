@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from "react";
 import api from "./api";
-import { Player, Resources, Champion, Farmer, Animal, DungeonRun } from "../types";
+import { Player, Resources, Champion, Farmer, Animal, Farm, DungeonRun } from "../types";
 
 const DEFAULT_RESOURCES: Resources = {
   strawberry: 0,
@@ -32,6 +32,7 @@ export type GameSnapshot = {
   champions: Champion[];
   farmers: Farmer[];
   animals: Animal[];
+  farms: Farm[];
   runMap: Record<string, DungeonRun>;
   pvp: PvpSnapshot;
 };
@@ -46,7 +47,7 @@ const LOAD_STEPS: Array<{
   { label: "Fetching resources…",   weight: 15, fetch: () => api.get("/api/resources").then((r) => r.data) },
   { label: "Gathering champions…",  weight: 14, fetch: () => api.get("/api/champions").then((r) => r.data) },
   { label: "Calling farmers…",      weight: 14, fetch: () => api.get("/api/farmers").then((r) => r.data) },
-  { label: "Waking up animals…",    weight: 15, fetch: () => api.get("/api/animals").then((r) => r.data) },
+  { label: "Waking up animals…",    weight: 15, fetch: () => api.get("/api/farms").then((r) => r.data) },
   { label: "Scouting dungeons…",    weight: 14, fetch: () => api.get("/api/dungeons/runs").then((r) => r.data) },
   { label: "Preparing battles…",    weight: 14, fetch: () => api.get("/api/pvp/status").then((r) => r.data) },
 ];
@@ -74,7 +75,7 @@ export function GameDataProvider({ children }: { children: React.ReactNode }) {
       onProgress(cumulative, step.label);
     }
 
-    const [playerData, resourcesData, championsData, farmersData, animalsData, runsData, pvpData] =
+    const [playerData, resourcesData, championsData, farmersData, farmsData, runsData, pvpData] =
       results;
 
     const now = Date.now();
@@ -91,7 +92,11 @@ export function GameDataProvider({ children }: { children: React.ReactNode }) {
       resources: resourcesData ?? DEFAULT_RESOURCES,
       champions: championsData ?? [],
       farmers: (farmersData ?? []).map((f: Farmer) => ({ ...f, _fetched_at_ms: now })),
-      animals: (animalsData ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+      animals: [],
+      farms: (farmsData ?? []).map((farm: Farm) => ({
+        ...farm,
+        animals: (farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+      })),
       runMap,
       pvp: {
         defenderId: pvpData.defender_champion_id ?? null,

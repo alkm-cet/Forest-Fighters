@@ -21,6 +21,7 @@ export type AnimalType = "chicken" | "sheep" | "cow";
 export type Animal = {
   id: string;
   animal_type: AnimalType;
+  farm_id?: string;
   level: number;
   current_feed: number;        // display: floor(fuel_remaining_minutes / minutes_per_feed)
   max_feed: number;            // max feed units (e.g. 30)
@@ -36,6 +37,17 @@ export type Animal = {
   consume_resource: string;
   produce_resource: string;
   _fetched_at_ms: number;      // client-side: Date.now() when this snapshot arrived
+};
+
+export type Farm = {
+  id: string;
+  farm_type: AnimalType;
+  level: number;            // farm level = max slots (max 20)
+  slot_count: number;       // min(level, 20)
+  animals: Animal[];        // individual animals in this farm (each with _fetched_at_ms)
+  total_pending: number;    // sum of animals' pending
+  produce_resource: string;
+  consume_resource: string;
 };
 
 export type Champion = {
