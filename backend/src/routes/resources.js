@@ -90,7 +90,7 @@ router.post('/upgrade-capacity', authMiddleware, async (req, res) => {
     );
 
     const updated = await query(
-      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap FROM player_resources WHERE player_id = $1',
+      'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1',
       [playerId]
     );
     return res.json(updated[0]);

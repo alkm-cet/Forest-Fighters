@@ -80,6 +80,7 @@ export type Farmer = {
   next_ready_in_seconds: number;
   last_collected_at?: string;  // ISO string from backend, used to detect data updates
   _fetched_at_ms: number;      // client-side: Date.now() when this snapshot arrived
+  active_boost_pct?: number;   // sum of active boost_production % for this farmer
 };
 
 export type Player = {
@@ -192,6 +193,42 @@ export type PvpStatus = {
     result_available_at: string;
     opponent_name: string;
   } | null;
+};
+
+export type Recipe = {
+  id: string;
+  name: string;
+  target: 'fighters' | 'farmers' | 'animals' | 'farm_animals' | 'all';
+  effect_type: string;
+  effect_value: number;
+  effect_duration_minutes: number | null;
+  cook_duration_minutes: number;
+  ingredients: Partial<Record<ResourceKey | AdvancedResourceKey, number>>;
+  tier: 1 | 2 | 3;
+};
+
+export type PlayerFood = {
+  id: string;
+  recipe_id: string;
+  recipe: Recipe;
+  status: 'cooking' | 'ready' | 'used';
+  cooking_started_at: string;
+  cooking_ready_at: string;
+  cooking_ready_at_ms: number;
+  cooking_started_at_ms: number;
+  _fetched_at_ms: number;
+  used_at: string | null;
+  expires_at_ms?: number;  // when the boost from this food expires (set after use)
+};
+
+export type ActiveBoost = {
+  id: string;
+  boost_type: string;
+  boost_value: number;
+  target: string;
+  expires_at: string;
+  entity_id?: string | null;
+  is_one_shot: boolean;
 };
 
 export type PvpBattle = {

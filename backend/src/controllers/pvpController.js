@@ -193,7 +193,8 @@ async function attackPvp(req, res) {
     if (!defChampRows.length) return res.status(400).json({ error: 'Defender has no valid champion' });
     const defChamp = defChampRows[0];
 
-    // ── Simulate combat (apply one-time boosts to stats) ──────────────────────
+    // ── Simulate combat ───────────────────────────────────────────────────────
+    // champion.boost_hp/defense/chance already include food boosts (written by /use endpoint)
     const attacker = {
       attack:  attChamp.attack,
       defense: attChamp.defense + (attChamp.boost_defense || 0),
@@ -424,7 +425,7 @@ async function getBattles(req, res) {
         );
       }
 
-      // Free attacker champion and consume their boosts
+      // Free attacker champion and consume their legacy boost columns
       await query(
         `UPDATE champions SET
            is_deployed  = FALSE,
@@ -436,7 +437,13 @@ async function getBattles(req, res) {
         [b.attacker_champion_id]
       );
 
-      // Consume defender's boosts (battle consumed them regardless of outcome)
+      // Delete one-shot food boosts for the attacker champion
+      await query(
+        `DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`,
+        [b.attacker_champion_id]
+      );
+
+      // Consume defender's legacy boost columns (battle consumed them regardless of outcome)
       await query(
         `UPDATE champions SET
            boost_hp      = 0,

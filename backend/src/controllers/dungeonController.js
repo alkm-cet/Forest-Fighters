@@ -208,6 +208,7 @@ async function claimRun(req, res) {
       return res.status(400).json({ error: 'Dungeon run has not finished yet' });
     }
 
+    // champion.boost_hp/defense/chance already include food boosts (written by /use endpoint)
     const attacker = {
       attack: run.attack,
       defense: run.defense + (run.boost_defense || 0),
@@ -259,11 +260,17 @@ async function claimRun(req, res) {
       }
     }
 
-    // Update champion: HP + XP + level + stat points + clear boosts
+    // Update champion: HP + XP + level + stat points + clear legacy boost columns
     const finalHp = Math.min(result.attackerHpLeft, run.max_hp);
     await query(
       'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5, boost_hp = 0, boost_defense = 0, boost_chance = 0 WHERE id = $6',
       [finalHp, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
+    );
+
+    // Delete one-shot food boosts for this champion (consumed by the battle)
+    await query(
+      `DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`,
+      [run.champion_id]
     );
 
     // Unlock PvP for this player if any champion reached level 3

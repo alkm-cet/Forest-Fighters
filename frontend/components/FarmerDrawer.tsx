@@ -10,14 +10,17 @@ import {
   PanResponder,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Sprout, Package, ArrowUp, Timer } from "lucide-react-native";
-import { Farmer, Resources } from "../types";
+import { X, Sprout, Package, ArrowUp, Timer, Plus } from "lucide-react-native";
+import { Farmer, Resources, PlayerFood } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 const COIN_IMG = require("../assets/icons/icon-coin.webp");
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 import CustomButton from "./CustomButton";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
 import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
+import FoodInventoryDrawer from "./FoodInventoryDrawer";
+import { FOOD_EMOJIS, describeEffect } from "./FoodCard";
+import api from "../lib/api";
 
 // Cross-resource upgrade costs
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
@@ -49,6 +52,7 @@ type Props = {
   onCollect: (farmer: Farmer) => void;
   onUpgrade: (farmer: Farmer) => void;
   onFillStorage?: (farmer: Farmer) => void;
+  onFarmerUpdated?: (farmer: Farmer) => void;
 };
 
 const DISMISS_THRESHOLD = 100;
@@ -61,10 +65,19 @@ export default function FarmerDrawer({
   onCollect,
   onUpgrade,
   onFillStorage,
+  onFarmerUpdated,
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
   const translateY = useRef(new Animated.Value(0)).current;
+
+  // Food slots state
+  const [foodInventoryOpen, setFoodInventoryOpen] = useState(false);
+  const [playerFoods, setPlayerFoods] = useState<PlayerFood[]>([]);
+  const [slotFoods, setSlotFoods] = useState<[PlayerFood | null, PlayerFood | null]>([null, null]);
+  const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+  const [tick, setTick] = useState(0);
+  const [removeSlot, setRemoveSlot] = useState<0 | 1 | null>(null);
 
   // Live pending + countdown managed locally
   const [livePending, setLivePending] = useState(0);
@@ -92,10 +105,61 @@ export default function FarmerDrawer({
     return { timeLeft: Math.round(timeLeft), pending };
   }
 
-  // Slide animation reset — only when the drawer opens (new farmer)
+  // Slide animation reset + food slot reload — only when the drawer opens (new farmer)
   useEffect(() => {
-    if (farmer) translateY.setValue(0);
+    if (farmer) {
+      translateY.setValue(0);
+      setFoodInventoryOpen(false);
+      setPlayerFoods([]);
+      loadActiveSlots(farmer.id);
+    }
   }, [farmer?.id]);
+
+  function boostTypeLabel(type: string): string {
+    if (type === 'boost_production') return 'Production Boost';
+    if (type === 'boost_capacity')   return 'Capacity Boost';
+    return 'Boost';
+  }
+
+  async function loadActiveSlots(farmerId: string) {
+    try {
+      const res = await api.get(`/api/kitchen/boosts?entity_id=${farmerId}`);
+      const boosts: any[] = res.data;
+      const slots: [PlayerFood | null, PlayerFood | null] = [null, null];
+      let slotIdx = 0;
+      for (const b of boosts) {
+        if (slotIdx >= 2) break;
+        const recipeName = b.recipe_name ?? boostTypeLabel(b.boost_type);
+        slots[slotIdx as 0 | 1] = {
+          id: b.id,
+          recipe_id: b.recipe_id ?? b.id,
+          recipe: {
+            id: b.recipe_id ?? b.id,
+            name: recipeName,
+            target: b.recipe_target ?? b.target,
+            effect_type: b.recipe_effect_type ?? b.boost_type,
+            effect_value: b.recipe_effect_value ?? b.boost_value,
+            effect_duration_minutes: b.recipe_duration ?? null,
+            cook_duration_minutes: b.recipe_cook_duration ?? 0,
+            ingredients: b.recipe_ingredients ?? {},
+            tier: (b.recipe_tier ?? 1) as 1 | 2 | 3,
+          },
+          status: 'ready',
+          cooking_started_at: '',
+          cooking_ready_at: '',
+          cooking_ready_at_ms: 0,
+          cooking_started_at_ms: 0,
+          _fetched_at_ms: Date.now(),
+          used_at: null,
+          expires_at_ms: b.expires_at_ms ? Number(b.expires_at_ms) : undefined,
+        } as PlayerFood;
+        slotIdx++;
+      }
+      setSlotFoods(slots);
+    } catch {
+      setSlotFoods([null, null]);
+    }
+  }
 
   // Re-interpolate whenever farmer data changes (open or after fill/collect)
   useEffect(() => {
@@ -131,6 +195,21 @@ export default function FarmerDrawer({
     return () => clearInterval(interval);
   }, [farmer?.id]);
 
+  // Tick every second so food slot countdowns update live
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  function formatCountdown(expiresAtMs: number): string {
+    const remaining = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = remaining % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
@@ -156,6 +235,66 @@ export default function FarmerDrawer({
       },
     }),
   ).current;
+
+  async function openFoodInventory(slot: 0 | 1) {
+    setActiveSlot(slot);
+    try {
+      const res = await api.get("/api/kitchen/inventory");
+      setPlayerFoods(res.data);
+    } catch {
+      setPlayerFoods([]);
+    }
+    setFoodInventoryOpen(true);
+  }
+
+  async function handleUseFood(food: PlayerFood) {
+    if (!farmer) return;
+    try {
+      const res = await api.post(`/api/kitchen/use/${food.id}`, { entity_id: farmer.id });
+      const expiresAtMs: number | undefined = res.data.boost?.expires_at_ms
+        ? Number(res.data.boost.expires_at_ms)
+        : undefined;
+      setSlotFoods((prev) => {
+        const next: [PlayerFood | null, PlayerFood | null] = [...prev] as any;
+        next[activeSlot] = { ...food, expires_at_ms: expiresAtMs };
+        return next;
+      });
+      // Refresh farmer so interval_minutes updates immediately in the drawer
+      try {
+        const farmersRes = await api.get('/api/farmers');
+        const updated = farmersRes.data.find((f: Farmer) => f.id === farmer.id);
+        if (updated && onFarmerUpdated) onFarmerUpdated(updated);
+      } catch { /* non-critical */ }
+      setFoodInventoryOpen(false);
+      api.get("/api/kitchen/inventory").then((res) => setPlayerFoods(res.data)).catch(() => {});
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? "Could not use food");
+    }
+  }
+
+  async function handleRemoveFood(slot: 0 | 1) {
+    const food = slotFoods[slot];
+    if (!food) return;
+    try {
+      await api.delete(`/api/kitchen/boosts/${food.id}`);
+      setSlotFoods((prev) => {
+        const next: [PlayerFood | null, PlayerFood | null] = [...prev] as any;
+        next[slot] = null;
+        return next;
+      });
+      setRemoveSlot(null);
+      // Refresh farmer interval after boost removed
+      try {
+        if (farmer) {
+          const farmersRes = await api.get('/api/farmers');
+          const updated = farmersRes.data.find((f: Farmer) => f.id === farmer.id);
+          if (updated && onFarmerUpdated) onFarmerUpdated(updated);
+        }
+      } catch { /* non-critical */ }
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? "Could not remove food");
+    }
+  }
 
   if (!farmer) return null;
 
@@ -193,9 +332,11 @@ export default function FarmerDrawer({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop} />
-      </TouchableWithoutFeedback>
+      {/* Wrapper for absolute-positioned FoodInventoryDrawer */}
+      <View style={styles.modalRoot}>
+        <TouchableWithoutFeedback onPress={foodInventoryOpen ? () => setFoodInventoryOpen(false) : onClose}>
+          <View style={styles.backdrop} />
+        </TouchableWithoutFeedback>
 
       <Animated.View
         style={[styles.drawer, { transform: [{ translateY }] }]}
@@ -263,15 +404,50 @@ export default function FarmerDrawer({
         {/* Farmer name */}
         <Text style={styles.farmerName}>{farmer.name}</Text>
 
-        {/* Cat image */}
-        <View style={styles.imageFrame}>
-          {meta.catImage && (
-            <Image
-              source={meta.catImage}
-              style={styles.catImage}
-              resizeMode="contain"
-            />
-          )}
+        {/* Cat image + food slots */}
+        <View style={styles.imageWrapper}>
+          <View style={styles.imageFrame}>
+            {meta.catImage && (
+              <Image
+                source={meta.catImage}
+                style={styles.catImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+          {/* Food slot buttons — absolute, below image */}
+          <View style={styles.foodSlotsAbsCol}>
+            {([0, 1] as const).map((slot) => {
+              const filled = slotFoods[slot];
+              const emoji = filled ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴") : null;
+              const countdown =
+                filled &&
+                filled.expires_at_ms &&
+                filled.recipe.effect_duration_minutes != null
+                  ? formatCountdown(filled.expires_at_ms)
+                  : null;
+              // tick referenced to ensure re-render each second
+              void tick;
+              return (
+                <View key={slot} style={styles.foodSlotWrapper}>
+                  <TouchableOpacity
+                    style={[styles.foodSlotSquare, filled && styles.foodSlotSquareFilled]}
+                    activeOpacity={0.75}
+                    onPress={() => filled ? setRemoveSlot(slot) : openFoodInventory(slot)}
+                  >
+                    {filled ? (
+                      <Text style={styles.foodSlotEmoji}>{emoji}</Text>
+                    ) : (
+                      <Plus size={16} color="#9a7040" strokeWidth={2.5} />
+                    )}
+                  </TouchableOpacity>
+                  {countdown && (
+                    <Text style={styles.foodSlotCountdown}>{countdown}</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.divider} />
@@ -431,11 +607,63 @@ export default function FarmerDrawer({
         </View>
         <InGameCoinConfirmModal coins={coins} />
       </Animated.View>
+
+        {/* Food inventory panel — absolutely positioned inside modalRoot */}
+        <FoodInventoryDrawer
+          visible={foodInventoryOpen}
+          inventory={playerFoods}
+          onClose={() => setFoodInventoryOpen(false)}
+          onUseFood={handleUseFood}
+          context="farmer"
+        />
+
+        {/* Remove food popup */}
+        {removeSlot !== null && slotFoods[removeSlot] && (() => {
+          const food = slotFoods[removeSlot]!;
+          const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
+          const hasCountdown = food.expires_at_ms && food.recipe.effect_duration_minutes != null;
+          void tick;
+          return (
+            <View style={styles.removeFoodOverlay}>
+              <View style={styles.removeFoodCard}>
+                <Text style={styles.removeFoodEmoji}>{emoji}</Text>
+                <Text style={styles.removeFoodName}>{food.recipe.name}</Text>
+                <Text style={styles.removeFoodEffect}>{describeEffect(food.recipe)}</Text>
+                {hasCountdown && (
+                  <View style={styles.removeFoodTimerRow}>
+                    <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
+                    <Text style={styles.removeFoodTimer}>{formatCountdown(food.expires_at_ms!)}</Text>
+                  </View>
+                )}
+                <View style={styles.removeFoodBtnRow}>
+                  <TouchableOpacity
+                    style={styles.removeFoodKeepBtn}
+                    activeOpacity={0.75}
+                    onPress={() => setRemoveSlot(null)}
+                  >
+                    <Text style={styles.removeFoodKeepText}>Keep</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeFoodRemoveBtn}
+                    activeOpacity={0.75}
+                    onPress={() => handleRemoveFood(removeSlot)}
+                  >
+                    <Text style={styles.removeFoodRemoveText}>Discard Food</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
+  },
   backdrop: { flex: 1 },
   drawer: {
     backgroundColor: "#f5e9cc",
@@ -514,8 +742,12 @@ const styles = StyleSheet.create({
     color: "#3a1e00",
     marginBottom: 12,
   },
-  imageFrame: {
+  imageWrapper: {
     alignSelf: "center",
+    overflow: "visible",
+    marginBottom: 28,
+  },
+  imageFrame: {
     width: 148,
     height: 148,
     backgroundColor: "#ede0c4",
@@ -524,7 +756,7 @@ const styles = StyleSheet.create({
     borderColor: "#c8a96e",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    overflow: "hidden",
     shadowColor: "#b8893a",
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -532,6 +764,129 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   catImage: { width: 128, height: 128 },
+  foodSlotsAbsCol: {
+    position: "absolute",
+    bottom: -28,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    zIndex: 10,
+  },
+  foodSlotWrapper: {
+    alignItems: "center",
+    gap: 3,
+  },
+  foodSlotCountdown: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#c87820",
+    letterSpacing: 0.2,
+  },
+  // ── Remove food popup ──
+  removeFoodOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  removeFoodCard: {
+    backgroundColor: "#f5edd8",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    padding: 22,
+    width: "80%",
+    alignItems: "center",
+    gap: 10,
+  },
+  removeFoodEmoji: { fontSize: 44 },
+  removeFoodName: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#3a1e00",
+    textAlign: "center",
+  },
+  removeFoodEffect: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7a5a30",
+    textAlign: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  removeFoodTimerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  removeFoodTimerLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+  },
+  removeFoodTimer: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#c87820",
+    letterSpacing: 1,
+  },
+  removeFoodBtnRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  removeFoodKeepBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    paddingVertical: 10,
+  },
+  removeFoodKeepText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#7a5030",
+  },
+  removeFoodRemoveBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#c0392b",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#922b21",
+    paddingVertical: 10,
+  },
+  removeFoodRemoveText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#fff",
+  },
+  foodSlotSquare: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: "#ede0c4",
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  foodSlotSquareFilled: {
+    backgroundColor: "#f5e9d0",
+    borderStyle: "solid",
+    borderColor: "#c87820",
+  },
+  foodSlotEmoji: { fontSize: 22 },
   divider: {
     height: 1.5,
     backgroundColor: "#d4b896",

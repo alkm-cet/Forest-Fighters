@@ -54,6 +54,7 @@ const ICON_SETTINGS = require("../../assets/icons/icon-settings.webp");
 const ICON_FIGHTERS = require("../../assets/icons/icon-fighters.webp");
 const ICON_FARMERS = require("../../assets/icons/icon-farmers.webp");
 const ICON_ANIMALS = require("../../assets/icons/icon-animals.webp");
+const ICON_BOILER = require("../../assets/boiler.webp");
 const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 
 export default function MainScreen() {
@@ -286,7 +287,10 @@ export default function MainScreen() {
           const now = Date.now();
           const stamped = r.data.map((farm: Farm) => ({
             ...farm,
-            animals: (farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+            animals: (farm.animals ?? []).map((a: Animal) => ({
+              ...a,
+              _fetched_at_ms: now,
+            })),
           }));
           setFarms(stamped);
           setSelectedFarm((prev) =>
@@ -418,7 +422,10 @@ export default function MainScreen() {
   }
 
   const hasCards =
-    champions.length > 0 || farmers.length > 0 || animals.length > 0 || farms.length > 0;
+    champions.length > 0 ||
+    farmers.length > 0 ||
+    animals.length > 0 ||
+    farms.length > 0;
 
   return (
     <View style={styles.bg}>
@@ -708,6 +715,15 @@ export default function MainScreen() {
                       );
                     },
                   )}
+
+                  {/* Kitchen button */}
+                  <TouchableOpacity
+                    style={styles.tabBtn}
+                    onPress={() => router.push("/(game)/kitchen")}
+                    activeOpacity={0.75}
+                  >
+                    <Image source={ICON_BOILER} style={styles.tabBtnIcon} />
+                  </TouchableOpacity>
                 </View>
               );
             })()}
@@ -777,11 +793,7 @@ export default function MainScreen() {
                 {/* Animals row — farm cards */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
                   {farms.slice(0, 3).map((f) => (
-                    <FarmCard
-                      key={f.id}
-                      farm={f}
-                      onPress={setSelectedFarm}
-                    />
+                    <FarmCard key={f.id} farm={f} onPress={setSelectedFarm} />
                   ))}
                 </View>
               </Animated.View>
@@ -924,20 +936,6 @@ export default function MainScreen() {
             alert(err.response?.data?.error ?? "Savunucu ayarlanamadı");
           }
         }}
-        onBoost={async (champion, type) => {
-          try {
-            const res = await api.post(`/api/champions/${champion.id}/boost`, {
-              type,
-            });
-            setResources(res.data.resources);
-            setChampions((prev) =>
-              prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
-            );
-            setSelectedChampion(res.data.champion);
-          } catch (err: any) {
-            alert(err.response?.data?.error ?? "Boost başarısız");
-          }
-        }}
         onSpendStat={async (champion, stat) => {
           try {
             const res = await api.post(
@@ -992,6 +990,13 @@ export default function MainScreen() {
               err.response?.data?.error ?? "Coin ile iyileştirme başarısız",
             );
           }
+        }}
+        onFoodUsed={(updatedChampion) => {
+          // Update the champion in state so boost shows immediately in stat rows
+          setChampions((prev) =>
+            prev.map((c) => (c.id === updatedChampion.id ? updatedChampion : c)),
+          );
+          setSelectedChampion(updatedChampion);
         }}
         onSkipMission={async (champion) => {
           const run = selectedChampion && runMap[selectedChampion.id];
@@ -1104,6 +1109,11 @@ export default function MainScreen() {
             alert(err.response?.data?.error ?? "Geliştirme başarısız");
           }
         }}
+        onFarmerUpdated={(updated) => {
+          const fresh = { ...updated, _fetched_at_ms: Date.now() };
+          setFarmers((prev) => prev.map((f) => (f.id === updated.id ? fresh : f)));
+          setSelectedFarmer(fresh);
+        }}
       />
 
       <FarmDrawer
@@ -1116,10 +1126,15 @@ export default function MainScreen() {
             const now = Date.now();
             const updated: Farm = {
               ...res.data.farm,
-              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({
+                ...a,
+                _fetched_at_ms: now,
+              })),
             };
             setResources(res.data.resources);
-            setFarms((prev) => prev.map((f) => (f.id === farm.id ? updated : f)));
+            setFarms((prev) =>
+              prev.map((f) => (f.id === farm.id ? updated : f)),
+            );
             setSelectedFarm(updated);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
@@ -1131,10 +1146,15 @@ export default function MainScreen() {
             const now = Date.now();
             const updated: Farm = {
               ...res.data.farm,
-              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({ ...a, _fetched_at_ms: now })),
+              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({
+                ...a,
+                _fetched_at_ms: now,
+              })),
             };
             setResources(res.data.resources);
-            setFarms((prev) => prev.map((f) => (f.id === farm.id ? updated : f)));
+            setFarms((prev) =>
+              prev.map((f) => (f.id === farm.id ? updated : f)),
+            );
             setSelectedFarm(updated);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Farm upgrade failed");

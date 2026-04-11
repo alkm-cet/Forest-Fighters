@@ -15,6 +15,7 @@ const animalRoutes = require('./routes/animals');
 const farmRoutes   = require('./routes/farms');
 const coinRoutes = require('./routes/coins');
 const playerRoutes = require('./routes/players');
+const kitchenRoutes = require('./routes/kitchen');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -44,6 +45,7 @@ app.use('/api/animals', animalRoutes);
 app.use('/api/farms',   farmRoutes);
 app.use('/api/coins', coinRoutes);
 app.use('/api/players', playerRoutes);
+app.use('/api/kitchen', kitchenRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

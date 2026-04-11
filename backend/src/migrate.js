@@ -410,6 +410,90 @@ async function migrate() {
     `);
 
     console.log('Dungeon System v2 migrated');
+
+    // ── Kitchen System ───────────────────────────────────────────────────────
+    await query(`
+      CREATE TABLE IF NOT EXISTS recipes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        target VARCHAR(50) NOT NULL,
+        effect_type VARCHAR(50) NOT NULL,
+        effect_value INT NOT NULL,
+        effect_duration_minutes INT,
+        cook_duration_minutes INT NOT NULL DEFAULT 1,
+        ingredients JSONB NOT NULL,
+        tier INT DEFAULT 1
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS player_food (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        recipe_id UUID REFERENCES recipes(id),
+        status VARCHAR(20) DEFAULT 'cooking',
+        cooking_started_at TIMESTAMP DEFAULT NOW(),
+        cooking_ready_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS active_boosts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        boost_type VARCHAR(50) NOT NULL,
+        boost_value INT NOT NULL,
+        target VARCHAR(50) NOT NULL,
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
+    // active_boosts: entity_id links boost to a specific champion or farmer
+    await query(`ALTER TABLE active_boosts ADD COLUMN IF NOT EXISTS entity_id UUID`);
+    // active_boosts: is_one_shot = consumed after a single battle/use
+    await query(`ALTER TABLE active_boosts ADD COLUMN IF NOT EXISTS is_one_shot BOOLEAN DEFAULT FALSE`);
+    // active_boosts: recipe_id for reconstructing slot display on drawer reopen
+    await query(`ALTER TABLE active_boosts ADD COLUMN IF NOT EXISTS recipe_id UUID REFERENCES recipes(id) ON DELETE SET NULL`);
+
+    // ── Recipe redesign (v2) ─────────────────────────────────────────────────
+    // If 'Ironbark Stew' doesn't exist the new recipes haven't been seeded yet.
+    // Reset stale food state and seed the new 11 recipes.
+    const ironbarkCheck = await query(`SELECT 1 FROM recipes WHERE name = 'Ironbark Stew' LIMIT 1`);
+    if (!ironbarkCheck.length) {
+      // Clear stale cooking/boost state so nothing references the old recipe UUIDs
+      await query(`DELETE FROM active_boosts`);
+      await query(`DELETE FROM player_food`);
+      await query(`DELETE FROM recipes`);
+
+      const newRecipes = [
+        // T1 — cheap, quick, one-shot fighter boosts + basic farmer buff
+        { name: 'Forest Berry Jam',       target: 'fighters',    effect_type: 'boost_hp',         effect_value: 8,  dur: null, cook: 3,  ingr: {strawberry:4, egg:2},              tier: 1 },
+        { name: 'Blueberry Mash',         target: 'fighters',    effect_type: 'boost_chance',      effect_value: 5,  dur: null, cook: 3,  ingr: {blueberry:4, egg:2},               tier: 1 },
+        { name: 'Pinecone Tea',           target: 'farmers',     effect_type: 'boost_production',  effect_value: 25, dur: 20,   cook: 5,  ingr: {pinecone:4, milk:2},               tier: 1 },
+        // T2 — stronger one-shot fighter boosts + farmer/farm_animal buffs
+        { name: 'Mixed Berry Pie',        target: 'fighters',    effect_type: 'boost_hp',         effect_value: 14, dur: null, cook: 8,  ingr: {strawberry:8, blueberry:8, egg:4},  tier: 2 },
+        { name: 'Egg Forest Rice',        target: 'fighters',    effect_type: 'boost_defense',     effect_value: 8,  dur: null, cook: 8,  ingr: {egg:10, strawberry:6},             tier: 2 },
+        { name: 'Pinecone Cake',          target: 'farmers',     effect_type: 'boost_production',  effect_value: 40, dur: 30,   cook: 10, ingr: {pinecone:12, milk:6},              tier: 2 },
+        { name: 'Forest Stew',            target: 'farm_animals',effect_type: 'boost_production',  effect_value: 20, dur: 30,   cook: 10, ingr: {strawberry:8, pinecone:8, egg:5},  tier: 2 },
+        // T3 — powerful one-shot fighter boosts + long-duration farm_animal buffs
+        { name: 'Magic Forest Soup',      target: 'fighters',    effect_type: 'boost_hp',         effect_value: 20, dur: null, cook: 15, ingr: {strawberry:15, blueberry:12, egg:8},         tier: 3 },
+        { name: 'Ironbark Stew',          target: 'fighters',    effect_type: 'boost_defense',     effect_value: 14, dur: null, cook: 15, ingr: {egg:12, wool:6, strawberry:8},              tier: 3 },
+        { name: 'Dragon Pinecone Delight',target: 'farm_animals',effect_type: 'boost_production',  effect_value: 35, dur: 60,   cook: 20, ingr: {pinecone:20, milk:12, wool:8},              tier: 3 },
+        { name: 'Mystic Wool Dessert',    target: 'farm_animals',effect_type: 'boost_capacity',    effect_value: 5,  dur: 45,   cook: 20, ingr: {wool:15, milk:10, blueberry:10},            tier: 3 },
+      ];
+
+      for (const r of newRecipes) {
+        await query(
+          `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
+           VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::jsonb, $8::INT)`,
+          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+        );
+      }
+      console.log('Recipes v2 seeded (11 new recipes)');
+    }
+
+    console.log('Kitchen system migrated');
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

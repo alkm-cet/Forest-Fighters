@@ -26,11 +26,14 @@ import {
   Trophy,
   Clock,
   ChevronLeft,
+  Plus,
 } from "lucide-react-native";
-import { Champion, DungeonRun, Resources, PvpBattle } from "../types";
+import { Champion, DungeonRun, Resources, PvpBattle, PlayerFood } from "../types";
 import { CLASS_META, RESOURCE_META } from "../constants/resources";
 import CustomModal from "./CustomModal";
 import api from "../lib/api";
+import FoodInventoryDrawer from "./FoodInventoryDrawer";
+import { FOOD_EMOJIS, describeEffect } from "./FoodCard";
 
 const PLUS_BTN = require("../assets/plus-button-image.png");
 import { useLanguage } from "../lib/i18n";
@@ -58,8 +61,6 @@ const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 type StatKey = "attack" | "defense" | "chance";
 
-type BoostType = "hp" | "defense" | "chance";
-
 type Props = {
   champion: Champion | null;
   resources?: Resources;
@@ -73,7 +74,6 @@ type Props = {
   onRevive?: (champion: Champion) => void;
   onHeal?: (champion: Champion) => void;
   onSpendStat?: (champion: Champion, stat: StatKey) => void;
-  onBoost?: (champion: Champion, type: BoostType) => void;
   onMissionExpire?: () => void;
   onSetDefender?: (champion: Champion) => void;
   defenderChampionId?: string | null;
@@ -87,45 +87,8 @@ type Props = {
   onCoinRevive?: (champion: Champion) => void;
   onCoinHeal?: (champion: Champion) => void;
   onSkipMission?: (champion: Champion) => void;
-};
-
-const BOOST_META: Record<
-  BoostType,
-  {
-    label: string;
-    icon: React.ReactNode;
-    cost: number;
-    costImage: ReturnType<typeof require>;
-    boostCol: keyof Champion;
-  }
-> = {
-  hp: {
-    label: "+10 HP",
-    icon: null,
-    cost: 4,
-    costImage: require("../assets/resource-images/egg.png"),
-    boostCol: "boost_hp",
-  },
-  defense: {
-    label: "+5 DEF",
-    icon: null,
-    cost: 3,
-    costImage: require("../assets/resource-images/wool.png"),
-    boostCol: "boost_defense",
-  },
-  chance: {
-    label: "+5 CHC",
-    icon: null,
-    cost: 3,
-    costImage: require("../assets/resource-images/milk.png"),
-    boostCol: "boost_chance",
-  },
-};
-
-const BOOST_RESOURCE: Record<BoostType, keyof Resources> = {
-  hp: "egg",
-  defense: "wool",
-  chance: "milk",
+  /** Called after a food boost is applied; receives the updated champion from server */
+  onFoodUsed?: (updatedChampion: Champion) => void;
 };
 
 const STAT_MAX = 100;
@@ -192,7 +155,6 @@ export default function ChampionDrawer({
   onRevive,
   onHeal,
   onSpendStat,
-  onBoost,
   onMissionExpire,
   onSetDefender,
   defenderChampionId,
@@ -206,13 +168,19 @@ export default function ChampionDrawer({
   onCoinRevive,
   onCoinHeal,
   onSkipMission,
+  onFoodUsed,
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
   const translateY = useRef(new Animated.Value(0)).current;
   const contentScrollY = useRef(0);
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
-  const [pendingBoost, setPendingBoost] = useState<BoostType | null>(null);
+  const [foodInventoryOpen, setFoodInventoryOpen] = useState(false);
+  const [playerFoods, setPlayerFoods] = useState<PlayerFood[]>([]);
+  const [slotFoods, setSlotFoods] = useState<[PlayerFood | null, PlayerFood | null]>([null, null]);
+  const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+  const [tick, setTick] = useState(0);
+  const [removeSlot, setRemoveSlot] = useState<0 | 1 | null>(null);
   const [historyTab, setHistoryTab] = useState(false);
   const [history, setHistory] = useState<PvpBattle[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -234,8 +202,81 @@ export default function ChampionDrawer({
       setHistoryTab(false);
       setHistory([]);
       setShowDefenderWarning(false);
+      setFoodInventoryOpen(false);
+      setPlayerFoods([]);
+      // Reload active food slots from server so they persist across open/close
+      loadActiveSlots(champion.id);
     }
   }, [champion?.id]);
+
+  // Tick every second so food slot countdowns update live
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  function formatCountdown(expiresAtMs: number): string {
+    const remaining = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = remaining % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function boostTypeLabel(type: string): string {
+    if (type === 'boost_hp')         return 'HP Boost';
+    if (type === 'boost_defense')    return 'DEF Boost';
+    if (type === 'boost_chance')     return 'CRIT Boost';
+    if (type === 'boost_production') return 'Production Boost';
+    return 'Boost';
+  }
+
+  function makeSlotFood(b: any, recipeName: string): PlayerFood {
+    return {
+      id: b.id,
+      recipe_id: b.recipe_id ?? b.id,
+      recipe: {
+        id: b.recipe_id ?? b.id,
+        name: recipeName,
+        target: b.recipe_target ?? b.target,
+        effect_type: b.recipe_effect_type ?? b.boost_type,
+        effect_value: b.recipe_effect_value ?? b.boost_value,
+        effect_duration_minutes: b.recipe_duration ?? null,
+        cook_duration_minutes: b.recipe_cook_duration ?? 0,
+        ingredients: b.recipe_ingredients ?? {},
+        tier: (b.recipe_tier ?? 1) as 1 | 2 | 3,
+      },
+      status: 'ready',
+      cooking_started_at: '',
+      cooking_ready_at: '',
+      cooking_ready_at_ms: 0,
+      cooking_started_at_ms: 0,
+      _fetched_at_ms: Date.now(),
+      used_at: null,
+      expires_at_ms: b.expires_at_ms ? Number(b.expires_at_ms) : undefined,
+    };
+  }
+
+  async function loadActiveSlots(championId: string) {
+    try {
+      const res = await api.get(`/api/kitchen/boosts?entity_id=${championId}`);
+      const boosts: any[] = res.data;
+      const slots: [PlayerFood | null, PlayerFood | null] = [null, null];
+      let slotIdx = 0;
+      for (const b of boosts) {
+        if (slotIdx >= 2) break;
+        // Fallback name when recipe_id was not stored (legacy rows)
+        const recipeName = b.recipe_name
+          ?? boostTypeLabel(b.boost_type);
+        slots[slotIdx as 0 | 1] = makeSlotFood(b, recipeName);
+        slotIdx++;
+      }
+      setSlotFoods(slots);
+    } catch {
+      setSlotFoods([null, null]);
+    }
+  }
 
   async function loadHistory() {
     setHistoryLoading(true);
@@ -286,6 +327,60 @@ export default function ChampionDrawer({
   };
   const isDefenderChamp = defenderChampionId === champion.id;
 
+  async function openFoodInventory(slot: 0 | 1) {
+    setActiveSlot(slot);
+    try {
+      const res = await api.get("/api/kitchen/inventory");
+      setPlayerFoods(res.data);
+    } catch {
+      setPlayerFoods([]);
+    }
+    setFoodInventoryOpen(true);
+  }
+
+  async function handleUseFood(food: PlayerFood) {
+    try {
+      const res = await api.post(`/api/kitchen/use/${food.id}`, { entity_id: champion?.id });
+      // Fill the active slot with server-accurate expires_at_ms so countdown is correct immediately
+      const expiresAtMs: number | undefined = res.data.boost?.expires_at_ms
+        ? Number(res.data.boost.expires_at_ms)
+        : undefined;
+      setSlotFoods((prev) => {
+        const next: [PlayerFood | null, PlayerFood | null] = [...prev] as any;
+        next[activeSlot] = { ...food, expires_at_ms: expiresAtMs };
+        return next;
+      });
+      setFoodInventoryOpen(false);
+      // If backend returned an updated champion (fighter food), propagate upward
+      if (res.data.champion && onFoodUsed) {
+        onFoodUsed(res.data.champion);
+      }
+      // Refresh inventory in background
+      api.get("/api/kitchen/inventory").then((r) => setPlayerFoods(r.data)).catch(() => {});
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? "Could not use food");
+    }
+  }
+
+  async function handleRemoveFood(slot: 0 | 1) {
+    const food = slotFoods[slot];
+    if (!food) return;
+    try {
+      const res = await api.delete(`/api/kitchen/boosts/${food.id}`);
+      setSlotFoods((prev) => {
+        const next: [PlayerFood | null, PlayerFood | null] = [...prev] as any;
+        next[slot] = null;
+        return next;
+      });
+      setRemoveSlot(null);
+      if (res.data.champion && onFoodUsed) {
+        onFoodUsed(res.data.champion);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? "Could not remove food");
+    }
+  }
+
   return (
     <Modal
       visible={!!champion}
@@ -293,10 +388,12 @@ export default function ChampionDrawer({
       animationType="slide"
       onRequestClose={onClose}
     >
-      {/* Transparent backdrop */}
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop} />
-      </TouchableWithoutFeedback>
+      {/* Wrapper needed for absolute-positioned food panel */}
+      <View style={styles.modalRoot}>
+        {/* Transparent backdrop — closes food panel first, then drawer */}
+        <TouchableWithoutFeedback onPress={foodInventoryOpen ? () => setFoodInventoryOpen(false) : onClose}>
+          <View style={styles.backdrop} />
+        </TouchableWithoutFeedback>
 
       <Animated.View
         style={[styles.drawer, { transform: [{ translateY }] }]}
@@ -487,46 +584,80 @@ export default function ChampionDrawer({
             {/* Champion name */}
             <Text style={styles.champName}>{champion.name}</Text>
 
-            {/* Champion image + boost buttons */}
+            {/* Champion image + food slots (overflow) + stats */}
             <View style={styles.imageAndBoostRow}>
-              <View style={styles.imageFrame}>
-                {meta.image && (
-                  <Image
-                    source={meta.image}
-                    style={styles.champImage}
-                    resizeMode="contain"
-                  />
-                )}
-                {/* Active boost badges on image corners */}
-                {(champion.boost_hp ?? 0) > 0 && (
-                  <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
+              {/* Wrapper allows absolute children to overflow */}
+              <View style={styles.imageWrapper}>
+                <View style={styles.imageFrame}>
+                  {meta.image && (
                     <Image
-                      source={require("../assets/icons/heart.webp")}
-                      style={styles.boostBtnCostIcon}
+                      source={meta.image}
+                      style={styles.champImage}
                       resizeMode="contain"
                     />
-                  </View>
-                )}
-                {(champion.boost_defense ?? 0) > 0 && (
-                  <View
-                    style={[styles.boostBadge, styles.boostBadgeBottomLeft]}
-                  >
-                    <Image
-                      source={require("../assets/icons/shield.webp")}
-                      style={styles.boostBtnCostIcon}
-                      resizeMode="contain"
-                    />
-                  </View>
-                )}
-                {(champion.boost_chance ?? 0) > 0 && (
-                  <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
-                    <Image
-                      source={require("../assets/icons/lightning.webp")}
-                      style={styles.boostBtnCostIcon}
-                      resizeMode="contain"
-                    />
-                  </View>
-                )}
+                  )}
+                  {/* Active boost badges on image corners */}
+                  {(champion.boost_hp ?? 0) > 0 && (
+                    <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
+                      <Image
+                        source={require("../assets/icons/heart.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+                  {(champion.boost_defense ?? 0) > 0 && (
+                    <View style={[styles.boostBadge, styles.boostBadgeBottomLeft]}>
+                      <Image
+                        source={require("../assets/icons/shield.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+                  {(champion.boost_chance ?? 0) > 0 && (
+                    <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
+                      <Image
+                        source={require("../assets/icons/lightning.webp")}
+                        style={styles.boostBtnCostIcon}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+                </View>
+
+                {/* Food slots — absolute, overflow right edge of image */}
+                <View style={styles.foodSlotsAbsCol}>
+                  {([0, 1] as const).map((slot) => {
+                    const filled = slotFoods[slot];
+                    const emoji = filled ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴") : null;
+                    const countdown =
+                      filled &&
+                      filled.expires_at_ms &&
+                      filled.recipe.effect_duration_minutes != null
+                        ? formatCountdown(filled.expires_at_ms)
+                        : null;
+                    void tick;
+                    return (
+                      <View key={slot} style={styles.foodSlotWrapper}>
+                        <TouchableOpacity
+                          style={[styles.foodSlotSquare, filled && styles.foodSlotSquareFilled]}
+                          activeOpacity={0.75}
+                          onPress={() => filled ? setRemoveSlot(slot) : openFoodInventory(slot)}
+                        >
+                          {filled ? (
+                            <Text style={styles.foodSlotSquareEmoji}>{emoji}</Text>
+                          ) : (
+                            <Plus size={18} color="#9a7040" strokeWidth={2.5} />
+                          )}
+                        </TouchableOpacity>
+                        {countdown && (
+                          <Text style={styles.foodSlotCountdown}>{countdown}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
 
               {/* Right col — basic stats */}
@@ -564,45 +695,6 @@ export default function ChampionDrawer({
                 />
               </View>
             </View>
-
-            {/* Boost confirmation modal */}
-            {pendingBoost && champion && (
-              <CustomModal
-                visible={true}
-                onClose={() => setPendingBoost(null)}
-                onConfirm={() => {
-                  onBoost?.(champion, pendingBoost);
-                  setPendingBoost(null);
-                }}
-                title={t("boostConfirmTitle")}
-                confirmDisabled={
-                  (resources?.[BOOST_RESOURCE[pendingBoost]] ?? 0) <
-                  BOOST_META[pendingBoost].cost
-                }
-              >
-                <View style={styles.boostModalBody}>
-                  <Text style={styles.boostModalEffect}>
-                    {BOOST_META[pendingBoost].label}
-                  </Text>
-                  <View style={styles.boostModalCostRow}>
-                    <Text style={styles.boostModalCost}>
-                      {t("upgradeCost")}:{" "}
-                    </Text>
-                    <Image
-                      source={BOOST_META[pendingBoost].costImage}
-                      style={styles.boostModalCostIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.boostModalCost}>
-                      ×{BOOST_META[pendingBoost].cost}
-                    </Text>
-                  </View>
-                  <Text style={styles.boostModalNote}>
-                    {t("boostActiveUntil")}
-                  </Text>
-                </View>
-              </CustomModal>
-            )}
 
             {/* HP Bar */}
             {(() => {
@@ -653,80 +745,6 @@ export default function ChampionDrawer({
 
             {/* Divider */}
             <View style={styles.divider} />
-
-            {/* Boost buttons — row */}
-            <View style={styles.sectionLabelRow}>
-              <Text style={styles.sectionLabel}>{t("boostSection")}</Text>
-            </View>
-            <View style={styles.boostBtns}>
-              {(Object.keys(BOOST_META) as BoostType[]).map((type) => {
-                const bm = BOOST_META[type];
-                const resKey = BOOST_RESOURCE[type];
-                const isActive = ((champion[bm.boostCol] as number) ?? 0) > 0;
-                const canAfford = (resources?.[resKey] ?? 0) >= bm.cost;
-                const disabled =
-                  isActive || !canAfford || !!isPvpBattle || !!isOnMission;
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.boostBtn,
-                      isActive && styles.boostBtnActive,
-                      disabled && !isActive && styles.boostBtnDisabled,
-                    ]}
-                    onPress={() => !disabled && setPendingBoost(type)}
-                    activeOpacity={0.75}
-                  >
-                    {type === "hp" && (
-                      <Image
-                        source={require("../assets/icons/heart.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    )}
-                    {type === "defense" && (
-                      <Image
-                        source={require("../assets/icons/shield.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    )}
-                    {type === "chance" && (
-                      <Image
-                        source={require("../assets/icons/lightning.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.boostBtnLabel,
-                        isActive && styles.boostBtnLabelActive,
-                      ]}
-                    >
-                      {bm.label}
-                    </Text>
-                    {!isActive && (
-                      <View style={styles.boostBtnCostRow}>
-                        <Image
-                          source={bm.costImage}
-                          style={styles.boostBtnCostIcon}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.boostBtnCost,
-                            !canAfford && styles.boostBtnCostRed,
-                          ]}
-                        >
-                          ×{bm.cost}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
 
             {/* Stat upgrade confirmation modal */}
             {pendingStat && (
@@ -1284,11 +1302,63 @@ export default function ChampionDrawer({
             );
           })()}
       </CustomModal>
+
+        {/* Food inventory panel — inside this Modal, no second Modal needed */}
+        <FoodInventoryDrawer
+          visible={foodInventoryOpen}
+          inventory={playerFoods}
+          onClose={() => setFoodInventoryOpen(false)}
+          onUseFood={handleUseFood}
+          context="fighter"
+        />
+
+        {/* Remove food popup */}
+        {removeSlot !== null && slotFoods[removeSlot] && (() => {
+          const food = slotFoods[removeSlot]!;
+          const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
+          const hasCountdown = food.expires_at_ms && food.recipe.effect_duration_minutes != null;
+          void tick;
+          return (
+            <View style={styles.removeFoodOverlay}>
+              <View style={styles.removeFoodCard}>
+                <Text style={styles.removeFoodEmoji}>{emoji}</Text>
+                <Text style={styles.removeFoodName}>{food.recipe.name}</Text>
+                <Text style={styles.removeFoodEffect}>{describeEffect(food.recipe)}</Text>
+                {hasCountdown && (
+                  <View style={styles.removeFoodTimerRow}>
+                    <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
+                    <Text style={styles.removeFoodTimer}>{formatCountdown(food.expires_at_ms!)}</Text>
+                  </View>
+                )}
+                <View style={styles.removeFoodBtnRow}>
+                  <TouchableOpacity
+                    style={styles.removeFoodKeepBtn}
+                    activeOpacity={0.75}
+                    onPress={() => setRemoveSlot(null)}
+                  >
+                    <Text style={styles.removeFoodKeepText}>Keep</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeFoodRemoveBtn}
+                    activeOpacity={0.75}
+                    onPress={() => handleRemoveFood(removeSlot)}
+                  >
+                    <Text style={styles.removeFoodRemoveText}>Discard Food</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
   },
@@ -1430,9 +1500,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 12,
   },
+  imageWrapper: {
+    overflow: "visible",
+    // marginBottom reserves space for the buttons that overflow below the frame
+    marginBottom: 28,
+  },
   imageFrame: {
-    width: 148,
-    height: 148,
+    width: 112,
+    height: 112,
     backgroundColor: "#ede0c4",
     borderRadius: 14,
     borderWidth: 2,
@@ -1444,10 +1519,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
+    overflow: "hidden",
   },
   champImage: {
-    width: 128,
-    height: 128,
+    width: 96,
+    height: 96,
   },
   boostBadge: {
     position: "absolute",
@@ -1473,88 +1549,134 @@ const styles = StyleSheet.create({
     top: 1,
     right: 1,
   },
-  boostBtns: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 12,
-  },
-  boostBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    backgroundColor: "#ede0c4",
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#c8a96e",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  boostBtnActive: {
-    backgroundColor: "#feca57",
-    borderColor: "#7877f0",
-  },
-  boostBtnDisabled: {
-    opacity: 0.45,
-  },
-  boostBtnLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#3a1e00",
-    flex: 1,
-  },
-  boostBtnLabelActive: {
-    color: "#ffffff",
-  },
-  boostBtnCostRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
   boostBtnCostIcon: {
     width: 13,
     height: 13,
   },
-  boostBtnCost: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#6a4a20",
-  },
-  boostBtnCostRed: {
-    color: "#c0392b",
-  },
-  boostModalBody: {
-    gap: 8,
-  },
-  boostModalCostRow: {
+  foodSlotsAbsCol: {
+    position: "absolute",
+    bottom: -28,  // straddle the bottom edge of imageFrame
+    left: 0,
+    right: 0,
     flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    zIndex: 10,
+  },
+  foodSlotWrapper: {
+    alignItems: "center",
+    gap: 3,
+  },
+  foodSlotCountdown: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#4a7c3f",
+    letterSpacing: 0.2,
+  },
+  foodSlotSquare: {
+    width: 52,
+    height: 52,
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
   },
-  boostModalCostIcon: {
-    width: 20,
-    height: 20,
+  foodSlotSquareFilled: {
+    backgroundColor: "#f5edd8",
+    borderStyle: "solid",
+    borderColor: "#4a7c3f",
   },
-  boostModalEffect: {
-    fontSize: 22,
-    fontWeight: "800",
+  foodSlotSquareEmoji: {
+    fontSize: 28,
+  },
+  // ── Remove food popup ──
+  removeFoodOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  removeFoodCard: {
+    backgroundColor: "#f5edd8",
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    padding: 22,
+    width: "80%",
+    alignItems: "center",
+    gap: 10,
+  },
+  removeFoodEmoji: { fontSize: 44 },
+  removeFoodName: {
+    fontSize: 15,
+    fontWeight: "900",
     color: "#3a1e00",
     textAlign: "center",
   },
-  boostModalCost: {
-    fontSize: 15,
+  removeFoodEffect: {
+    fontSize: 11,
     fontWeight: "700",
     color: "#7a5a30",
     textAlign: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  boostModalNote: {
+  removeFoodTimerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  removeFoodTimerLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
+  },
+  removeFoodTimer: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#4a7c3f",
+    letterSpacing: 1,
+  },
+  removeFoodBtnRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  removeFoodKeepBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ede0c4",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    paddingVertical: 10,
+  },
+  removeFoodKeepText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#7a5030",
+  },
+  removeFoodRemoveBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#c0392b",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#922b21",
+    paddingVertical: 10,
+  },
+  removeFoodRemoveText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#9a8060",
-    textAlign: "center",
-    fontStyle: "italic",
+    fontWeight: "900",
+    color: "#fff",
   },
   hpSection: {
     marginBottom: 12,

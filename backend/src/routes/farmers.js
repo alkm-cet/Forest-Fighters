@@ -75,16 +75,42 @@ router.get('/', authMiddleware, async (req, res) => {
       );
     }
 
+    // Fetch active production boosts for all farmers in one query
+    const farmerIds = rows.map(f => f.id);
+    let boostMap = {};
+    if (farmerIds.length) {
+      const boostRows = await query(
+        `SELECT entity_id, SUM(boost_value) AS total_pct
+           FROM active_boosts
+          WHERE player_id = $1
+            AND entity_id = ANY($2::uuid[])
+            AND target IN ('farmers', 'farm_animals')
+            AND boost_type = 'boost_production'
+            AND expires_at > NOW()
+          GROUP BY entity_id`,
+        [req.player.id, farmerIds]
+      );
+      boostRows.forEach(b => { boostMap[b.entity_id] = Number(b.total_pct); });
+    }
+
     const result = rows.map(f => {
-      const intervalMs = getIntervalByType(f.resource_type, f.level) * 60 * 1000;
+      const boostPct = boostMap[f.id] ?? 0;
+      const baseInterval = getIntervalByType(f.resource_type, f.level);
+      // Boost reduces the interval (faster production)
+      const effectiveInterval = boostPct > 0
+        ? baseInterval * (1 - boostPct / 100)
+        : baseInterval;
+      const intervalMs = effectiveInterval * 60 * 1000;
       const elapsed = Date.now() - new Date(f.last_collected_at).getTime();
       const partialMs = elapsed % intervalMs;
       const nextReadyInSeconds = Math.ceil((intervalMs - partialMs) / 1000);
+      const pending = Math.min(Math.floor(elapsed / intervalMs), getMaxCapacity(f.level));
       return {
         ...f,
-        interval_minutes: getIntervalByType(f.resource_type, f.level),
-        pending: calcPending(f.last_collected_at, f.level, f.resource_type),
+        interval_minutes: effectiveInterval,
+        pending,
         next_ready_in_seconds: nextReadyInSeconds,
+        active_boost_pct: boostPct,
       };
     });
 
@@ -108,7 +134,24 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Farmer not found' });
 
     const farmer = rows[0];
-    const pending = calcPending(farmer.last_collected_at, farmer.level, farmer.resource_type);
+
+    // Get active production boost for this specific farmer
+    const boostRows = await query(
+      `SELECT COALESCE(SUM(boost_value), 0) AS total_pct
+         FROM active_boosts
+        WHERE player_id = $1 AND entity_id = $2
+          AND target IN ('farmers', 'farm_animals')
+          AND boost_type = 'boost_production'
+          AND expires_at > NOW()`,
+      [playerId, farmerId]
+    );
+    const boostPct = Number(boostRows[0]?.total_pct ?? 0);
+    const baseInterval = getIntervalByType(farmer.resource_type, farmer.level);
+    const effectiveInterval = boostPct > 0 ? baseInterval * (1 - boostPct / 100) : baseInterval;
+    const intervalMs = effectiveInterval * 60 * 1000;
+    const elapsed = Date.now() - new Date(farmer.last_collected_at).getTime();
+    const pending = Math.min(Math.floor(elapsed / intervalMs), getMaxCapacity(farmer.level));
+
     if (pending === 0) return res.status(400).json({ error: 'Nothing to collect yet' });
 
     // Check how much free space the player has for this resource
@@ -126,8 +169,6 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
     // Only collect as many items as there is space for
     const collectible = Math.min(pending, freeSpace);
 
-    const intervalMs = getIntervalByType(farmer.resource_type, farmer.level) * 60 * 1000;
-    const elapsed = Date.now() - new Date(farmer.last_collected_at).getTime();
     const partialMs = elapsed % intervalMs;
     // Roll back last_collected_at so uncollected items (pending - collectible) remain pending
     const newLastCollected = new Date(Date.now() - partialMs - (pending - collectible) * intervalMs);

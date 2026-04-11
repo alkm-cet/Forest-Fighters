@@ -36,7 +36,8 @@
       "Bash(rm -f appstore.png)",
       "Bash(rm -rf android)",
       "Bash(find:*)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep:*)"
     ]
   }
 }

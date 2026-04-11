@@ -20,6 +20,7 @@ import { Farm, Animal, Resources } from "../../../types";
 import { FARM_META, RESOURCE_META } from "../../../constants/resources";
 import CustomButton from "../../../components/CustomButton";
 import CustomModal from "../../../components/CustomModal";
+const COIN_IMG = require("../../../assets/icons/icon-coin.webp");
 
 const ANIMAL_MAX_LEVEL = 50;
 const MAX_FARM_SLOTS = 20;
@@ -77,6 +78,7 @@ export default function FarmScreen() {
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [resources, setResources] = useState<Resources | null>(null);
+  const [coins, setCoins] = useState(0);
   const [selectedAnimalId, setSelectedAnimalId] = useState<string | null>(null);
 
   // Live per-animal state map: animalId → { fuelSec, progressSec, pending }
@@ -86,6 +88,8 @@ export default function FarmScreen() {
   // Animal upgrade modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeTarget, setUpgradeTarget] = useState<Animal | null>(null);
+  // Fill storage coin modal
+  const [showFillStorageConfirm, setShowFillStorageConfirm] = useState(false);
 
   // Feed buffer (same pattern as index.tsx)
   const feedBufferRef = useRef(0);
@@ -132,9 +136,10 @@ export default function FarmScreen() {
 
   async function loadFarm() {
     try {
-      const [farmsRes, resRes] = await Promise.all([
+      const [farmsRes, resRes, meRes] = await Promise.all([
         api.get("/api/farms"),
         api.get("/api/resources"),
+        api.get("/api/auth/me"),
       ]);
       const found = farmsRes.data.find((f: Farm) => f.farm_type === farmType);
       if (found) {
@@ -143,6 +148,7 @@ export default function FarmScreen() {
         initLiveMap(found.animals);
       }
       setResources(resRes.data);
+      setCoins(meRes.data.coins ?? 0);
     } catch {
       // silent
     }
@@ -321,6 +327,26 @@ export default function FarmScreen() {
     }
   }
 
+  async function handleFillAnimalStorage() {
+    if (!selectedAnimal) return;
+    try {
+      const res = await api.post("/api/coins/fill-animal-storage", { animal_id: selectedAnimal.id });
+      setCoins(res.data.coins);
+      const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
+      setFarm((prev) => {
+        if (!prev) return prev;
+        return { ...prev, animals: prev.animals.map((a) => (a.id === selectedAnimal.id ? fresh : a)) };
+      });
+      const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
+      setLiveMap((prev) => ({
+        ...prev,
+        [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+      }));
+    } catch (err: any) {
+      alert(err.response?.data?.error ?? "Depo doldurulamadı");
+    }
+  }
+
   const emptySlots = Math.max(0, farm.slot_count - farm.animals.length);
 
   return (
@@ -444,15 +470,29 @@ export default function FarmScreen() {
                         )}
                       </View>
                       <View style={styles.capacityRow}>
-                        <View style={[styles.capacityBadge, { backgroundColor: isFull ? "#c0392b" : "#d4b896" }]}>
-                          <Text style={[styles.capacityText, { color: isFull ? "#fff" : "#3a1e00" }]}>
+                        <View style={[
+                          styles.capacityBadge,
+                          {
+                            backgroundColor: isFull
+                              ? "#c0392b"
+                              : (live?.pending ?? 0) > 0
+                                ? meta.color
+                                : "#d4b896",
+                          },
+                        ]}>
+                          {produceMeta?.image && (live?.pending ?? 0) > 0 && (
+                            <Image source={produceMeta.image} style={styles.capacityIcon} resizeMode="contain" />
+                          )}
+                          <Text style={[styles.capacityText, {
+                            color: (live?.pending ?? 0) > 0 || isFull ? "#fff" : "#3a1e00",
+                          }]}>
                             {live?.pending ?? 0}/{maxCap}
                           </Text>
                         </View>
                       </View>
                     </View>
 
-                    {/* Production rate (right side, replaces + button) */}
+                    {/* Production rate */}
                     <View style={styles.animalRateBlock}>
                       <Text style={styles.animalRateValue}>{Number(animal.interval_minutes).toFixed(1)}</Text>
                       <Text style={styles.animalRateUnit}>dk/ürt</Text>
@@ -477,20 +517,19 @@ export default function FarmScreen() {
                   )}
                 </View>
 
-                {/* Collect button — appears whenever animal has pending produce */}
-                {(live?.pending ?? 0) > 0 && (
+                {/* Right side: upgrade button only */}
+                <View style={styles.animalSideBtns}>
                   <TouchableOpacity
-                    style={[styles.collectSideBtn, { backgroundColor: meta.color }]}
-                    activeOpacity={0.8}
-                    onPress={() => handleCollectAnimal(animal)}
+                    style={[styles.animalUpgradeBtn, !canUpgradeAnimal && styles.animalUpgradeBtnDisabled]}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      setUpgradeTarget(animal);
+                      setShowUpgradeModal(true);
+                    }}
                   >
-                    {produceMeta?.image && (
-                      <Image source={produceMeta.image} style={styles.collectSideBtnIcon} resizeMode="contain" />
-                    )}
-                    <Text style={styles.collectSideBtnNum}>{live?.pending ?? 0}/{maxCap}</Text>
-                    <Text style={styles.collectSideBtnLabel}>Topla</Text>
+                    <Plus size={14} color="#fff" strokeWidth={3} />
                   </TouchableOpacity>
-                )}
+                </View>
               </View>
             </View>
           );
@@ -553,24 +592,10 @@ export default function FarmScreen() {
               style={[styles.feedBtn, !canFeedOne && styles.feedBtnDisabled]}
               activeOpacity={0.7}
               onPress={() => {
+                if (!canFeedOne) return;
                 feedBufferRef.current += 1;
                 flushFeedBufferRef.current?.(selectedAnimal.id);
               }}
-              onLongPress={() => {
-                feedBufferRef.current += 1;
-                flushFeedBufferRef.current?.(selectedAnimal.id);
-                feedIntervalRef.current = setInterval(() => {
-                  feedBufferRef.current += 1;
-                  flushFeedBufferRef.current?.(selectedAnimal.id);
-                }, 200);
-              }}
-              onPressOut={() => {
-                if (feedIntervalRef.current) {
-                  clearInterval(feedIntervalRef.current);
-                  feedIntervalRef.current = null;
-                }
-              }}
-              delayLongPress={300}
             >
               <Text style={[styles.feedBtnLabel, !canFeedOne && styles.feedBtnTextDisabled]}>Yemle</Text>
               <Text style={[styles.feedBtnText, !canFeedOne && styles.feedBtnTextDisabled]}>+1</Text>
@@ -591,36 +616,59 @@ export default function FarmScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Upgrade selected animal button */}
-          <CustomButton
-            btnIcon={<ArrowUp size={20} color="#fff" strokeWidth={2.5} />}
-            text={
-              !selectedAnimal
-                ? "Hayvan Seç"
-                : selectedAnimal.level >= ANIMAL_MAX_LEVEL
-                  ? `Maks Seviye (LV ${selectedAnimal.level})`
-                  : `Hayvanı Geliştir → LV ${selectedAnimal.level + 1}`
-            }
-            subContent={
-              selectedAnimal && selectedAnimal.level < ANIMAL_MAX_LEVEL ? (
-                <View style={styles.upgradeCostRow}>
-                  {selRes1Meta?.image && <Image source={selRes1Meta.image} style={styles.upgradeCostIcon} resizeMode="contain" />}
-                  <Text style={styles.upgradeCostText}>×{selUpgCost}</Text>
-                  {selRes2Meta?.image && <Image source={selRes2Meta.image} style={styles.upgradeCostIcon} resizeMode="contain" />}
-                  <Text style={styles.upgradeCostText}>×{selUpgCost}</Text>
-                </View>
-              ) : undefined
-            }
-            onClick={() => {
-              if (selectedAnimal) {
-                setUpgradeTarget(selectedAnimal);
-                setShowUpgradeModal(true);
+          {/* Collect + Fill storage row */}
+          <View style={styles.bottomActionRow}>
+          {(selectedLive?.pending ?? 0) > 0 && (
+            <CustomButton
+              btnIcon={produceMeta?.image
+                ? <Image source={produceMeta.image} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                : undefined}
+              text="Topla"
+              subContent={
+                <Text style={styles.upgradeCostText}>
+                  {selectedLive?.pending ?? 0} / {getMaxCapacity(selectedAnimal.level)}
+                </Text>
               }
-            }}
-            bgColor={canUpgradeSelected ? "#4a7c3f" : "#9a7040"}
-            borderColor={canUpgradeSelected ? "#2d5a24" : "#7a5030"}
-            disabled={!canUpgradeSelected}
-          />
+              onClick={() => handleCollectAnimal(selectedAnimal)}
+              bgColor={meta.color}
+              borderColor={meta.color}
+              style={{ flex: 1 }}
+            />
+          )}
+          <View style={{ flex: (selectedLive?.pending ?? 0) > 0 ? 1.4 : 1 }}>
+          {/* Fill storage coin button */}
+          {(() => {
+            const maxCap = getMaxCapacity(selectedAnimal.level);
+            const currentPending = selectedLive?.pending ?? 0;
+            const fillCost = Math.max(0, maxCap - currentPending);
+            const isFull = fillCost === 0;
+            const canAfford = coins >= fillCost && !isFull;
+            return (
+              <CustomButton
+                btnIcon={<Image source={COIN_IMG} style={{ width: 20, height: 20 }} resizeMode="contain" />}
+                text={isFull ? "Depo Dolu" : `Depoyu Doldur`}
+                subContent={
+                  !isFull ? (
+                    <View style={styles.upgradeCostRow}>
+                      <Image source={COIN_IMG} style={styles.upgradeCostIcon} resizeMode="contain" />
+                      <Text style={[styles.upgradeCostText, !canAfford && { color: "#ffaaaa" }]}>
+                        ×{fillCost}
+                      </Text>
+                      <Text style={[styles.upgradeCostText, { color: canAfford ? "#e8c87a" : "#ffaaaa" }]}>
+                        ({coins} mevcut)
+                      </Text>
+                    </View>
+                  ) : undefined
+                }
+                onClick={() => { if (canAfford) setShowFillStorageConfirm(true); }}
+                bgColor={canAfford ? "#c87820" : "#9a7040"}
+                borderColor={canAfford ? "#a05f10" : "#7a5030"}
+                disabled={!canAfford}
+              />
+            );
+          })()}
+          </View>
+          </View>
         </View>
       )}
 
@@ -635,7 +683,7 @@ export default function FarmScreen() {
         }}
         title={`Upgrade ${meta.label}?`}
         confirmText="Upgrade"
-        confirmDisabled={false}
+        confirmDisabled={!canUpgradeSelected}
       >
         {upgradeTarget && (() => {
           const [r1, r2] = UPGRADE_RESOURCES[upgradeTarget.animal_type] ?? ["?", "?"];
@@ -701,6 +749,35 @@ export default function FarmScreen() {
             Not enough {consumeMeta?.label} (have {availableFeed}, need {feedNeededForMax})
           </Text>
         )}
+      </CustomModal>
+
+      {/* Fill animal storage confirmation modal */}
+      <CustomModal
+        visible={showFillStorageConfirm}
+        onClose={() => setShowFillStorageConfirm(false)}
+        onConfirm={() => {
+          setShowFillStorageConfirm(false);
+          handleFillAnimalStorage();
+        }}
+        title="Depoyu Doldur?"
+        confirmText="Doldur"
+        confirmDisabled={!selectedAnimal}
+      >
+        {selectedAnimal && (() => {
+          const maxCap = getMaxCapacity(selectedAnimal.level);
+          const fillCost = Math.max(0, maxCap - (selectedLive?.pending ?? 0));
+          return (
+            <View style={styles.upgradeModalBody}>
+              <Text style={styles.upgradeModalText}>
+                Seçili hayvanın üretim deposu anında doldurulacak.
+              </Text>
+              <View style={styles.upgradeModalCostRow}>
+                <Image source={COIN_IMG} style={styles.modalCostIcon} resizeMode="contain" />
+                <Text style={styles.upgradeModalCostText}>×{fillCost} coin harcanacak</Text>
+              </View>
+            </View>
+          );
+        })()}
       </CustomModal>
     </SafeAreaView>
   );
@@ -864,11 +941,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   capacityBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
-  capacityText: { fontSize: 10, fontWeight: "800" },
+  capacityIcon: { width: 13, height: 13 },
+  capacityText: { fontSize: 12, fontWeight: "900" },
+  animalSideBtns: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "stretch",
+    justifyContent: "center",
+  },
+  bottomActionRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+  },
+  collectBottomBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 2,
+    minWidth: 64,
+  },
   animalRateBlock: {
     alignItems: "center",
     justifyContent: "center",
@@ -876,6 +978,20 @@ const styles = StyleSheet.create({
   },
   animalRateValue: { fontSize: 16, fontWeight: "900", color: "#3a1e00" },
   animalRateUnit: { fontSize: 9, fontWeight: "700", color: "#8a6a40" },
+  animalUpgradeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: "#4a7c3f",
+    borderWidth: 1.5,
+    borderColor: "#2d5a24",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  animalUpgradeBtnDisabled: {
+    backgroundColor: "#9a7040",
+    borderColor: "#7a5030",
+  },
 
   // Collect side button (right of selected animal row)
   collectSideBtn: {
