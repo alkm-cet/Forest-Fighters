@@ -39,6 +39,10 @@ export const FOOD_EMOJIS: Record<string, string> = {
   "Ironbark Stew":            "🥘",
   "Dragon Pinecone Delight":  "🐉",
   "Mystic Wool Dessert":      "🧁",
+  // warrior defense recipes
+  "Forest Warrior Brew":      "🛡️",
+  "Shield Bark Soup":         "⚔️",
+  "Titanwood Feast":          "🪖",
   // legacy names kept for backward compat
   "Strawberry Jam":           "🍓",
   "Great Forest Feast":       "🍽️",

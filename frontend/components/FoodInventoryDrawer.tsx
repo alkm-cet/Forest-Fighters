@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Timer, ChefHat } from "lucide-react-native";
+import { X, Timer, ChefHat, Info } from "lucide-react-native";
 import { PlayerFood } from "../types";
 import { describeEffect, FOOD_EMOJIS } from "./FoodCard";
 
@@ -119,6 +119,14 @@ export default function FoodInventoryDrawer({ visible, inventory, onClose, onUse
       </View>
 
       <View style={styles.headerDivider} />
+
+      {/* Info row */}
+      <View style={styles.infoRow}>
+        <Info size={11} color="#9a7040" strokeWidth={2} />
+        <Text style={styles.infoText}>
+          Seçili biriminizi yemeklerle güçlendirin ve savaşlarda / üretimde avantaj kazanın
+        </Text>
+      </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Ready section */}
@@ -357,7 +365,21 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#d4b896",
     marginHorizontal: 12,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#9a7040",
+    lineHeight: 14,
   },
   scroll: {
     flex: 1,

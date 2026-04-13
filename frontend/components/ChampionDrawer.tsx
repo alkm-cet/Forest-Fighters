@@ -28,7 +28,13 @@ import {
   ChevronLeft,
   Plus,
 } from "lucide-react-native";
-import { Champion, DungeonRun, Resources, PvpBattle, PlayerFood } from "../types";
+import {
+  Champion,
+  DungeonRun,
+  Resources,
+  PvpBattle,
+  PlayerFood,
+} from "../types";
 import { CLASS_META, RESOURCE_META } from "../constants/resources";
 import CustomModal from "./CustomModal";
 import api from "../lib/api";
@@ -177,7 +183,9 @@ export default function ChampionDrawer({
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
   const [foodInventoryOpen, setFoodInventoryOpen] = useState(false);
   const [playerFoods, setPlayerFoods] = useState<PlayerFood[]>([]);
-  const [slotFoods, setSlotFoods] = useState<[PlayerFood | null, PlayerFood | null]>([null, null]);
+  const [slotFoods, setSlotFoods] = useState<
+    [PlayerFood | null, PlayerFood | null]
+  >([null, null]);
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
   const [tick, setTick] = useState(0);
   const [removeSlot, setRemoveSlot] = useState<0 | 1 | null>(null);
@@ -211,25 +219,29 @@ export default function ChampionDrawer({
 
   // Tick every second so food slot countdowns update live
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
   function formatCountdown(expiresAtMs: number): string {
-    const remaining = Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+    const remaining = Math.max(
+      0,
+      Math.floor((expiresAtMs - Date.now()) / 1000),
+    );
     const h = Math.floor(remaining / 3600);
     const m = Math.floor((remaining % 3600) / 60);
     const s = remaining % 60;
-    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (h > 0)
+      return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 
   function boostTypeLabel(type: string): string {
-    if (type === 'boost_hp')         return 'HP Boost';
-    if (type === 'boost_defense')    return 'DEF Boost';
-    if (type === 'boost_chance')     return 'CRIT Boost';
-    if (type === 'boost_production') return 'Production Boost';
-    return 'Boost';
+    if (type === "boost_hp") return "HP Boost";
+    if (type === "boost_defense") return "DEF Boost";
+    if (type === "boost_chance") return "CRIT Boost";
+    if (type === "boost_production") return "Production Boost";
+    return "Boost";
   }
 
   function makeSlotFood(b: any, recipeName: string): PlayerFood {
@@ -247,9 +259,9 @@ export default function ChampionDrawer({
         ingredients: b.recipe_ingredients ?? {},
         tier: (b.recipe_tier ?? 1) as 1 | 2 | 3,
       },
-      status: 'ready',
-      cooking_started_at: '',
-      cooking_ready_at: '',
+      status: "ready",
+      cooking_started_at: "",
+      cooking_ready_at: "",
       cooking_ready_at_ms: 0,
       cooking_started_at_ms: 0,
       _fetched_at_ms: Date.now(),
@@ -267,8 +279,7 @@ export default function ChampionDrawer({
       for (const b of boosts) {
         if (slotIdx >= 2) break;
         // Fallback name when recipe_id was not stored (legacy rows)
-        const recipeName = b.recipe_name
-          ?? boostTypeLabel(b.boost_type);
+        const recipeName = b.recipe_name ?? boostTypeLabel(b.boost_type);
         slots[slotIdx as 0 | 1] = makeSlotFood(b, recipeName);
         slotIdx++;
       }
@@ -340,7 +351,9 @@ export default function ChampionDrawer({
 
   async function handleUseFood(food: PlayerFood) {
     try {
-      const res = await api.post(`/api/kitchen/use/${food.id}`, { entity_id: champion?.id });
+      const res = await api.post(`/api/kitchen/use/${food.id}`, {
+        entity_id: champion?.id,
+      });
       // Fill the active slot with server-accurate expires_at_ms so countdown is correct immediately
       const expiresAtMs: number | undefined = res.data.boost?.expires_at_ms
         ? Number(res.data.boost.expires_at_ms)
@@ -356,7 +369,10 @@ export default function ChampionDrawer({
         onFoodUsed(res.data.champion);
       }
       // Refresh inventory in background
-      api.get("/api/kitchen/inventory").then((r) => setPlayerFoods(r.data)).catch(() => {});
+      api
+        .get("/api/kitchen/inventory")
+        .then((r) => setPlayerFoods(r.data))
+        .catch(() => {});
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Could not use food");
     }
@@ -391,165 +407,919 @@ export default function ChampionDrawer({
       {/* Wrapper needed for absolute-positioned food panel */}
       <View style={styles.modalRoot}>
         {/* Transparent backdrop — closes food panel first, then drawer */}
-        <TouchableWithoutFeedback onPress={foodInventoryOpen ? () => setFoodInventoryOpen(false) : onClose}>
+        <TouchableWithoutFeedback
+          onPress={
+            foodInventoryOpen ? () => setFoodInventoryOpen(false) : onClose
+          }
+        >
           <View style={styles.backdrop} />
         </TouchableWithoutFeedback>
 
-      <Animated.View
-        style={[styles.drawer, { transform: [{ translateY }] }]}
-        {...panResponder.panHandlers}
-      >
-        {/* Top bar: handle centered, close button on right */}
-        <View style={styles.topBar}>
-          <View style={styles.handleWrap}>
-            <View style={styles.handle} />
-          </View>
-          <TouchableOpacity
-            style={styles.closeBtn}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <X size={14} color="#7a5230" strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-
-        {/* History toggle + level */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={[styles.classBadge, historyTab && styles.classBadgeActive]}
-            onPress={() => {
-              const next = !historyTab;
-              setHistoryTab(next);
-              if (next && history.length === 0) loadHistory();
-            }}
-            activeOpacity={0.75}
-          >
-            {historyTab ? (
-              <ChevronLeft size={12} color="#fff" strokeWidth={2.5} />
-            ) : (
-              <History size={12} color="#2d5a24" strokeWidth={2.5} />
-            )}
-            <Text
-              style={[
-                styles.classBadgeText,
-                historyTab && styles.classBadgeTextActive,
-              ]}
+        <Animated.View
+          style={[styles.drawer, { transform: [{ translateY }] }]}
+          {...panResponder.panHandlers}
+        >
+          {/* Top bar: handle centered, close button on right */}
+          <View style={styles.topBar}>
+            <View style={styles.handleWrap}>
+              <View style={styles.handle} />
+            </View>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              activeOpacity={0.7}
             >
-              {historyTab ? t("historyBack") : t("history")}
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.bannerLeftWrapper}>
-            {isDefenderChamp && (
-              <View style={styles.defenderBannerStrip}>
-                <Shield size={14} color="#fff" strokeWidth={2.5} />
-                <Text style={styles.defenderBannerText}>
-                  {t("defenderBanner")}
-                </Text>
+              <X size={14} color="#7a5230" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+
+          {/* History toggle + level */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={[styles.classBadge, historyTab && styles.classBadgeActive]}
+              onPress={() => {
+                const next = !historyTab;
+                setHistoryTab(next);
+                if (next && history.length === 0) loadHistory();
+              }}
+              activeOpacity={0.75}
+            >
+              {historyTab ? (
+                <ChevronLeft size={12} color="#fff" strokeWidth={2.5} />
+              ) : (
+                <History size={12} color="#2d5a24" strokeWidth={2.5} />
+              )}
+              <Text
+                style={[
+                  styles.classBadgeText,
+                  historyTab && styles.classBadgeTextActive,
+                ]}
+              >
+                {historyTab ? t("historyBack") : t("history")}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.bannerLeftWrapper}>
+              {isDefenderChamp && (
+                <View style={styles.defenderBannerStrip}>
+                  <Shield size={14} color="#fff" strokeWidth={2.5} />
+                  <Text style={styles.defenderBannerText}>
+                    {t("defenderBanner")}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeLabel}>LV</Text>
+                <Text style={styles.levelBadgeNum}>{champion.level}</Text>
               </View>
-            )}
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelBadgeLabel}>LV</Text>
-              <Text style={styles.levelBadgeNum}>{champion.level}</Text>
             </View>
           </View>
-        </View>
 
-        {/* XP progress bar — fixed, always visible */}
-        <View style={styles.xpRow}>
-          <View style={styles.xpBarTrack}>
-            <View
-              style={[
-                styles.xpBarFill,
-                {
-                  width: `${Math.min(
-                    100,
-                    Math.round(
-                      (champion.xp / champion.xp_to_next_level) * 100,
-                    ),
-                  )}%` as any,
-                },
-              ]}
-            />
+          {/* XP progress bar — fixed, always visible */}
+          <View style={styles.xpRow}>
+            <View style={styles.xpBarTrack}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  {
+                    width: `${Math.min(
+                      100,
+                      Math.round(
+                        (champion.xp / champion.xp_to_next_level) * 100,
+                      ),
+                    )}%` as any,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.xpLabel}>
+              {champion.xp} / {champion.xp_to_next_level} XP
+            </Text>
           </View>
-          <Text style={styles.xpLabel}>
-            {champion.xp} / {champion.xp_to_next_level} XP
-          </Text>
-        </View>
 
-        {/* History tab content */}
-        {historyTab && (
-          <ScrollView
-            style={styles.historyScroll}
-            showsVerticalScrollIndicator={false}
-          >
-            {historyLoading ? (
-              <Text style={styles.historyEmpty}>Yükleniyor...</Text>
-            ) : history.length === 0 ? (
-              <Text style={styles.historyEmpty}>{t("noHistory")}</Text>
-            ) : (
-              history.map((battle) => {
-                const won = battle.winner_id === battle.attacker_id;
-                const trophyDelta = battle.attacker_trophies_delta;
-                return (
-                  <TouchableOpacity
-                    key={battle.id}
-                    activeOpacity={0.75}
-                    onPress={() => setSelectedBattle(battle)}
-                    style={[
-                      styles.historyItem,
-                      won ? styles.historyItemWin : styles.historyItemLose,
-                    ]}
-                  >
-                    <View style={styles.historyItemTop}>
-                      <Text
-                        style={[
-                          styles.historyItemResult,
-                          won ? styles.historyWinText : styles.historyLoseText,
-                        ]}
-                      >
-                        {won ? "⚔️ " + t("pvpVictory") : "💀 " + t("pvpDefeat")}
-                      </Text>
-                      <View style={styles.historyTrophyRow}>
-                        <Trophy
-                          size={11}
-                          color={trophyDelta >= 0 ? "#d4a017" : "#c0392b"}
-                          strokeWidth={2}
-                        />
+          {/* History tab content */}
+          {historyTab && (
+            <ScrollView
+              style={styles.historyScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {historyLoading ? (
+                <Text style={styles.historyEmpty}>Yükleniyor...</Text>
+              ) : history.length === 0 ? (
+                <Text style={styles.historyEmpty}>{t("noHistory")}</Text>
+              ) : (
+                history.map((battle) => {
+                  const won = battle.winner_id === battle.attacker_id;
+                  const trophyDelta = battle.attacker_trophies_delta;
+                  return (
+                    <TouchableOpacity
+                      key={battle.id}
+                      activeOpacity={0.75}
+                      onPress={() => setSelectedBattle(battle)}
+                      style={[
+                        styles.historyItem,
+                        won ? styles.historyItemWin : styles.historyItemLose,
+                      ]}
+                    >
+                      <View style={styles.historyItemTop}>
                         <Text
                           style={[
-                            styles.historyTrophyDelta,
-                            trophyDelta >= 0
+                            styles.historyItemResult,
+                            won
                               ? styles.historyWinText
                               : styles.historyLoseText,
                           ]}
                         >
-                          {trophyDelta >= 0 ? "+" : ""}
-                          {trophyDelta}
+                          {won
+                            ? "⚔️ " + t("pvpVictory")
+                            : "💀 " + t("pvpDefeat")}
+                        </Text>
+                        <View style={styles.historyTrophyRow}>
+                          <Trophy
+                            size={11}
+                            color={trophyDelta >= 0 ? "#d4a017" : "#c0392b"}
+                            strokeWidth={2}
+                          />
+                          <Text
+                            style={[
+                              styles.historyTrophyDelta,
+                              trophyDelta >= 0
+                                ? styles.historyWinText
+                                : styles.historyLoseText,
+                            ]}
+                          >
+                            {trophyDelta >= 0 ? "+" : ""}
+                            {trophyDelta}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.historyOpponent}>
+                        vs {battle.defender_name}
+                      </Text>
+                      <View style={styles.historyResRow}>
+                        {(["strawberry", "pinecone", "blueberry"] as const).map(
+                          (r) => {
+                            const amt =
+                              (battle as any)[`transferred_${r}`] ?? 0;
+                            if (amt === 0) return null;
+                            const meta = RESOURCE_META[r];
+                            return (
+                              <View key={r} style={styles.historyResItem}>
+                                <Image
+                                  source={meta.image}
+                                  style={styles.historyResIcon}
+                                  resizeMode="contain"
+                                />
+                                <Text
+                                  style={[
+                                    styles.historyResAmt,
+                                    won
+                                      ? styles.historyWinText
+                                      : styles.historyLoseText,
+                                  ]}
+                                >
+                                  {won ? "+" : "-"}
+                                  {amt}
+                                </Text>
+                              </View>
+                            );
+                          },
+                        )}
+                      </View>
+                      <Text style={styles.historyDate}>
+                        {new Date(battle.fought_at).toLocaleDateString()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          )}
+
+          {!historyTab && (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              onScroll={(e) => {
+                contentScrollY.current = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+            >
+              {/* Champion name */}
+              <Text style={styles.champName}>{champion.name}</Text>
+
+              {/* Champion image + food slots (overflow) + stats */}
+              <View style={styles.imageAndBoostRow}>
+                {/* Wrapper allows absolute children to overflow */}
+                <View style={styles.imageWrapper}>
+                  <View style={styles.imageFrame}>
+                    {meta.image && (
+                      <Image
+                        source={meta.image}
+                        style={styles.champImage}
+                        resizeMode="contain"
+                      />
+                    )}
+                    {/* Active boost badges on image corners */}
+                    {(champion.boost_hp ?? 0) > 0 && (
+                      <View
+                        style={[styles.boostBadge, styles.boostBadgeTopLeft]}
+                      >
+                        <Image
+                          source={require("../assets/icons/heart.webp")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    )}
+                    {(champion.boost_defense ?? 0) > 0 && (
+                      <View
+                        style={[styles.boostBadge, styles.boostBadgeBottomLeft]}
+                      >
+                        <Image
+                          source={require("../assets/icons/shield.webp")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    )}
+                    {(champion.boost_chance ?? 0) > 0 && (
+                      <View
+                        style={[styles.boostBadge, styles.boostBadgeTopRight]}
+                      >
+                        <Image
+                          source={require("../assets/icons/lightning.webp")}
+                          style={styles.boostBtnCostIcon}
+                          resizeMode="contain"
+                        />
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Right col — basic stats */}
+                <View style={styles.statSideCol}>
+                  <View style={styles.sectionLabelRow}>
+                    <Swords size={12} color="#9a7040" strokeWidth={2} />
+                    <Text style={styles.sectionLabel}>
+                      {t("baseStatistics")}
+                    </Text>
+                    {champion.stat_points > 0 && (
+                      <View style={styles.statPointsBadge}>
+                        <Text style={styles.statPointsText}>
+                          +{champion.stat_points}
                         </Text>
                       </View>
+                    )}
+                  </View>
+                  <StatRow
+                    label={t("attack")}
+                    value={champion.attack}
+                    canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                    onUpgrade={() => setPendingStat("attack")}
+                  />
+                  <StatRow
+                    label={t("defense")}
+                    value={champion.defense}
+                    boost={champion.boost_defense || undefined}
+                    canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                    onUpgrade={() => setPendingStat("defense")}
+                  />
+                  <StatRow
+                    label={t("chance")}
+                    value={champion.chance}
+                    boost={champion.boost_chance || undefined}
+                    canUpgrade={champion.stat_points > 0 && !isPvpBattle}
+                    onUpgrade={() => setPendingStat("chance")}
+                  />
+                </View>
+              </View>
+
+              {/* HP Bar */}
+              {(() => {
+                const boostHp = champion.boost_hp ?? 0;
+                const effectiveMaxHp = champion.max_hp + boostHp;
+                const hpPct =
+                  effectiveMaxHp > 0 ? champion.current_hp / effectiveMaxHp : 0;
+                const hpColor =
+                  hpPct > 0.6 ? "#2d8a3e" : hpPct > 0.3 ? "#d4a017" : "#c0392b";
+                return (
+                  <View
+                    style={[
+                      styles.hpSection,
+                      {
+                        backgroundColor: `${hpColor}18`,
+                        borderRadius: 12,
+                        padding: 10,
+                        borderWidth: 1.5,
+                        borderColor: `${hpColor}55`,
+                      },
+                    ]}
+                  >
+                    <View style={styles.hpLabelRow}>
+                      <HeartPulse size={16} color={hpColor} strokeWidth={2.5} />
+                      <Text style={[styles.hpTitle, { color: hpColor }]}>
+                        {champion.current_hp} / {champion.max_hp}
+                        {boostHp > 0 && (
+                          <Text style={styles.hpBoost}> +{boostHp}</Text>
+                        )}{" "}
+                        HP
+                      </Text>
                     </View>
-                    <Text style={styles.historyOpponent}>
-                      vs {battle.defender_name}
+                    <View style={styles.hpBarTrack}>
+                      <View
+                        style={[
+                          styles.hpBarFill,
+                          {
+                            width:
+                              `${Math.round(Math.max(0, hpPct) * 100)}%` as any,
+                            backgroundColor: hpColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* Food slots row — below HP bar */}
+              <View style={styles.foodSlotsRow}>
+                {([0, 1] as const).map((slot) => {
+                  const filled = slotFoods[slot];
+                  const emoji = filled
+                    ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴")
+                    : null;
+                  const countdown =
+                    filled &&
+                    filled.expires_at_ms &&
+                    filled.recipe.effect_duration_minutes != null
+                      ? formatCountdown(filled.expires_at_ms)
+                      : null;
+                  void tick;
+                  return (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[
+                        styles.foodSlotBtn,
+                        filled && styles.foodSlotBtnFilled,
+                      ]}
+                      activeOpacity={0.75}
+                      onPress={() =>
+                        filled ? setRemoveSlot(slot) : openFoodInventory(slot)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.foodSlotIconBg,
+                          filled && styles.foodSlotIconBgFilled,
+                        ]}
+                      >
+                        {filled ? (
+                          <Text style={styles.foodSlotEmoji}>{emoji}</Text>
+                        ) : (
+                          <Plus size={16} color="#9a7040" strokeWidth={2.5} />
+                        )}
+                      </View>
+                      <View style={styles.foodSlotInfo}>
+                        {filled ? (
+                          <>
+                            <Text style={styles.foodSlotName} numberOfLines={1}>
+                              {filled.recipe.name}
+                            </Text>
+                            {countdown ? (
+                              <Text style={styles.foodSlotCountdown}>
+                                {countdown}
+                              </Text>
+                            ) : (
+                              <Text style={styles.foodSlotOneShotLabel}>
+                                one-shot
+                              </Text>
+                            )}
+                          </>
+                        ) : (
+                          <Text style={styles.addFoodText}>Add Food</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Stat upgrade confirmation modal */}
+              {pendingStat && (
+                <Modal
+                  visible
+                  transparent
+                  animationType="fade"
+                  onRequestClose={() => setPendingStat(null)}
+                >
+                  <TouchableWithoutFeedback
+                    onPress={() => setPendingStat(null)}
+                  >
+                    <View style={styles.confirmOverlay} />
+                  </TouchableWithoutFeedback>
+                  <View style={styles.confirmCard}>
+                    <TouchableOpacity
+                      style={styles.confirmClose}
+                      onPress={() => setPendingStat(null)}
+                      activeOpacity={0.7}
+                    >
+                      <X size={14} color="#7a5230" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                    <Text style={styles.confirmTitle}>
+                      {t("confirmUpgradeTitle")}
                     </Text>
-                    <View style={styles.historyResRow}>
+                    <Text style={styles.confirmSubtitle}>
+                      {t(
+                        pendingStat === "attack"
+                          ? "upgradeStatAttack"
+                          : pendingStat === "defense"
+                            ? "upgradeStatDefense"
+                            : "upgradeStatChance",
+                      )}
+                    </Text>
+                    <View style={styles.confirmValueRow}>
+                      <Text style={styles.confirmValueCurrent}>
+                        {champion[pendingStat]}
+                      </Text>
+                      <Text style={styles.confirmValueArrow}>→</Text>
+                      <Text style={styles.confirmValueNext}>
+                        {champion[pendingStat] + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.confirmBtnRow}>
+                      <TouchableOpacity
+                        style={styles.confirmRejectBtn}
+                        onPress={() => setPendingStat(null)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.confirmRejectText}>
+                          {t("cancelBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.confirmAcceptBtn}
+                        onPress={() => {
+                          onSpendStat?.(champion, pendingStat);
+                          setPendingStat(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.confirmAcceptText}>
+                          {t("confirmUpgradeBtn")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Modal>
+              )}
+
+              {/* Buttons */}
+              {champion.current_hp <= 0 ? (
+                // Dead champion — show both revive options
+                <View style={styles.btnRow}>
+                  <CustomButton
+                    btnImage={HEALTH_POTION_IMG}
+                    text={t("revive")}
+                    subContent={
+                      <View style={styles.costRow}>
+                        <Image
+                          source={MILK_IMG}
+                          style={styles.costIcon}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.costText}>×{REVIVE_MILK_COST}</Text>
+                        <Image
+                          source={WOOL_IMG}
+                          style={styles.costIcon}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.costText}>×{REVIVE_WOOL_COST}</Text>
+                      </View>
+                    }
+                    onClick={() => onRevive?.(champion)}
+                    bgColor="#7a3a9a"
+                    borderColor="#5a2d78"
+                    disabled={
+                      (resources?.milk ?? 0) < REVIVE_MILK_COST ||
+                      (resources?.wool ?? 0) < REVIVE_WOOL_COST
+                    }
+                    style={styles.btnFlex}
+                  />
+                  <CustomButton
+                    btnImage={HEALTH_POTION_IMG}
+                    text={t("coinRevive")}
+                    subContent={
+                      <View style={styles.costRow}>
+                        <Image
+                          source={COIN_IMG}
+                          style={styles.costCoinImg}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.costText}>×{COIN_REVIVE_COST}</Text>
+                      </View>
+                    }
+                    onClick={() =>
+                      triggerCoinConfirm({
+                        transactionCost: COIN_REVIVE_COST,
+                        transactionTitle: t("coinRevive"),
+                        transactionDesc: `${champion.name} anında canlandırılsın mı?`,
+                        onConfirm: () => onCoinRevive?.(champion),
+                      })
+                    }
+                    bgColor="#b8860b"
+                    borderColor="#8b6508"
+                    disabled={coins < COIN_REVIVE_COST}
+                    style={styles.btnFlex}
+                  />
+                </View>
+              ) : (
+                <>
+                  {/* === PvP Battle state === */}
+                  {isPvpBattle ? (
+                    pvpBattleExpired ? (
+                      // Result ready — "Sonucu Gör" button
+                      <View style={styles.btnRow}>
+                        <TouchableOpacity
+                          style={[styles.claimBtn, styles.btnFlex]}
+                          onPress={onViewPvpResult}
+                          activeOpacity={0.8}
+                        >
+                          <Swords size={16} color="#fff" strokeWidth={2} />
+                          <Text style={styles.claimBtnText}>Sonucu Gör</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      // Battle in progress — countdown box
+                      <View
+                        style={[
+                          styles.onMissionBtn,
+                          styles.btnFlex,
+                          styles.pvpBattleBtn,
+                          { marginTop: 20 },
+                        ]}
+                      >
+                        <Swords size={16} color="#8a5cc7" strokeWidth={2} />
+                        <View style={styles.onMissionInner}>
+                          <Text
+                            style={[styles.onMissionText, { color: "#8a5cc7" }]}
+                          >
+                            Savaşta!
+                          </Text>
+                          {pvpBattleEndsAt && (
+                            <CountdownTimer
+                              endsAt={pvpBattleEndsAt}
+                              style={[
+                                styles.onMissionTimer,
+                                { color: "#6a3ca7" },
+                              ]}
+                              onExpire={() => setPvpBattleExpired(true)}
+                            />
+                          )}
+                        </View>
+                      </View>
+                    )
+                  ) : (
+                    <>
+                      {/* === Normal button row === */}
+                      <View style={styles.btnRow}>
+                        {!isOnMission && !claimableRun && (
+                          <View
+                            style={[
+                              styles.btnFlex,
+                              isDefenderChamp && styles.btnDefenderDim,
+                            ]}
+                          >
+                            <PvpBattleButton
+                              onPress={() =>
+                                isDefenderChamp
+                                  ? setShowDefenderWarning(true)
+                                  : onPvp(champion)
+                              }
+                              style={styles.btnFlex}
+                            />
+                          </View>
+                        )}
+                        {claimableRun ? (
+                          <TouchableOpacity
+                            style={[styles.claimBtn, styles.btnFlex]}
+                            onPress={() => onClaim?.(claimableRun)}
+                            activeOpacity={0.8}
+                          >
+                            <Gift size={16} color="#fff" strokeWidth={2} />
+                            <Text style={styles.claimBtnText}>
+                              {t("claimReward")}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : isOnMission ? (
+                          <View style={[styles.onMissionBtn, styles.btnFlex]}>
+                            <MapPin size={16} color="#4a7c3f" strokeWidth={2} />
+                            <View style={styles.onMissionInner}>
+                              <Text style={styles.onMissionText}>
+                                {t("onMission")}
+                              </Text>
+                              {activeRunEndsAt && (
+                                <CountdownTimer
+                                  endsAt={activeRunEndsAt}
+                                  style={styles.onMissionTimer}
+                                  onExpire={onMissionExpire}
+                                />
+                              )}
+                            </View>
+                            {activeRunEndsAt &&
+                              (() => {
+                                const secsLeft = Math.max(
+                                  0,
+                                  (new Date(activeRunEndsAt).getTime() -
+                                    Date.now()) /
+                                    1000,
+                                );
+                                const skipCost = Math.max(
+                                  1,
+                                  Math.ceil(secsLeft / 60),
+                                );
+                                const canSkip = coins >= skipCost;
+                                return (
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.missionSkipBtn,
+                                      !canSkip && styles.btnDisabled,
+                                    ]}
+                                    onPress={() =>
+                                      canSkip &&
+                                      triggerCoinConfirm({
+                                        transactionCost: skipCost,
+                                        transactionTitle: t("skipCooldown"),
+                                        transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
+                                        onConfirm: () =>
+                                          onSkipMission?.(champion),
+                                      })
+                                    }
+                                    activeOpacity={0.8}
+                                  >
+                                    <View style={styles.missionSkipRow}>
+                                      <Image
+                                        source={COIN_IMG}
+                                        style={styles.costCoinImg}
+                                        resizeMode="contain"
+                                      />
+                                      <Text style={styles.missionSkipText}>
+                                        ×{skipCost}
+                                      </Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                );
+                              })()}
+                          </View>
+                        ) : (
+                          <View
+                            style={[
+                              styles.btnFlex,
+                              isDefenderChamp && styles.btnDefenderDim,
+                            ]}
+                          >
+                            <EnterDungeonButton
+                              onPress={() =>
+                                isDefenderChamp
+                                  ? setShowDefenderWarning(true)
+                                  : onDungeon(champion)
+                              }
+                              style={styles.btnFlex}
+                            />
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Heal buttons — only when injured and not on mission */}
+                      {!isOnMission &&
+                        champion.current_hp <
+                          champion.max_hp + (champion.boost_hp ?? 0) &&
+                        (() => {
+                          const effectiveMax =
+                            champion.max_hp + (champion.boost_hp ?? 0);
+                          const missingHp = effectiveMax - champion.current_hp;
+                          const canHeal =
+                            (resources?.milk ?? 0) >= HEAL_MILK_COST &&
+                            (resources?.egg ?? 0) >= HEAL_EGG_COST;
+                          const coinHealCost =
+                            Math.ceil(missingHp / 20) * COIN_HEAL_PER_20HP;
+                          return (
+                            <View style={[styles.btnRow, { marginTop: 0 }]}>
+                              <CustomButton
+                                btnImage={HEALTH_POTION_IMG}
+                                text="+20 HP"
+                                subContent={
+                                  <View style={styles.costRow}>
+                                    <Image
+                                      source={MILK_IMG}
+                                      style={styles.costIcon}
+                                      resizeMode="contain"
+                                    />
+                                    <Text style={styles.costText}>
+                                      ×{HEAL_MILK_COST}
+                                    </Text>
+                                    <Image
+                                      source={EGG_IMG}
+                                      style={styles.costIcon}
+                                      resizeMode="contain"
+                                    />
+                                    <Text style={styles.costText}>
+                                      ×{HEAL_EGG_COST}
+                                    </Text>
+                                  </View>
+                                }
+                                onClick={() => onHeal?.(champion)}
+                                bgColor="#c0392b"
+                                borderColor="#922b21"
+                                disabled={!canHeal}
+                                style={styles.btnFlex}
+                              />
+                              <CustomButton
+                                btnImage={HEALTH_POTION_IMG}
+                                text={t("heal")}
+                                subContent={
+                                  <View style={styles.costRow}>
+                                    <Image
+                                      source={COIN_IMG}
+                                      style={styles.costCoinImg}
+                                      resizeMode="contain"
+                                    />
+                                    <Text style={styles.costText}>
+                                      ×{coinHealCost}
+                                    </Text>
+                                    <Text style={styles.costTextDim}>
+                                      +{missingHp} HP
+                                    </Text>
+                                  </View>
+                                }
+                                onClick={() =>
+                                  triggerCoinConfirm({
+                                    transactionCost: coinHealCost,
+                                    transactionTitle: t("heal"),
+                                    transactionDesc: `${champion.name} tam olarak iyileştirilsin mi?`,
+                                    onConfirm: () => onCoinHeal?.(champion),
+                                  })
+                                }
+                                bgColor="#b8860b"
+                                borderColor="#8b6508"
+                                disabled={coins < coinHealCost}
+                                style={styles.btnFlex}
+                              />
+                            </View>
+                          );
+                        })()}
+                    </>
+                  )}
+
+                  {/* Defender button */}
+                  {onSetDefender &&
+                    !isDefenderChamp &&
+                    (() => {
+                      const pvpLocked = !pvpUnlocked;
+                      const isDisabled =
+                        pvpLocked ||
+                        champion.last_defender ||
+                        champion.is_deployed ||
+                        champion.current_hp <= 0;
+                      const label = pvpLocked
+                        ? t("pvpLevelRequired")
+                        : champion.last_defender
+                          ? t("defenderCooldown")
+                          : t("setDefender");
+                      return (
+                        <CustomButton
+                          btnImage={SHIELD_IMG}
+                          text={label}
+                          onClick={() => !isDisabled && onSetDefender(champion)}
+                          bgColor={isDisabled ? "#2e3e2e" : "#1e2d1e"}
+                          borderColor={isDisabled ? "#3a4e3a" : "#4a7c3f"}
+                          disabled={isDisabled}
+                          style={{ marginTop: 8 }}
+                        />
+                      );
+                    })()}
+                </>
+              )}
+            </ScrollView>
+          )}
+
+          {/* Defender warning modal */}
+          {showDefenderWarning && (
+            <Modal
+              visible
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowDefenderWarning(false)}
+            >
+              <TouchableWithoutFeedback
+                onPress={() => setShowDefenderWarning(false)}
+              >
+                <View style={styles.confirmOverlay} />
+              </TouchableWithoutFeedback>
+              <View style={styles.confirmCard}>
+                <TouchableOpacity
+                  style={styles.confirmClose}
+                  onPress={() => setShowDefenderWarning(false)}
+                  activeOpacity={0.7}
+                >
+                  <X size={14} color="#7a5230" strokeWidth={2.5} />
+                </TouchableOpacity>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    marginBottom: 10,
+                  }}
+                >
+                  <Shield size={20} color="#4a7c3f" strokeWidth={2.5} />
+                  <Text style={styles.confirmTitle}>Savunucu Şampiyon</Text>
+                </View>
+                <Text style={styles.confirmSubtitle}>
+                  Bu şampiyon savunucu olarak seçilmiş. Savaştırmak için önce
+                  başka bir şampiyonu savunucu olarak ata.
+                </Text>
+                <TouchableOpacity
+                  style={styles.confirmAcceptBtn}
+                  onPress={() => setShowDefenderWarning(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.confirmAcceptText}>Tamam</Text>
+                </TouchableOpacity>
+              </View>
+            </Modal>
+          )}
+          <InGameCoinConfirmModal coins={coins} />
+        </Animated.View>
+
+        {/* Battle log modal */}
+        <CustomModal
+          visible={selectedBattle !== null}
+          onClose={() => setSelectedBattle(null)}
+          onConfirm={() => setSelectedBattle(null)}
+          title={
+            selectedBattle
+              ? selectedBattle.winner_id === selectedBattle.attacker_id
+                ? "⚔️ Zafer!"
+                : "💀 Yenilgi"
+              : ""
+          }
+          confirmText="Kapat"
+          hideCancel
+        >
+          {selectedBattle &&
+            (() => {
+              const won =
+                selectedBattle.winner_id === selectedBattle.attacker_id;
+              const tDelta = selectedBattle.attacker_trophies_delta;
+              return (
+                <>
+                  {/* Summary header */}
+                  <View style={styles.logSummary}>
+                    <Text style={styles.logSummaryVs}>
+                      <Text style={styles.logSummaryAtk}>
+                        {selectedBattle.attacker_name}
+                      </Text>
+                      {"  vs  "}
+                      <Text style={styles.logSummaryDef}>
+                        {selectedBattle.defender_name}
+                      </Text>
+                    </Text>
+                    <View style={styles.logSummaryRow}>
+                      <Trophy
+                        size={11}
+                        color={tDelta >= 0 ? "#d4a017" : "#c0392b"}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          styles.logSummaryVal,
+                          { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" },
+                        ]}
+                      >
+                        {tDelta >= 0 ? "+" : ""}
+                        {tDelta} kupa
+                      </Text>
                       {(["strawberry", "pinecone", "blueberry"] as const).map(
                         (r) => {
-                          const amt = (battle as any)[`transferred_${r}`] ?? 0;
+                          const amt =
+                            (selectedBattle as any)[`transferred_${r}`] ?? 0;
                           if (amt === 0) return null;
-                          const meta = RESOURCE_META[r];
                           return (
-                            <View key={r} style={styles.historyResItem}>
+                            <View key={r} style={styles.logSummaryRes}>
                               <Image
-                                source={meta.image}
-                                style={styles.historyResIcon}
+                                source={RESOURCE_META[r].image}
+                                style={styles.logSummaryResIcon}
                                 resizeMode="contain"
                               />
                               <Text
                                 style={[
-                                  styles.historyResAmt,
-                                  won
-                                    ? styles.historyWinText
-                                    : styles.historyLoseText,
+                                  styles.logSummaryVal,
+                                  { color: won ? "#4a7c3f" : "#c0392b" },
                                 ]}
                               >
                                 {won ? "+" : "-"}
@@ -560,748 +1330,65 @@ export default function ChampionDrawer({
                         },
                       )}
                     </View>
-                    <Text style={styles.historyDate}>
-                      {new Date(battle.fought_at).toLocaleDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </ScrollView>
-        )}
+                  </View>
 
-        {!historyTab && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            onScroll={(e) => {
-              contentScrollY.current = e.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
-          >
-            {/* Champion name */}
-            <Text style={styles.champName}>{champion.name}</Text>
-
-            {/* Champion image + food slots (overflow) + stats */}
-            <View style={styles.imageAndBoostRow}>
-              {/* Wrapper allows absolute children to overflow */}
-              <View style={styles.imageWrapper}>
-                <View style={styles.imageFrame}>
-                  {meta.image && (
-                    <Image
-                      source={meta.image}
-                      style={styles.champImage}
-                      resizeMode="contain"
-                    />
-                  )}
-                  {/* Active boost badges on image corners */}
-                  {(champion.boost_hp ?? 0) > 0 && (
-                    <View style={[styles.boostBadge, styles.boostBadgeTopLeft]}>
-                      <Image
-                        source={require("../assets/icons/heart.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-                  {(champion.boost_defense ?? 0) > 0 && (
-                    <View style={[styles.boostBadge, styles.boostBadgeBottomLeft]}>
-                      <Image
-                        source={require("../assets/icons/shield.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-                  {(champion.boost_chance ?? 0) > 0 && (
-                    <View style={[styles.boostBadge, styles.boostBadgeTopRight]}>
-                      <Image
-                        source={require("../assets/icons/lightning.webp")}
-                        style={styles.boostBtnCostIcon}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-                </View>
-
-                {/* Food slots — absolute, overflow right edge of image */}
-                <View style={styles.foodSlotsAbsCol}>
-                  {([0, 1] as const).map((slot) => {
-                    const filled = slotFoods[slot];
-                    const emoji = filled ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴") : null;
-                    const countdown =
-                      filled &&
-                      filled.expires_at_ms &&
-                      filled.recipe.effect_duration_minutes != null
-                        ? formatCountdown(filled.expires_at_ms)
-                        : null;
-                    void tick;
-                    return (
-                      <View key={slot} style={styles.foodSlotWrapper}>
-                        <TouchableOpacity
-                          style={[styles.foodSlotSquare, filled && styles.foodSlotSquareFilled]}
-                          activeOpacity={0.75}
-                          onPress={() => filled ? setRemoveSlot(slot) : openFoodInventory(slot)}
-                        >
-                          {filled ? (
-                            <Text style={styles.foodSlotSquareEmoji}>{emoji}</Text>
-                          ) : (
-                            <Plus size={18} color="#9a7040" strokeWidth={2.5} />
-                          )}
-                        </TouchableOpacity>
-                        {countdown && (
-                          <Text style={styles.foodSlotCountdown}>{countdown}</Text>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Right col — basic stats */}
-              <View style={styles.statSideCol}>
-                <View style={styles.sectionLabelRow}>
-                  <Swords size={12} color="#9a7040" strokeWidth={2} />
-                  <Text style={styles.sectionLabel}>{t("baseStatistics")}</Text>
-                  {champion.stat_points > 0 && (
-                    <View style={styles.statPointsBadge}>
-                      <Text style={styles.statPointsText}>
-                        +{champion.stat_points}
+                  {/* Log entries */}
+                  <ScrollView
+                    style={styles.logScroll}
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled
+                  >
+                    {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
+                      <Text style={styles.historyEmpty}>
+                        Savaş günlüğü bulunamadı.
                       </Text>
-                    </View>
-                  )}
-                </View>
-                <StatRow
-                  label={t("attack")}
-                  value={champion.attack}
-                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-                  onUpgrade={() => setPendingStat("attack")}
-                />
-                <StatRow
-                  label={t("defense")}
-                  value={champion.defense}
-                  boost={champion.boost_defense || undefined}
-                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-                  onUpgrade={() => setPendingStat("defense")}
-                />
-                <StatRow
-                  label={t("chance")}
-                  value={champion.chance}
-                  boost={champion.boost_chance || undefined}
-                  canUpgrade={champion.stat_points > 0 && !isPvpBattle}
-                  onUpgrade={() => setPendingStat("chance")}
-                />
-              </View>
-            </View>
-
-            {/* HP Bar */}
-            {(() => {
-              const boostHp = champion.boost_hp ?? 0;
-              const effectiveMaxHp = champion.max_hp + boostHp;
-              const hpPct =
-                effectiveMaxHp > 0 ? champion.current_hp / effectiveMaxHp : 0;
-              const hpColor =
-                hpPct > 0.6 ? "#2d8a3e" : hpPct > 0.3 ? "#d4a017" : "#c0392b";
-              return (
-                <View
-                  style={[
-                    styles.hpSection,
-                    {
-                      backgroundColor: `${hpColor}18`,
-                      borderRadius: 12,
-                      padding: 10,
-                      borderWidth: 1.5,
-                      borderColor: `${hpColor}55`,
-                    },
-                  ]}
-                >
-                  <View style={styles.hpLabelRow}>
-                    <HeartPulse size={16} color={hpColor} strokeWidth={2.5} />
-                    <Text style={[styles.hpTitle, { color: hpColor }]}>
-                      {champion.current_hp} / {champion.max_hp}
-                      {boostHp > 0 && (
-                        <Text style={styles.hpBoost}> +{boostHp}</Text>
-                      )}{" "}
-                      HP
-                    </Text>
-                  </View>
-                  <View style={styles.hpBarTrack}>
-                    <View
-                      style={[
-                        styles.hpBarFill,
-                        {
-                          width:
-                            `${Math.round(Math.max(0, hpPct) * 100)}%` as any,
-                          backgroundColor: hpColor,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
+                    ) : (
+                      selectedBattle.combat_log.map((entry: any, i: number) => {
+                        const isAtk = entry.actor === "attacker";
+                        const newRound =
+                          i === 0 ||
+                          selectedBattle.combat_log[i - 1]?.round !==
+                            entry.round;
+                        return (
+                          <View key={i}>
+                            {newRound && (
+                              <Text style={styles.logRound}>
+                                — Tur {entry.round + 1} —
+                              </Text>
+                            )}
+                            <View style={styles.logRow}>
+                              <Text
+                                style={[
+                                  styles.logActor,
+                                  isAtk ? styles.logChamp : styles.logEnemy,
+                                ]}
+                              >
+                                {isAtk
+                                  ? `⚔️ ${selectedBattle.attacker_name}`
+                                  : `🛡️ ${selectedBattle.defender_name}`}
+                              </Text>
+                              <Text style={styles.logDmg}>
+                                {entry.damage === 0
+                                  ? "BLOK"
+                                  : `−${entry.damage}`}
+                                {entry.isCrit ? " 💥" : ""}
+                              </Text>
+                              <Text style={styles.logHp}>
+                                {isAtk
+                                  ? entry.defenderHpAfter
+                                  : entry.attackerHpAfter}{" "}
+                                HP
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+                  </ScrollView>
+                </>
               );
             })()}
-
-            {/* Divider */}
-            <View style={styles.divider} />
-
-            {/* Stat upgrade confirmation modal */}
-            {pendingStat && (
-              <Modal
-                visible
-                transparent
-                animationType="fade"
-                onRequestClose={() => setPendingStat(null)}
-              >
-                <TouchableWithoutFeedback onPress={() => setPendingStat(null)}>
-                  <View style={styles.confirmOverlay} />
-                </TouchableWithoutFeedback>
-                <View style={styles.confirmCard}>
-                  <TouchableOpacity
-                    style={styles.confirmClose}
-                    onPress={() => setPendingStat(null)}
-                    activeOpacity={0.7}
-                  >
-                    <X size={14} color="#7a5230" strokeWidth={2.5} />
-                  </TouchableOpacity>
-                  <Text style={styles.confirmTitle}>
-                    {t("confirmUpgradeTitle")}
-                  </Text>
-                  <Text style={styles.confirmSubtitle}>
-                    {t(
-                      pendingStat === "attack"
-                        ? "upgradeStatAttack"
-                        : pendingStat === "defense"
-                          ? "upgradeStatDefense"
-                          : "upgradeStatChance",
-                    )}
-                  </Text>
-                  <View style={styles.confirmValueRow}>
-                    <Text style={styles.confirmValueCurrent}>
-                      {champion[pendingStat]}
-                    </Text>
-                    <Text style={styles.confirmValueArrow}>→</Text>
-                    <Text style={styles.confirmValueNext}>
-                      {champion[pendingStat] + 1}
-                    </Text>
-                  </View>
-                  <View style={styles.confirmBtnRow}>
-                    <TouchableOpacity
-                      style={styles.confirmRejectBtn}
-                      onPress={() => setPendingStat(null)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.confirmRejectText}>
-                        {t("cancelBtn")}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.confirmAcceptBtn}
-                      onPress={() => {
-                        onSpendStat?.(champion, pendingStat);
-                        setPendingStat(null);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.confirmAcceptText}>
-                        {t("confirmUpgradeBtn")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </Modal>
-            )}
-
-            {/* Buttons */}
-            {champion.current_hp <= 0 ? (
-              // Dead champion — show both revive options
-              <View style={styles.btnRow}>
-                <CustomButton
-                  btnImage={HEALTH_POTION_IMG}
-                  text={t("revive")}
-                  subContent={
-                    <View style={styles.costRow}>
-                      <Image
-                        source={MILK_IMG}
-                        style={styles.costIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={styles.costText}>×{REVIVE_MILK_COST}</Text>
-                      <Image
-                        source={WOOL_IMG}
-                        style={styles.costIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={styles.costText}>×{REVIVE_WOOL_COST}</Text>
-                    </View>
-                  }
-                  onClick={() => onRevive?.(champion)}
-                  bgColor="#7a3a9a"
-                  borderColor="#5a2d78"
-                  disabled={
-                    (resources?.milk ?? 0) < REVIVE_MILK_COST ||
-                    (resources?.wool ?? 0) < REVIVE_WOOL_COST
-                  }
-                  style={styles.btnFlex}
-                />
-                <CustomButton
-                  btnImage={HEALTH_POTION_IMG}
-                  text={t("coinRevive")}
-                  subContent={
-                    <View style={styles.costRow}>
-                      <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
-                      <Text style={styles.costText}>×{COIN_REVIVE_COST}</Text>
-                    </View>
-                  }
-                  onClick={() =>
-                    triggerCoinConfirm({
-                      transactionCost: COIN_REVIVE_COST,
-                      transactionTitle: t("coinRevive"),
-                      transactionDesc: `${champion.name} anında canlandırılsın mı?`,
-                      onConfirm: () => onCoinRevive?.(champion),
-                    })
-                  }
-                  bgColor="#b8860b"
-                  borderColor="#8b6508"
-                  disabled={coins < COIN_REVIVE_COST}
-                  style={styles.btnFlex}
-                />
-              </View>
-            ) : (
-              <>
-                {/* === PvP Battle state === */}
-                {isPvpBattle ? (
-                  pvpBattleExpired ? (
-                    // Result ready — "Sonucu Gör" button
-                    <View style={styles.btnRow}>
-                      <TouchableOpacity
-                        style={[styles.claimBtn, styles.btnFlex]}
-                        onPress={onViewPvpResult}
-                        activeOpacity={0.8}
-                      >
-                        <Swords size={16} color="#fff" strokeWidth={2} />
-                        <Text style={styles.claimBtnText}>Sonucu Gör</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    // Battle in progress — countdown box
-                    <View
-                      style={[
-                        styles.onMissionBtn,
-                        styles.btnFlex,
-                        styles.pvpBattleBtn,
-                        { marginTop: 20 },
-                      ]}
-                    >
-                      <Swords size={16} color="#8a5cc7" strokeWidth={2} />
-                      <View style={styles.onMissionInner}>
-                        <Text
-                          style={[styles.onMissionText, { color: "#8a5cc7" }]}
-                        >
-                          Savaşta!
-                        </Text>
-                        {pvpBattleEndsAt && (
-                          <CountdownTimer
-                            endsAt={pvpBattleEndsAt}
-                            style={[
-                              styles.onMissionTimer,
-                              { color: "#6a3ca7" },
-                            ]}
-                            onExpire={() => setPvpBattleExpired(true)}
-                          />
-                        )}
-                      </View>
-                    </View>
-                  )
-                ) : (
-                  <>
-                    {/* === Normal button row === */}
-                    <View style={styles.btnRow}>
-                      {!isOnMission && !claimableRun && (
-                        <View
-                          style={[
-                            styles.btnFlex,
-                            isDefenderChamp && styles.btnDefenderDim,
-                          ]}
-                        >
-                          <PvpBattleButton
-                            onPress={() =>
-                              isDefenderChamp
-                                ? setShowDefenderWarning(true)
-                                : onPvp(champion)
-                            }
-                            style={styles.btnFlex}
-                          />
-                        </View>
-                      )}
-                      {claimableRun ? (
-                        <TouchableOpacity
-                          style={[styles.claimBtn, styles.btnFlex]}
-                          onPress={() => onClaim?.(claimableRun)}
-                          activeOpacity={0.8}
-                        >
-                          <Gift size={16} color="#fff" strokeWidth={2} />
-                          <Text style={styles.claimBtnText}>
-                            {t("claimReward")}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : isOnMission ? (
-                        <View style={[styles.onMissionBtn, styles.btnFlex]}>
-                          <MapPin size={16} color="#4a7c3f" strokeWidth={2} />
-                          <View style={styles.onMissionInner}>
-                            <Text style={styles.onMissionText}>
-                              {t("onMission")}
-                            </Text>
-                            {activeRunEndsAt && (
-                              <CountdownTimer
-                                endsAt={activeRunEndsAt}
-                                style={styles.onMissionTimer}
-                                onExpire={onMissionExpire}
-                              />
-                            )}
-                          </View>
-                          {activeRunEndsAt &&
-                            (() => {
-                              const secsLeft = Math.max(
-                                0,
-                                (new Date(activeRunEndsAt).getTime() -
-                                  Date.now()) /
-                                  1000,
-                              );
-                              const skipCost = Math.max(
-                                1,
-                                Math.ceil(secsLeft / 60),
-                              );
-                              const canSkip = coins >= skipCost;
-                              return (
-                                <TouchableOpacity
-                                  style={[
-                                    styles.missionSkipBtn,
-                                    !canSkip && styles.btnDisabled,
-                                  ]}
-                                  onPress={() =>
-                                    canSkip &&
-                                    triggerCoinConfirm({
-                                      transactionCost: skipCost,
-                                      transactionTitle: t("skipCooldown"),
-                                      transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
-                                      onConfirm: () =>
-                                        onSkipMission?.(champion),
-                                    })
-                                  }
-                                  activeOpacity={0.8}
-                                >
-                                  <View style={styles.missionSkipRow}>
-                                    <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
-                                    <Text style={styles.missionSkipText}>×{skipCost}</Text>
-                                  </View>
-                                </TouchableOpacity>
-                              );
-                            })()}
-                        </View>
-                      ) : (
-                        <View
-                          style={[
-                            styles.btnFlex,
-                            isDefenderChamp && styles.btnDefenderDim,
-                          ]}
-                        >
-                          <EnterDungeonButton
-                            onPress={() =>
-                              isDefenderChamp
-                                ? setShowDefenderWarning(true)
-                                : onDungeon(champion)
-                            }
-                            style={styles.btnFlex}
-                          />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Heal buttons — only when injured and not on mission */}
-                    {!isOnMission &&
-                      champion.current_hp <
-                        champion.max_hp + (champion.boost_hp ?? 0) &&
-                      (() => {
-                        const effectiveMax =
-                          champion.max_hp + (champion.boost_hp ?? 0);
-                        const missingHp = effectiveMax - champion.current_hp;
-                        const canHeal =
-                          (resources?.milk ?? 0) >= HEAL_MILK_COST &&
-                          (resources?.egg ?? 0) >= HEAL_EGG_COST;
-                        const coinHealCost =
-                          Math.ceil(missingHp / 20) * COIN_HEAL_PER_20HP;
-                        return (
-                          <View style={[styles.btnRow, { marginTop: 0 }]}>
-                            <CustomButton
-                              btnImage={HEALTH_POTION_IMG}
-                              text="+20 HP"
-                              subContent={
-                                <View style={styles.costRow}>
-                                  <Image
-                                    source={MILK_IMG}
-                                    style={styles.costIcon}
-                                    resizeMode="contain"
-                                  />
-                                  <Text style={styles.costText}>
-                                    ×{HEAL_MILK_COST}
-                                  </Text>
-                                  <Image
-                                    source={EGG_IMG}
-                                    style={styles.costIcon}
-                                    resizeMode="contain"
-                                  />
-                                  <Text style={styles.costText}>
-                                    ×{HEAL_EGG_COST}
-                                  </Text>
-                                </View>
-                              }
-                              onClick={() => onHeal?.(champion)}
-                              bgColor="#c0392b"
-                              borderColor="#922b21"
-                              disabled={!canHeal}
-                              style={styles.btnFlex}
-                            />
-                            <CustomButton
-                              btnImage={HEALTH_POTION_IMG}
-                              text={t("heal")}
-                              subContent={
-                                <View style={styles.costRow}>
-                                  <Image source={COIN_IMG} style={styles.costCoinImg} resizeMode="contain" />
-                                  <Text style={styles.costText}>×{coinHealCost}</Text>
-                                  <Text style={styles.costTextDim}>+{missingHp} HP</Text>
-                                </View>
-                              }
-                              onClick={() =>
-                                triggerCoinConfirm({
-                                  transactionCost: coinHealCost,
-                                  transactionTitle: t("heal"),
-                                  transactionDesc: `${champion.name} tam olarak iyileştirilsin mi?`,
-                                  onConfirm: () => onCoinHeal?.(champion),
-                                })
-                              }
-                              bgColor="#b8860b"
-                              borderColor="#8b6508"
-                              disabled={coins < coinHealCost}
-                              style={styles.btnFlex}
-                            />
-                          </View>
-                        );
-                      })()}
-                  </>
-                )}
-
-                {/* Defender button */}
-                {onSetDefender &&
-                  !isDefenderChamp &&
-                  (() => {
-                    const pvpLocked = !pvpUnlocked;
-                    const isDisabled =
-                      pvpLocked ||
-                      champion.last_defender ||
-                      champion.is_deployed ||
-                      champion.current_hp <= 0;
-                    const label = pvpLocked
-                      ? t("pvpLevelRequired")
-                      : champion.last_defender
-                        ? t("defenderCooldown")
-                        : t("setDefender");
-                    return (
-                      <CustomButton
-                        btnImage={SHIELD_IMG}
-                        text={label}
-                        onClick={() => !isDisabled && onSetDefender(champion)}
-                        bgColor={isDisabled ? "#2e3e2e" : "#1e2d1e"}
-                        borderColor={isDisabled ? "#3a4e3a" : "#4a7c3f"}
-                        disabled={isDisabled}
-                        style={{ marginTop: 8 }}
-                      />
-                    );
-                  })()}
-              </>
-            )}
-          </ScrollView>
-        )}
-
-        {/* Defender warning modal */}
-        {showDefenderWarning && (
-          <Modal
-            visible
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowDefenderWarning(false)}
-          >
-            <TouchableWithoutFeedback
-              onPress={() => setShowDefenderWarning(false)}
-            >
-              <View style={styles.confirmOverlay} />
-            </TouchableWithoutFeedback>
-            <View style={styles.confirmCard}>
-              <TouchableOpacity
-                style={styles.confirmClose}
-                onPress={() => setShowDefenderWarning(false)}
-                activeOpacity={0.7}
-              >
-                <X size={14} color="#7a5230" strokeWidth={2.5} />
-              </TouchableOpacity>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <Shield size={20} color="#4a7c3f" strokeWidth={2.5} />
-                <Text style={styles.confirmTitle}>Savunucu Şampiyon</Text>
-              </View>
-              <Text style={styles.confirmSubtitle}>
-                Bu şampiyon savunucu olarak seçilmiş. Savaştırmak için önce
-                başka bir şampiyonu savunucu olarak ata.
-              </Text>
-              <TouchableOpacity
-                style={styles.confirmAcceptBtn}
-                onPress={() => setShowDefenderWarning(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.confirmAcceptText}>Tamam</Text>
-              </TouchableOpacity>
-            </View>
-          </Modal>
-        )}
-        <InGameCoinConfirmModal coins={coins} />
-      </Animated.View>
-
-      {/* Battle log modal */}
-      <CustomModal
-        visible={selectedBattle !== null}
-        onClose={() => setSelectedBattle(null)}
-        onConfirm={() => setSelectedBattle(null)}
-        title={
-          selectedBattle
-            ? selectedBattle.winner_id === selectedBattle.attacker_id
-              ? "⚔️ Zafer!"
-              : "💀 Yenilgi"
-            : ""
-        }
-        confirmText="Kapat"
-        hideCancel
-      >
-        {selectedBattle &&
-          (() => {
-            const won = selectedBattle.winner_id === selectedBattle.attacker_id;
-            const tDelta = selectedBattle.attacker_trophies_delta;
-            return (
-              <>
-                {/* Summary header */}
-                <View style={styles.logSummary}>
-                  <Text style={styles.logSummaryVs}>
-                    <Text style={styles.logSummaryAtk}>
-                      {selectedBattle.attacker_name}
-                    </Text>
-                    {"  vs  "}
-                    <Text style={styles.logSummaryDef}>
-                      {selectedBattle.defender_name}
-                    </Text>
-                  </Text>
-                  <View style={styles.logSummaryRow}>
-                    <Trophy
-                      size={11}
-                      color={tDelta >= 0 ? "#d4a017" : "#c0392b"}
-                      strokeWidth={2}
-                    />
-                    <Text
-                      style={[
-                        styles.logSummaryVal,
-                        { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" },
-                      ]}
-                    >
-                      {tDelta >= 0 ? "+" : ""}
-                      {tDelta} kupa
-                    </Text>
-                    {(["strawberry", "pinecone", "blueberry"] as const).map(
-                      (r) => {
-                        const amt =
-                          (selectedBattle as any)[`transferred_${r}`] ?? 0;
-                        if (amt === 0) return null;
-                        return (
-                          <View key={r} style={styles.logSummaryRes}>
-                            <Image
-                              source={RESOURCE_META[r].image}
-                              style={styles.logSummaryResIcon}
-                              resizeMode="contain"
-                            />
-                            <Text
-                              style={[
-                                styles.logSummaryVal,
-                                { color: won ? "#4a7c3f" : "#c0392b" },
-                              ]}
-                            >
-                              {won ? "+" : "-"}
-                              {amt}
-                            </Text>
-                          </View>
-                        );
-                      },
-                    )}
-                  </View>
-                </View>
-
-                {/* Log entries */}
-                <ScrollView
-                  style={styles.logScroll}
-                  showsVerticalScrollIndicator={false}
-                  nestedScrollEnabled
-                >
-                  {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
-                    <Text style={styles.historyEmpty}>
-                      Savaş günlüğü bulunamadı.
-                    </Text>
-                  ) : (
-                    selectedBattle.combat_log.map((entry: any, i: number) => {
-                      const isAtk = entry.actor === "attacker";
-                      const newRound =
-                        i === 0 ||
-                        selectedBattle.combat_log[i - 1]?.round !== entry.round;
-                      return (
-                        <View key={i}>
-                          {newRound && (
-                            <Text style={styles.logRound}>
-                              — Tur {entry.round + 1} —
-                            </Text>
-                          )}
-                          <View style={styles.logRow}>
-                            <Text
-                              style={[
-                                styles.logActor,
-                                isAtk ? styles.logChamp : styles.logEnemy,
-                              ]}
-                            >
-                              {isAtk
-                                ? `⚔️ ${selectedBattle.attacker_name}`
-                                : `🛡️ ${selectedBattle.defender_name}`}
-                            </Text>
-                            <Text style={styles.logDmg}>
-                              {entry.damage === 0 ? "BLOK" : `−${entry.damage}`}
-                              {entry.isCrit ? " 💥" : ""}
-                            </Text>
-                            <Text style={styles.logHp}>
-                              {isAtk
-                                ? entry.defenderHpAfter
-                                : entry.attackerHpAfter}{" "}
-                              HP
-                            </Text>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
-                </ScrollView>
-              </>
-            );
-          })()}
-      </CustomModal>
+        </CustomModal>
 
         {/* Food inventory panel — inside this Modal, no second Modal needed */}
         <FoodInventoryDrawer
@@ -1313,43 +1400,52 @@ export default function ChampionDrawer({
         />
 
         {/* Remove food popup */}
-        {removeSlot !== null && slotFoods[removeSlot] && (() => {
-          const food = slotFoods[removeSlot]!;
-          const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
-          const hasCountdown = food.expires_at_ms && food.recipe.effect_duration_minutes != null;
-          void tick;
-          return (
-            <View style={styles.removeFoodOverlay}>
-              <View style={styles.removeFoodCard}>
-                <Text style={styles.removeFoodEmoji}>{emoji}</Text>
-                <Text style={styles.removeFoodName}>{food.recipe.name}</Text>
-                <Text style={styles.removeFoodEffect}>{describeEffect(food.recipe)}</Text>
-                {hasCountdown && (
-                  <View style={styles.removeFoodTimerRow}>
-                    <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
-                    <Text style={styles.removeFoodTimer}>{formatCountdown(food.expires_at_ms!)}</Text>
+        {removeSlot !== null &&
+          slotFoods[removeSlot] &&
+          (() => {
+            const food = slotFoods[removeSlot]!;
+            const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
+            const hasCountdown =
+              food.expires_at_ms && food.recipe.effect_duration_minutes != null;
+            void tick;
+            return (
+              <View style={styles.removeFoodOverlay}>
+                <View style={styles.removeFoodCard}>
+                  <Text style={styles.removeFoodEmoji}>{emoji}</Text>
+                  <Text style={styles.removeFoodName}>{food.recipe.name}</Text>
+                  <Text style={styles.removeFoodEffect}>
+                    {describeEffect(food.recipe)}
+                  </Text>
+                  {hasCountdown && (
+                    <View style={styles.removeFoodTimerRow}>
+                      <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
+                      <Text style={styles.removeFoodTimer}>
+                        {formatCountdown(food.expires_at_ms!)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.removeFoodBtnRow}>
+                    <TouchableOpacity
+                      style={styles.removeFoodKeepBtn}
+                      activeOpacity={0.75}
+                      onPress={() => setRemoveSlot(null)}
+                    >
+                      <Text style={styles.removeFoodKeepText}>Keep</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeFoodRemoveBtn}
+                      activeOpacity={0.75}
+                      onPress={() => handleRemoveFood(removeSlot)}
+                    >
+                      <Text style={styles.removeFoodRemoveText}>
+                        Discard Food
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                )}
-                <View style={styles.removeFoodBtnRow}>
-                  <TouchableOpacity
-                    style={styles.removeFoodKeepBtn}
-                    activeOpacity={0.75}
-                    onPress={() => setRemoveSlot(null)}
-                  >
-                    <Text style={styles.removeFoodKeepText}>Keep</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeFoodRemoveBtn}
-                    activeOpacity={0.75}
-                    onPress={() => handleRemoveFood(removeSlot)}
-                  >
-                    <Text style={styles.removeFoodRemoveText}>Discard Food</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          );
-        })()}
+            );
+          })()}
       </View>
     </Modal>
   );
@@ -1502,14 +1598,12 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     overflow: "visible",
-    // marginBottom reserves space for the buttons that overflow below the frame
-    marginBottom: 28,
   },
   imageFrame: {
-    width: 112,
-    height: 112,
+    width: 140,
+    height: 140,
     backgroundColor: "#ede0c4",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: "#c8a96e",
     alignItems: "center",
@@ -1522,8 +1616,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   champImage: {
-    width: 96,
-    height: 96,
+    width: 120,
+    height: 120,
   },
   boostBadge: {
     position: "absolute",
@@ -1553,19 +1647,52 @@ const styles = StyleSheet.create({
     width: 13,
     height: 13,
   },
-  foodSlotsAbsCol: {
-    position: "absolute",
-    bottom: -28,  // straddle the bottom edge of imageFrame
-    left: 0,
-    right: 0,
+  foodSlotsRow: {
     flexDirection: "row",
-    justifyContent: "center",
     gap: 8,
-    zIndex: 10,
+    marginBottom: 12,
   },
-  foodSlotWrapper: {
+  foodSlotBtn: {
+    flex: 1,
+    height: 58,
+    backgroundColor: "#ede0c4",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    borderStyle: "dashed",
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  foodSlotBtnFilled: {
+    backgroundColor: "#eef5eb",
+    borderStyle: "solid",
+    borderColor: "#4a7c3f",
+  },
+  foodSlotIconBg: {
+    width: 38,
+    height: 38,
+    backgroundColor: "#f5e9cc",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  foodSlotIconBgFilled: {
+    backgroundColor: "#daefd4",
+  },
+  foodSlotEmoji: {
+    fontSize: 24,
+  },
+  foodSlotInfo: {
+    flex: 1,
     gap: 3,
+  },
+  foodSlotName: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#3a1e00",
   },
   foodSlotCountdown: {
     fontSize: 9,
@@ -1573,24 +1700,16 @@ const styles = StyleSheet.create({
     color: "#4a7c3f",
     letterSpacing: 0.2,
   },
-  foodSlotSquare: {
-    width: 52,
-    height: 52,
-    backgroundColor: "#ede0c4",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#c8a96e",
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
+  foodSlotOneShotLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#9a7040",
+    fontStyle: "italic",
   },
-  foodSlotSquareFilled: {
-    backgroundColor: "#f5edd8",
-    borderStyle: "solid",
-    borderColor: "#4a7c3f",
-  },
-  foodSlotSquareEmoji: {
-    fontSize: 28,
+  addFoodText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
   },
   // ── Remove food popup ──
   removeFoodOverlay: {

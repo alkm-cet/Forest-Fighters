@@ -405,7 +405,7 @@ export default function FarmerDrawer({
         <Text style={styles.farmerName}>{farmer.name}</Text>
 
         {/* Cat image + food slots */}
-        <View style={styles.imageWrapper}>
+        <View style={styles.imageAndSlotsRow}>
           <View style={styles.imageFrame}>
             {meta.catImage && (
               <Image
@@ -415,8 +415,8 @@ export default function FarmerDrawer({
               />
             )}
           </View>
-          {/* Food slot buttons — absolute, below image */}
-          <View style={styles.foodSlotsAbsCol}>
+          {/* Food slot buttons — right of image */}
+          <View style={styles.foodSlotsCol}>
             {([0, 1] as const).map((slot) => {
               const filled = slotFoods[slot];
               const emoji = filled ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴") : null;
@@ -429,22 +429,36 @@ export default function FarmerDrawer({
               // tick referenced to ensure re-render each second
               void tick;
               return (
-                <View key={slot} style={styles.foodSlotWrapper}>
-                  <TouchableOpacity
-                    style={[styles.foodSlotSquare, filled && styles.foodSlotSquareFilled]}
-                    activeOpacity={0.75}
-                    onPress={() => filled ? setRemoveSlot(slot) : openFoodInventory(slot)}
-                  >
+                <TouchableOpacity
+                  key={slot}
+                  style={[styles.foodSlotBtn, filled && styles.foodSlotBtnFilled]}
+                  activeOpacity={0.75}
+                  onPress={() => filled ? setRemoveSlot(slot) : openFoodInventory(slot)}
+                >
+                  <View style={[styles.foodSlotIconBg, filled && styles.foodSlotIconBgFilled]}>
                     {filled ? (
                       <Text style={styles.foodSlotEmoji}>{emoji}</Text>
                     ) : (
                       <Plus size={16} color="#9a7040" strokeWidth={2.5} />
                     )}
-                  </TouchableOpacity>
-                  {countdown && (
-                    <Text style={styles.foodSlotCountdown}>{countdown}</Text>
-                  )}
-                </View>
+                  </View>
+                  <View style={styles.foodSlotInfo}>
+                    {filled ? (
+                      <>
+                        <Text style={styles.foodSlotName} numberOfLines={1}>
+                          {filled.recipe.name}
+                        </Text>
+                        {countdown ? (
+                          <Text style={styles.foodSlotCountdown}>{countdown}</Text>
+                        ) : (
+                          <Text style={styles.foodSlotOneShotLabel}>one-shot</Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.addFoodText}>Add Food</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -742,10 +756,12 @@ const styles = StyleSheet.create({
     color: "#3a1e00",
     marginBottom: 12,
   },
-  imageWrapper: {
+  imageAndSlotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "center",
-    overflow: "visible",
-    marginBottom: 28,
+    gap: 12,
+    marginBottom: 16,
   },
   imageFrame: {
     width: 148,
@@ -764,25 +780,59 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   catImage: { width: 128, height: 128 },
-  foodSlotsAbsCol: {
-    position: "absolute",
-    bottom: -28,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
+  foodSlotsCol: {
+    flex: 1,
     gap: 8,
-    zIndex: 10,
+    justifyContent: "center",
   },
-  foodSlotWrapper: {
+  foodSlotBtn: {
+    height: 58,
+    backgroundColor: "#ede0c4",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+    borderStyle: "dashed",
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  foodSlotBtnFilled: {
+    backgroundColor: "#eef5eb",
+    borderStyle: "solid",
+    borderColor: "#4a7c3f",
+  },
+  foodSlotIconBg: {
+    width: 36,
+    height: 36,
+    backgroundColor: "#f5e9cc",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  foodSlotIconBgFilled: {
+    backgroundColor: "#daefd4",
+  },
+  foodSlotInfo: {
+    flex: 1,
     gap: 3,
   },
-  foodSlotCountdown: {
+  foodSlotName: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#3a1e00",
+  },
+  foodSlotOneShotLabel: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#c87820",
-    letterSpacing: 0.2,
+    color: "#9a7040",
+    fontStyle: "italic",
+  },
+  addFoodText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#9a7040",
   },
   // ── Remove food popup ──
   removeFoodOverlay: {
@@ -870,23 +920,13 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#fff",
   },
-  foodSlotSquare: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#ede0c4",
-    borderWidth: 2,
-    borderColor: "#c8a96e",
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  foodSlotSquareFilled: {
-    backgroundColor: "#f5e9d0",
-    borderStyle: "solid",
-    borderColor: "#c87820",
-  },
   foodSlotEmoji: { fontSize: 22 },
+  foodSlotCountdown: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#4a7c3f",
+    letterSpacing: 0.2,
+  },
   divider: {
     height: 1.5,
     backgroundColor: "#d4b896",

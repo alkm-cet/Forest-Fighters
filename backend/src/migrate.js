@@ -493,6 +493,30 @@ async function migrate() {
       console.log('Recipes v2 seeded (11 new recipes)');
     }
 
+    // Allow fractional cook times (e.g. 0.5 for 30 seconds — used for test recipes)
+    await query(`ALTER TABLE recipes ALTER COLUMN cook_duration_minutes TYPE NUMERIC`);
+
+    // Add 3 new warriors-only timed defense recipes if they don't exist yet
+    const warriorBrewCheck = await query(`SELECT 1 FROM recipes WHERE name = 'Forest Warrior Brew' LIMIT 1`);
+    if (!warriorBrewCheck.length) {
+      const warriorRecipes = [
+        // 30s cook (0.5 min) — for quick testing; +10 defense for 30 min
+        { name: 'Forest Warrior Brew', target: 'fighters', effect_type: 'boost_defense', effect_value: 10, dur: 30,  cook: 0.5, ingr: { pinecone: 6, egg: 4 },                        tier: 2 },
+        // +15 defense for 1 hour
+        { name: 'Shield Bark Soup',    target: 'fighters', effect_type: 'boost_defense', effect_value: 15, dur: 60,  cook: 20,  ingr: { pinecone: 12, egg: 8, wool: 5 },              tier: 3 },
+        // +20 defense for 2 hours
+        { name: 'Titanwood Feast',     target: 'fighters', effect_type: 'boost_defense', effect_value: 20, dur: 120, cook: 35,  ingr: { pinecone: 20, egg: 14, wool: 10, blueberry: 8 }, tier: 3 },
+      ];
+      for (const r of warriorRecipes) {
+        await query(
+          `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
+           VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::NUMERIC, $7::jsonb, $8::INT)`,
+          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+        );
+      }
+      console.log('3 warrior defense recipes added');
+    }
+
     console.log('Kitchen system migrated');
     console.log('Migration complete!');
   } catch (err) {

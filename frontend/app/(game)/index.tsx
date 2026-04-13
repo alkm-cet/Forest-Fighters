@@ -994,7 +994,9 @@ export default function MainScreen() {
         onFoodUsed={(updatedChampion) => {
           // Update the champion in state so boost shows immediately in stat rows
           setChampions((prev) =>
-            prev.map((c) => (c.id === updatedChampion.id ? updatedChampion : c)),
+            prev.map((c) =>
+              c.id === updatedChampion.id ? updatedChampion : c,
+            ),
           );
           setSelectedChampion(updatedChampion);
         }}
@@ -1111,7 +1113,9 @@ export default function MainScreen() {
         }}
         onFarmerUpdated={(updated) => {
           const fresh = { ...updated, _fetched_at_ms: Date.now() };
-          setFarmers((prev) => prev.map((f) => (f.id === updated.id ? fresh : f)));
+          setFarmers((prev) =>
+            prev.map((f) => (f.id === updated.id ? fresh : f)),
+          );
           setSelectedFarmer(fresh);
         }}
       />
@@ -2164,6 +2168,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   tabBtn: {
+    position: "relative",
     flexDirection: "row",
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -2200,6 +2205,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   notifDot: {
+    position: "absolute",
+    right: -2,
+    top: -2,
     width: 8,
     height: 8,
     borderRadius: 4,
