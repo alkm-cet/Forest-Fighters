@@ -20,7 +20,9 @@ import {
 } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
+import { queryKeys } from "../../lib/query/queryKeys";
 import { useLanguage } from "../../lib/i18n";
 import {
   Dungeon,
@@ -49,6 +51,7 @@ type TabKey = "harvest" | "adventure" | "event";
 export default function DungeonsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
   const {
     championId,
     championName,
@@ -146,6 +149,7 @@ export default function DungeonsScreen() {
         champion_id: championId,
       });
       await loadData();
+      queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to enter dungeon");
     }
@@ -156,6 +160,9 @@ export default function DungeonsScreen() {
       const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
       await loadData();
       setClaimResult(res.data);
+      queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to claim reward");
     }

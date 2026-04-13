@@ -3,12 +3,14 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClientProvider } from "@tanstack/react-query";
 import music from "../lib/music";
 import { isMusicEnabled } from "../lib/settings";
 import { LanguageProvider } from "../lib/i18n";
 import { AuthProvider, useAuth } from "../lib/auth-context";
 import { GameDataProvider } from "../lib/game-data-context";
 import { CoinConfirmProvider } from "../lib/coin-confirm-context";
+import { queryClient } from "../lib/query/queryClient";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,16 +67,18 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <SafeAreaProvider>
-      <LanguageProvider>
-        <AuthProvider>
-          <GameDataProvider>
-            <CoinConfirmProvider>
-              <AuthGuard />
-            </CoinConfirmProvider>
-          </GameDataProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <GameDataProvider>
+              <CoinConfirmProvider>
+                <AuthGuard />
+              </CoinConfirmProvider>
+            </GameDataProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

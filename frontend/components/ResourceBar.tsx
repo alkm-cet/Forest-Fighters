@@ -1,5 +1,5 @@
-import { View, Image, StyleSheet, TouchableOpacity, Modal } from "react-native";
-import { useState } from "react";
+import { View, Image, Animated, StyleSheet, TouchableOpacity, Modal } from "react-native";
+import { useState, useRef, useEffect } from "react";
 import { Text } from "./StyledText";
 import { Resources, ResourceKey, AdvancedResourceKey } from "../types";
 import { RESOURCE_META } from "../constants/resources";
@@ -22,16 +22,69 @@ const ADVANCED_COSTS: Record<
   milk: { res1: "blueberry", res2: "strawberry", cost1: 20, cost2: 10 },
 };
 
+// ─── Per-icon component: handles its own pulse animation ─────────────────────
+type IconCellProps = {
+  source: any;
+  isPulseTarget: boolean;
+  pulseVersion: number;
+  onViewRef?: (ref: View | null) => void;
+};
+
+function PulsingIcon({ source, isPulseTarget, pulseVersion, onViewRef }: IconCellProps) {
+  const viewRef = useRef<View>(null);
+  const scale   = useRef(new Animated.Value(1)).current;
+
+  // Pass the ref up once on mount
+  useEffect(() => {
+    onViewRef?.(viewRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-trigger pulse whenever pulseVersion bumps AND this icon is the target
+  useEffect(() => {
+    if (!isPulseTarget || pulseVersion === 0) return;
+    scale.setValue(1);
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 1.65, duration: 110, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 230, friction: 6 }),
+    ]).start();
+  }, [isPulseTarget, pulseVersion]);
+
+  return (
+    <View ref={viewRef}>
+      <Animated.Image
+        source={source}
+        style={[iconStyles.icon, { transform: [{ scale }] }]}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
+
+const iconStyles = StyleSheet.create({
+  icon: { width: 30, height: 30, zIndex: 2 },
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 type Props = {
   resources: Resources;
   onUpgrade?: (resource: ResourceKey) => void;
   onUpgradeAdvanced?: (resource: AdvancedResourceKey) => void;
+  /** Called when each icon view mounts — store the ref for lazy measureInWindow */
+  onIconRef?: (key: string, ref: View | null) => void;
+  /** Which resource key should pulse right now */
+  pulsingKey?: string | null;
+  /** Increment this each collect to re-trigger the pulse even on the same key */
+  pulseVersion?: number;
 };
 
 export default function ResourceBar({
   resources,
   onUpgrade,
   onUpgradeAdvanced,
+  onIconRef,
+  pulsingKey,
+  pulseVersion = 0,
 }: Props) {
   const { t } = useLanguage();
   const [showCapMenu, setShowCapMenu] = useState(false);
@@ -84,10 +137,11 @@ export default function ResourceBar({
                 return (
                   <View key={key} style={styles.item}>
                     {meta.image && (
-                      <Image
+                      <PulsingIcon
                         source={meta.image}
-                        style={styles.icon}
-                        resizeMode="contain"
+                        isPulseTarget={pulsingKey === key}
+                        pulseVersion={pulseVersion}
+                        onViewRef={(ref) => onIconRef?.(key, ref)}
                       />
                     )}
                     <View style={[styles.amountBadge, amount >= cap && styles.amountBadgeFull]}>
@@ -360,11 +414,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-  },
-  icon: {
-    width: 30,
-    height: 30,
-    zIndex: 2,
   },
   amountBadge: {
     backgroundColor: "#d4aa6e",

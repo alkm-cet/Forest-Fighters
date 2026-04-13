@@ -73,7 +73,7 @@ export default function ChampionCard({
           <Text style={styles.deployedText}>Sonuç Hazır!</Text>
         </View>
       )}
-      {champion.is_deployed && !pvpBattleEndsAt && (
+      {!!activeRunEndsAt && !pvpBattleEndsAt && (
         <View
           style={[
             styles.deployedOverlay,

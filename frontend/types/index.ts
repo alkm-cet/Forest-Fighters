@@ -187,11 +187,13 @@ export type ClaimResult = {
 export type PvpStatus = {
   trophies: number;
   league: string;
+  pvp_unlocked: boolean;
   defender_champion_id: string | null;
   pending_battle: {
     battleId: string;
     result_available_at: string;
     opponent_name: string;
+    attacker_champion_id: string | null;
   } | null;
 };
 

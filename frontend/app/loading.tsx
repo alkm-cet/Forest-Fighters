@@ -8,15 +8,18 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Text } from "../components/StyledText";
 import { useGameData } from "../lib/game-data-context";
 import { deleteToken } from "../lib/auth";
+import { queryKeys } from "../lib/query/queryKeys";
 
 const BG = require("../assets/home-assets/background-image-3.png");
 
 export default function LoadingScreen() {
   const router = useRouter();
   const { loadAll } = useGameData();
+  const queryClient = useQueryClient();
 
   const [progress, setProgress] = useState(0);
   const [label, setLabel] = useState("Entering the forest…");
@@ -40,10 +43,33 @@ export default function LoadingScreen() {
     progressAnim.setValue(0);
 
     try {
-      await loadAll((pct, stepLabel) => {
+      const snap = await loadAll((pct, stepLabel) => {
         setProgress(pct);
         setLabel(stepLabel);
         animateTo(pct);
+      });
+
+      // Seed the React Query cache so index.tsx gets data immediately without re-fetching
+      queryClient.setQueryData(queryKeys.player(),    snap.player);
+      queryClient.setQueryData(queryKeys.resources(), snap.resources);
+      queryClient.setQueryData(queryKeys.champions(), snap.champions);
+      queryClient.setQueryData(queryKeys.farmers(),   snap.farmers);
+      queryClient.setQueryData(queryKeys.farms(),     snap.farms);
+      queryClient.setQueryData(queryKeys.dungeonRuns(), Object.values(snap.runMap));
+      // pvpStatus: reconstruct into PvpStatus shape expected by usePvpStatusQuery
+      queryClient.setQueryData(queryKeys.pvpStatus(), {
+        trophies: snap.pvp.trophies,
+        league: snap.pvp.league,
+        pvp_unlocked: snap.pvp.unlocked,
+        defender_champion_id: snap.pvp.defenderId,
+        pending_battle: snap.pvp.battleEndsAt
+          ? {
+              battleId: '',
+              result_available_at: snap.pvp.battleEndsAt,
+              opponent_name: '',
+              attacker_champion_id: snap.pvp.pendingChampionId,
+            }
+          : null,
       });
 
       // Snap to 100 % and show "Ready!" before handing off

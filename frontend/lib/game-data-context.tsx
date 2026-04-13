@@ -54,7 +54,7 @@ const LOAD_STEPS: Array<{
 
 type GameDataContextType = {
   snapshot: GameSnapshot | null;
-  loadAll: (onProgress: (pct: number, label: string) => void) => Promise<void>;
+  loadAll: (onProgress: (pct: number, label: string) => void) => Promise<GameSnapshot>;
   clearSnapshot: () => void;
 };
 
@@ -87,7 +87,7 @@ export function GameDataProvider({ children }: { children: React.ReactNode }) {
 
     const pending = pvpData.pending_battle ?? null;
 
-    setSnapshot({
+    const snap: GameSnapshot = {
       player: playerData,
       resources: resourcesData ?? DEFAULT_RESOURCES,
       champions: championsData ?? [],
@@ -106,7 +106,10 @@ export function GameDataProvider({ children }: { children: React.ReactNode }) {
         pendingChampionId: pending?.attacker_champion_id ?? null,
         battleEndsAt: pending?.result_available_at ?? null,
       },
-    });
+    };
+
+    setSnapshot(snap);
+    return snap;
   }
 
   function clearSnapshot() {

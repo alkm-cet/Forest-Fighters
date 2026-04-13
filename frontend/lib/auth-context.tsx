@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getToken, saveToken, deleteToken } from "./auth";
+import { queryClient } from "./query/queryClient";
 
 type AuthContextType = {
   token: string | null | undefined; // undefined = still loading
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await deleteToken();
+    queryClient.clear(); // wipe all cached server state for this player
     setToken(null);
   }
 

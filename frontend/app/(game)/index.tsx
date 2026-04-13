@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -7,16 +7,14 @@ import {
   ImageBackground,
   Animated,
   useWindowDimensions,
-  Modal,
-  ScrollView,
 } from "react-native";
 import { Text } from "../../components/StyledText";
 import { AlertTriangle, Trophy, Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import music from "../../lib/music";
-import { useGameData } from "../../lib/game-data-context";
 import { useLanguage } from "../../lib/i18n";
 import { connectSocket, disconnectSocket } from "../../lib/socket";
 import {
@@ -30,9 +28,40 @@ import {
   Player,
   DungeonRun,
   PvpBattle,
+  ClaimResult,
 } from "../../types";
+import {
+  usePlayerQuery,
+  useResourcesQuery,
+  useChampionsQuery,
+  useFarmersQuery,
+  useFarmsQuery,
+  useDungeonRunsQuery,
+  usePvpStatusQuery,
+} from "../../lib/query/queries";
+import {
+  useCollectFarmerMutation,
+  useUpgradeFarmerMutation,
+  useFillFarmerStorageMutation,
+  useCollectAnimalMutation,
+  useUpgradeAnimalMutation,
+  useFillAnimalStorageMutation,
+  useCollectFarmMutation,
+  useUpgradeFarmMutation,
+  useHealChampionMutation,
+  useReviveChampionMutation,
+  useSpendStatMutation,
+  useSetDefenderMutation,
+  useCoinReviveChampionMutation,
+  useCoinHealChampionMutation,
+  useClaimRunMutation,
+  useSkipMissionMutation,
+  useUpgradeResourceCapMutation,
+  useUpgradeAnimalStorageMutation,
+} from "../../lib/query/mutations";
+import { queryKeys } from "../../lib/query/queryKeys";
+import { useFeedQueue } from "../../lib/store/useFeedQueue";
 import ResourceBar from "../../components/ResourceBar";
-import { RESOURCE_META } from "../../constants/resources";
 import { getLeagueMeta } from "../../constants/leagues";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ChampionCard from "../../components/ChampionCard";
@@ -43,7 +72,12 @@ import AnimalCard from "../../components/AnimalCard";
 import AnimalDrawer from "../../components/AnimalDrawer";
 import FarmCard from "../../components/FarmCard";
 import FarmDrawer from "../../components/FarmDrawer";
-import CollectFloater from "../../components/CollectFloater";
+import ResourceCollectAnimation from "../../components/ResourceCollectAnimation";
+import { RESOURCE_META } from "../../constants/resources";
+import CapUpgradeModal from "../../components/CapUpgradeModal";
+import AdvancedCapUpgradeModal from "../../components/AdvancedCapUpgradeModal";
+import ClaimResultModal from "../../components/ClaimResultModal";
+import PvpResultModal from "../../components/PvpResultModal";
 
 const TAB_BACKGROUNDS = {
   champions: require("../../assets/fighters-bg.webp"),
@@ -60,23 +94,41 @@ const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 export default function MainScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
-  const [player, setPlayer] = useState<Player | null>(null);
-  const [resources, setResources] = useState<Resources>({
-    strawberry: 0,
-    pinecone: 0,
-    blueberry: 0,
-    strawberry_cap: 10,
-    pinecone_cap: 10,
-    blueberry_cap: 10,
-    egg: 0,
-    wool: 0,
-    milk: 0,
-    egg_cap: 10,
-    wool_cap: 10,
-    milk_cap: 10,
-  });
+  // ── React Query — server state ───────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const { data: player = null } = usePlayerQuery();
+  const { data: resources = {
+    strawberry: 0, pinecone: 0, blueberry: 0,
+    strawberry_cap: 10, pinecone_cap: 10, blueberry_cap: 10,
+    egg: 0, wool: 0, milk: 0,
+    egg_cap: 10, wool_cap: 10, milk_cap: 10,
+  } } = useResourcesQuery();
+  const { data: champions = [] } = useChampionsQuery();
+  const { data: farmers = [] } = useFarmersQuery();
+  const { data: farms = [] } = useFarmsQuery();
+  const { data: dungeonRuns = [] } = useDungeonRunsQuery();
+  const { data: pvpStatus } = usePvpStatusQuery();
+
+  // Derived from server state
+  const coins = (player as Player | null)?.coins ?? 0;
+  const animals = useMemo(() => farms.flatMap(f => f.animals ?? []), [farms]);
+  const runMap = useMemo(() => {
+    const m: Record<string, DungeonRun> = {};
+    for (const r of dungeonRuns) {
+      if (r.status === 'active') m[r.champion_id] = r;
+    }
+    return m;
+  }, [dungeonRuns]);
+  const pvpDefenderId = pvpStatus?.defender_champion_id ?? null;
+  const pvpTrophies = pvpStatus?.trophies ?? 10;
+  const pvpLeague = pvpStatus?.league ?? 'Bronz';
+  const pvpUnlocked = pvpStatus?.pvp_unlocked ?? false;
+  const pvpPendingChampionId = pvpStatus?.pending_battle?.attacker_champion_id ?? null;
+  const pvpBattleEndsAt = pvpStatus?.pending_battle?.result_available_at ?? null;
+  // ─────────────────────────────────────────────────────────────────────────
+
   const [capUpgradeConfirm, setCapUpgradeConfirm] = useState<{
     resource: ResourceKey;
     currentCap: number;
@@ -93,20 +145,7 @@ export default function MainScreen() {
     costRes2: ResourceKey;
     emoji: string;
   } | null>(null);
-  const [champions, setChampions] = useState<Champion[]>([]);
-  const [runMap, setRunMap] = useState<Record<string, DungeonRun>>({});
-  const [claimResult, setClaimResult] = useState<{
-    winner: "champion" | "enemy";
-    rewardResource: string;
-    rewardAmount: number;
-    log: any[];
-    xpGained: number;
-    levelsGained: number;
-    newLevel: number;
-  } | null>(null);
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
-  const [animals, setAnimals] = useState<Animal[]>([]);
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
@@ -114,19 +153,27 @@ export default function MainScreen() {
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [collectAnim, setCollectAnim] = useState<{
-    farmerId: string;
     amount: number;
     resourceType: string;
-    farmerIndex: number;
+    startPosition: { x: number; y: number };
+    targetPosition: { x: number; y: number };
     key: number;
   } | null>(null);
   const [animalCollectAnim, setAnimalCollectAnim] = useState<{
-    animalId: string;
     amount: number;
     resourceType: string;
-    animalIndex: number;
+    startPosition: { x: number; y: number };
+    targetPosition: { x: number; y: number };
     key: number;
   } | null>(null);
+
+  // View refs for each HUD resource icon — measured lazily at collect-time via measureInWindow
+  const resourceIconRefs = useRef<Record<string, View | null>>({});
+  // Refs for each card in the current tab's row (up to 3)
+  const farmerCardRefs = useRef<(View | null)[]>([null, null, null]);
+  const farmCardRefs   = useRef<(View | null)[]>([null, null, null]);
+  // Pulse state: which resource icon to pulse + version counter to re-trigger same key
+  const [pulsingResource, setPulsingResource] = useState<{ key: string; version: number } | null>(null);
   type TabName = "champions" | "farmers" | "animals";
   const TAB_ORDER: TabName[] = ["champions", "farmers", "animals"];
   const [activeTab, setActiveTab] = useState<TabName>("champions");
@@ -137,8 +184,6 @@ export default function MainScreen() {
   );
   const [attackedBanner, setAttackedBanner] = useState<string | null>(null);
   const [resultBanner, setResultBanner] = useState(false);
-  const [pvpDefenderId, setPvpDefenderId] = useState<string | null>(null);
-  const [pvpTrophies, setPvpTrophies] = useState<number>(10);
   const [closedEyesCat, setClosedEyesCat] = useState<string | null>(null);
   const closedEyesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -146,54 +191,35 @@ export default function MainScreen() {
   const [displayedBg, setDisplayedBg] = useState<TabName>("champions");
   const bgFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Feed serialization: prevents concurrent feed requests from over-spending resources.
-  // Each tap increments the buffer; only one request is in-flight at a time;
-  // buffered taps are sent as a single feed-max call after the current request completes.
-  const feedBufferRef = useRef(0);
-  const feedInFlightRef = useRef(false);
-  const flushFeedBufferRef = useRef<(animalId: string) => void>(
-    null as unknown as (animalId: string) => void,
-  );
-  flushFeedBufferRef.current = (animalId: string) => {
-    if (feedInFlightRef.current || feedBufferRef.current === 0) return;
-    feedInFlightRef.current = true;
-    const count = feedBufferRef.current;
-    feedBufferRef.current = 0;
-    (count === 1
-      ? api.post(`/api/animals/${animalId}/feed`)
-      : api.post(`/api/animals/${animalId}/feed-max`, { requestedUnits: count })
-    )
-      .then((res) => {
-        const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-        // If feed storage is now full, discard any remaining buffered taps
-        if (fresh.current_feed >= fresh.max_feed) {
-          feedBufferRef.current = 0;
-        }
-        setResources(res.data.resources);
-        setAnimals((prev) => prev.map((a) => (a.id === animalId ? fresh : a)));
-        setSelectedAnimal(fresh);
-      })
-      .catch(() => {
-        // On any error (full, no resource, etc.) clear the buffer — stop retrying
-        feedBufferRef.current = 0;
-      })
-      .finally(() => {
-        feedInFlightRef.current = false;
-        if (feedBufferRef.current > 0) flushFeedBufferRef.current?.(animalId);
-      });
-  };
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const collectFarmerMut = useCollectFarmerMutation();
+  const upgradeFarmerMut = useUpgradeFarmerMutation();
+  const fillFarmerStorageMut = useFillFarmerStorageMutation();
+  const collectAnimalMut = useCollectAnimalMutation();
+  const upgradeAnimalMut = useUpgradeAnimalMutation();
+  const fillAnimalStorageMut = useFillAnimalStorageMutation();
+  const collectFarmMut = useCollectFarmMutation();
+  const upgradeFarmMut = useUpgradeFarmMutation();
+  const healChampionMut = useHealChampionMutation();
+  const reviveChampionMut = useReviveChampionMutation();
+  const spendStatMut = useSpendStatMutation();
+  const setDefenderMut = useSetDefenderMutation();
+  const coinReviveChampionMut = useCoinReviveChampionMutation();
+  const coinHealChampionMut = useCoinHealChampionMutation();
+  const claimRunMut = useClaimRunMutation();
+  const skipMissionMut = useSkipMissionMutation();
+  const upgradeResourceCapMut = useUpgradeResourceCapMutation();
+  const upgradeAnimalStorageMut = useUpgradeAnimalStorageMutation();
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Feed queue — per-animal buffer coordinated via Zustand
+  const tapFeed = useFeedQueue((s) => s.tapFeed);
+  const tapFeedMax = useFeedQueue((s) => s.tapFeedMax);
   const catClickRef = useRef<{ champClass: string; count: number } | null>(
     null,
   );
   const catClickResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pvpLeague, setPvpLeague] = useState<string>("Bronz");
-  const [pvpUnlocked, setPvpUnlocked] = useState<boolean>(false);
-  const [pvpPendingChampionId, setPvpPendingChampionId] = useState<
-    string | null
-  >(null);
-  const [pvpBattleEndsAt, setPvpBattleEndsAt] = useState<string | null>(null);
   const [pvpResult, setPvpResult] = useState<PvpBattle | null>(null);
-  const [coins, setCoins] = useState<number>(0);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -218,122 +244,63 @@ export default function MainScreen() {
     return () => loop.stop();
   }, []);
 
-  // ── Seed state from loading-screen snapshot (first mount only) ──────────
-  const { snapshot } = useGameData();
-  const seededRef = useRef(false);
+  // ── Sync selected entities when the RQ cache updates ────────────────────
+  // Keeps open drawer in sync with server data after mutations / invalidations.
+  const selectedFarmerId = selectedFarmer?.id;
   useEffect(() => {
-    if (!snapshot || seededRef.current) return;
-    seededRef.current = true;
-    setPlayer(snapshot.player);
-    setCoins(snapshot.player?.coins ?? 0);
-    setResources(snapshot.resources);
-    setChampions(snapshot.champions);
-    setFarmers(snapshot.farmers);
-    setAnimals(snapshot.animals);
-    setFarms(snapshot.farms ?? []);
-    setSelectedFarm((prev) =>
-      prev ? (snapshot.farms?.find((f) => f.id === prev.id) ?? prev) : null,
-    );
-    setSelectedAnimal((prev) =>
-      prev ? (snapshot.animals.find((a) => a.id === prev.id) ?? prev) : null,
-    );
-    setRunMap(snapshot.runMap);
-    setPvpDefenderId(snapshot.pvp.defenderId);
-    setPvpTrophies(snapshot.pvp.trophies);
-    setPvpLeague(snapshot.pvp.league);
-    setPvpUnlocked(snapshot.pvp.unlocked);
-    setPvpPendingChampionId(snapshot.pvp.pendingChampionId);
-    setPvpBattleEndsAt(snapshot.pvp.battleEndsAt);
-    if (
-      snapshot.pvp.battleEndsAt &&
-      new Date(snapshot.pvp.battleEndsAt) <= new Date()
-    ) {
-      setResultBanner(true);
-    }
-  }, [snapshot]);
+    if (!selectedFarmerId) return;
+    const fresh = farmers.find((f) => f.id === selectedFarmerId);
+    if (fresh) setSelectedFarmer(fresh);
+  }, [farmers, selectedFarmerId]);
+
+  const selectedAnimalId = selectedAnimal?.id;
+  useEffect(() => {
+    if (!selectedAnimalId) return;
+    const fresh = animals.find((a) => a.id === selectedAnimalId);
+    if (fresh) setSelectedAnimal(fresh);
+  }, [animals, selectedAnimalId]);
+
+  const selectedFarmId = selectedFarm?.id;
+  useEffect(() => {
+    if (!selectedFarmId) return;
+    const fresh = farms.find((f) => f.id === selectedFarmId);
+    if (fresh) setSelectedFarm(fresh);
+  }, [farms, selectedFarmId]);
+
+  const selectedChampionId = selectedChampion?.id;
+  useEffect(() => {
+    if (!selectedChampionId) return;
+    const fresh = champions.find((c) => c.id === selectedChampionId);
+    if (fresh) setSelectedChampion(fresh);
+  }, [champions, selectedChampionId]);
   // ────────────────────────────────────────────────────────────────────────
 
+  // ── Show result banner when pvp battle has resolved ──────────────────
+  useEffect(() => {
+    if (pvpBattleEndsAt && new Date(pvpBattleEndsAt) <= new Date()) {
+      setResultBanner(true);
+    }
+  }, [pvpBattleEndsAt]);
+  // ────────────────────────────────────────────────────────────────────────
+
+  // ── Refetch only stale queries on screen focus ────────────────────────
+  // refetchOnWindowFocus (AppState) handles app background→foreground.
+  // This handles screen navigation within the app (e.g. returning from dungeons).
+  // refetchType:'active' means only queries with mounted subscribers are touched.
   useFocusEffect(
     useCallback(() => {
-      Promise.all([
-        api.get("/api/auth/me").then((r) => {
-          setPlayer(r.data);
-          setCoins(r.data.coins ?? 0);
-        }),
-        api.get("/api/resources").then((r) => setResources(r.data)),
-        api.get("/api/champions").then((r) => setChampions(r.data)),
-        api.get("/api/farmers").then((r) => {
-          const now = Date.now();
-          const stamped = r.data.map((f: Farmer) => ({
-            ...f,
-            _fetched_at_ms: now,
-          }));
-          setFarmers(stamped);
-        }),
-        api.get("/api/animals").then((r) => {
-          const now = Date.now();
-          const stamped = r.data.map((a: Animal) => ({
-            ...a,
-            _fetched_at_ms: now,
-          }));
-          setAnimals(stamped);
-          setSelectedAnimal((prev) =>
-            prev
-              ? (stamped.find((a: Animal) => a.id === prev.id) ?? prev)
-              : null,
-          );
-        }),
-        api.get("/api/farms").then((r) => {
-          const now = Date.now();
-          const stamped = r.data.map((farm: Farm) => ({
-            ...farm,
-            animals: (farm.animals ?? []).map((a: Animal) => ({
-              ...a,
-              _fetched_at_ms: now,
-            })),
-          }));
-          setFarms(stamped);
-          setSelectedFarm((prev) =>
-            prev ? (stamped.find((f: Farm) => f.id === prev.id) ?? prev) : null,
-          );
-        }),
-        api.get("/api/dungeons/runs").then((r) => {
-          const map: Record<string, DungeonRun> = {};
-          for (const run of r.data) {
-            if (run.status === "active") map[run.champion_id] = run;
-          }
-          setRunMap(map);
-        }),
-      ]).catch(() => setError(true));
-
-      // Check PvP status on focus
-      api
-        .get("/api/pvp/status")
-        .then((r) => {
-          setPvpDefenderId(r.data.defender_champion_id ?? null);
-          setPvpTrophies(r.data.trophies ?? 10);
-          setPvpLeague(r.data.league ?? "Bronz");
-          setPvpUnlocked(r.data.pvp_unlocked ?? false);
-          const pending = r.data.pending_battle;
-          if (pending) {
-            setPvpPendingChampionId(pending.attacker_champion_id ?? null);
-            setPvpBattleEndsAt(pending.result_available_at ?? null);
-            if (new Date(pending.result_available_at) <= new Date()) {
-              setResultBanner(true);
-            }
-          } else {
-            setPvpPendingChampionId(null);
-            setPvpBattleEndsAt(null);
-          }
-        })
-        .catch(() => {});
-    }, []),
+      queryClient.refetchQueries({ queryKey: queryKeys.resources(),   type: 'active', stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.farmers(),     type: 'active', stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: 'active', stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.dungeonRuns(), type: 'active' });
+      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: 'active', stale: true });
+    }, [queryClient]),
   );
 
   // Socket.io — connect when player loads, disconnect on unmount
   useEffect(() => {
-    if (!player?.id) return;
-    const sock = connectSocket(player.id);
+    if (!(player as Player | null)?.id) return;
+    const sock = connectSocket((player as Player).id);
     sock.on(
       "pvp:attacked",
       ({ attackerName }: { battleId: string; attackerName: string }) => {
@@ -376,18 +343,10 @@ export default function MainScreen() {
     try {
       const res = await api.get("/api/pvp/battles");
       if (res.data.length > 0) {
-        // Refresh data first (including pvp/status so trophies update immediately)
-        const [champRes, resRes, pvpRes] = await Promise.all([
-          api.get("/api/champions"),
-          api.get("/api/resources"),
-          api.get("/api/pvp/status"),
-        ]);
-        setChampions(champRes.data);
-        setResources(resRes.data);
-        setPvpTrophies(pvpRes.data.trophies ?? 10);
-        setPvpLeague(pvpRes.data.league ?? "Bronz");
-        setPvpPendingChampionId(null);
-        setPvpBattleEndsAt(null);
+        // Invalidate so champions, resources, pvp trophies all refresh
+        queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+        queryClient.invalidateQueries({ queryKey: queryKeys.pvpStatus() });
         setResultBanner(false);
         // Close drawer first so the result modal doesn't appear behind it
         setSelectedChampion(null);
@@ -584,6 +543,9 @@ export default function MainScreen() {
               costRes2,
             });
           }}
+          onIconRef={(key, ref) => { resourceIconRefs.current[key] = ref; }}
+          pulsingKey={pulsingResource?.key ?? null}
+          pulseVersion={pulsingResource?.version ?? 0}
         />
 
         {error && (
@@ -728,28 +690,6 @@ export default function MainScreen() {
               );
             })()}
 
-            {/* Collect floater — rendered outside slideClip to avoid overflow:hidden clipping */}
-            {collectAnim && activeTab === "farmers" && (
-              <CollectFloater
-                key={collectAnim.key}
-                amount={collectAnim.amount}
-                resourceType={collectAnim.resourceType}
-                farmerIndex={collectAnim.farmerIndex}
-                screenWidth={screenWidth}
-                onDone={() => setCollectAnim(null)}
-              />
-            )}
-            {animalCollectAnim && activeTab === "animals" && (
-              <CollectFloater
-                key={animalCollectAnim.key}
-                amount={animalCollectAnim.amount}
-                resourceType={animalCollectAnim.resourceType}
-                farmerIndex={animalCollectAnim.animalIndex}
-                screenWidth={screenWidth}
-                onDone={() => setAnimalCollectAnim(null)}
-              />
-            )}
-
             {/* Sliding card rows */}
             <View style={styles.slideClip}>
               <Animated.View
@@ -781,19 +721,30 @@ export default function MainScreen() {
 
                 {/* Farmers row */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
-                  {farmers.slice(0, 3).map((f) => (
-                    <FarmerCard
+                  {farmers.slice(0, 3).map((f, i) => (
+                    <View
                       key={f.id}
-                      farmer={f}
-                      onPress={setSelectedFarmer}
-                    />
+                      ref={(el) => { farmerCardRefs.current[i] = el as any; }}
+                      style={{ flex: 1 }}
+                    >
+                      <FarmerCard
+                        farmer={f}
+                        onPress={setSelectedFarmer}
+                      />
+                    </View>
                   ))}
                 </View>
 
                 {/* Animals row — farm cards */}
                 <View style={[styles.cardsRow, { width: screenWidth }]}>
-                  {farms.slice(0, 3).map((f) => (
-                    <FarmCard key={f.id} farm={f} onPress={setSelectedFarm} />
+                  {farms.slice(0, 3).map((f, i) => (
+                    <View
+                      key={f.id}
+                      ref={(el) => { farmCardRefs.current[i] = el as any; }}
+                      style={{ flex: 1 }}
+                    >
+                      <FarmCard farm={f} onPress={setSelectedFarm} />
+                    </View>
                   ))}
                 </View>
               </Animated.View>
@@ -872,35 +823,14 @@ export default function MainScreen() {
         onRevive={async (champion) => {
           setSelectedChampion(null);
           try {
-            const res = await api.post(`/api/champions/${champion.id}/revive`);
-            setResources((r) => ({
-              ...r,
-              milk: res.data.milk,
-              wool: res.data.wool,
-            }));
-            api.get("/api/champions").then((r) => setChampions(r.data));
+            await reviveChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Canlandırma başarısız");
           }
         }}
         onHeal={async (champion) => {
           try {
-            const res = await api.post(`/api/champions/${champion.id}/heal`);
-            setResources((r) => ({
-              ...r,
-              milk: res.data.milk,
-              egg: res.data.egg,
-            }));
-            setChampions((prev) =>
-              prev.map((c) =>
-                c.id === champion.id ? { ...c, current_hp: res.data.newHp } : c,
-              ),
-            );
-            setSelectedChampion((prev) =>
-              prev?.id === champion.id
-                ? { ...prev, current_hp: res.data.newHp }
-                : prev,
-            );
+            await healChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "İyileştirme başarısız");
           }
@@ -926,26 +856,14 @@ export default function MainScreen() {
         onViewPvpResult={handleViewPvpResult}
         onSetDefender={async (champion) => {
           try {
-            const res = await api.post("/api/pvp/set-defender", {
-              champion_id: champion.id,
-            });
-            setPvpDefenderId(res.data.defender_champion_id);
-            setPvpTrophies(res.data.trophies);
-            setPvpLeague(res.data.league);
+            await setDefenderMut.mutateAsync(champion.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Savunucu ayarlanamadı");
           }
         }}
         onSpendStat={async (champion, stat) => {
           try {
-            const res = await api.post(
-              `/api/champions/${champion.id}/spend-stat`,
-              { stat },
-            );
-            setChampions((prev) =>
-              prev.map((c) => (c.id === champion.id ? res.data : c)),
-            );
-            setSelectedChampion(res.data);
+            await spendStatMut.mutateAsync({ championId: champion.id, stat });
           } catch (err: any) {
             alert(
               err.response?.data?.error ?? "İstatistik güçlendirme başarısız",
@@ -955,65 +873,36 @@ export default function MainScreen() {
         coins={coins}
         onCoinRevive={async (champion) => {
           try {
-            const res = await api.post("/api/coins/revive-champion", {
-              champion_id: champion.id,
-            });
-            setCoins(res.data.coins);
-            setChampions((prev) =>
-              prev.map((c) => (c.id === champion.id ? res.data.champion : c)),
-            );
-            setSelectedChampion(res.data.champion);
+            await coinReviveChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
-            alert(
-              err.response?.data?.error ?? "Coin ile canlandırma başarısız",
-            );
+            alert(err.response?.data?.error ?? "Coin ile canlandırma başarısız");
           }
         }}
         onCoinHeal={async (champion) => {
           try {
-            const res = await api.post("/api/coins/heal-champion", {
-              champion_id: champion.id,
-            });
-            setCoins(res.data.coins);
-            setChampions((prev) =>
-              prev.map((c) =>
-                c.id === champion.id ? { ...c, ...res.data.champion } : c,
-              ),
-            );
-            setSelectedChampion((prev) =>
-              prev?.id === champion.id
-                ? { ...prev, ...res.data.champion }
-                : prev,
-            );
+            await coinHealChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
-            alert(
-              err.response?.data?.error ?? "Coin ile iyileştirme başarısız",
-            );
+            alert(err.response?.data?.error ?? "Coin ile iyileştirme başarısız");
           }
         }}
         onFoodUsed={(updatedChampion) => {
-          // Update the champion in state so boost shows immediately in stat rows
-          setChampions((prev) =>
-            prev.map((c) =>
+          queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
+            (old ?? []).map((c) =>
               c.id === updatedChampion.id ? updatedChampion : c,
             ),
           );
-          setSelectedChampion(updatedChampion);
         }}
         onSkipMission={async (champion) => {
           const run = selectedChampion && runMap[selectedChampion.id];
           if (!run) return;
           try {
-            const res = await api.post("/api/coins/skip-dungeon", {
-              run_id: run.id,
-            });
-            setCoins(res.data.coins);
-            // Mark run as expired so drawer shows claim button
+            const data = await skipMissionMut.mutateAsync(run.id);
             setExpiredRunChampions((prev) => new Set([...prev, champion.id]));
-            setRunMap((prev) => ({
-              ...prev,
-              [champion.id]: { ...run, ends_at: res.data.ends_at },
-            }));
+            queryClient.setQueryData<DungeonRun[]>(queryKeys.dungeonRuns(), (old) =>
+              (old ?? []).map((r) =>
+                r.champion_id === champion.id ? { ...r, ends_at: data.ends_at } : r,
+              ),
+            );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Skip başarısız");
           }
@@ -1026,25 +915,17 @@ export default function MainScreen() {
             return next;
           });
           try {
-            const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
-            // Refresh all state before showing modal so UI is consistent when modal closes
-            await Promise.all([
-              api.get("/api/resources").then((r) => setResources(r.data)),
-              api.get("/api/champions").then((r) => setChampions(r.data)),
-              api.get("/api/dungeons/runs").then((r) => {
-                const map: Record<string, DungeonRun> = {};
-                for (const r2 of r.data) {
-                  if (r2.status === "active") map[r2.champion_id] = r2;
-                }
-                setRunMap(map);
-              }),
-            ]).catch(() => {});
-            setClaimResult(res.data);
-          } catch (err: any) {
+            const data = await claimRunMut.mutateAsync(run.id);
+            setClaimResult(data);
+          } catch {
             setClaimResult({
               winner: "enemy",
               rewardResource: "",
               rewardAmount: 0,
+              rewardResource2: null,
+              rewardAmount2: 0,
+              coinReward: 0,
+              starsEarned: null,
               log: [],
               xpGained: 0,
               levelsGained: 0,
@@ -1061,62 +942,63 @@ export default function MainScreen() {
         onClose={() => setSelectedFarmer(null)}
         onFillStorage={async (farmer) => {
           try {
-            const res = await api.post("/api/coins/fill-farmer-storage", {
-              farmer_id: farmer.id,
-            });
-            setCoins(res.data.coins);
-            const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
-            setFarmers((prev) =>
-              prev.map((f) => (f.id === farmer.id ? fresh : f)),
-            );
-            setSelectedFarmer(fresh);
+            await fillFarmerStorageMut.mutateAsync(farmer.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Depo doldurulamadı");
           }
         }}
         onCollect={async (farmer) => {
+          const idx = farmers.findIndex((f) => f.id === farmer.id);
           try {
-            const res = await api.post(`/api/farmers/${farmer.id}/collect`);
-            setResources(res.data.resources);
-            api.get("/api/farmers").then((r) => {
-              const now = Date.now();
-              setFarmers(
-                r.data.map((f: Farmer) => ({ ...f, _fetched_at_ms: now })),
-              );
-            });
+            const data = await collectFarmerMut.mutateAsync(farmer.id);
             setSelectedFarmer(null);
-            music.sfx("COLLECT");
-            const idx = farmers.findIndex((f) => f.id === farmer.id);
-            setCollectAnim({
-              farmerId: farmer.id,
-              amount: res.data.collected,
-              resourceType: farmer.resource_type,
-              farmerIndex: idx >= 0 ? idx : 0,
-              key: Date.now(),
-            });
+            // 200ms lets the drawer close; then measure BOTH positions lazily via measureInWindow
+            setTimeout(() => {
+              const cardRef  = farmerCardRefs.current[idx >= 0 ? idx : 0];
+              const iconRef  = resourceIconRefs.current[farmer.resource_type];
+              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const fallbackTarget = { x: screenWidth / 2, y: 80 };
+
+              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+                music.sfxRepeat("COLLECT", data.collected);
+                setCollectAnim({
+                  amount: data.collected,
+                  resourceType: farmer.resource_type,
+                  startPosition: startPos,
+                  targetPosition: targetPos,
+                  key: Date.now(),
+                });
+              };
+
+              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+                cardRef
+                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackStart);
+              };
+              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+                iconRef
+                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackTarget);
+              };
+
+              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+            }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Toplama başarısız");
           }
         }}
         onUpgrade={async (farmer) => {
           try {
-            const res = await api.post(`/api/farmers/${farmer.id}/upgrade`);
-            const fresh = { ...res.data.farmer, _fetched_at_ms: Date.now() };
-            setResources(res.data.resources);
-            setFarmers((prev) =>
-              prev.map((f) => (f.id === farmer.id ? fresh : f)),
-            );
-            setSelectedFarmer(fresh);
+            await upgradeFarmerMut.mutateAsync(farmer.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Geliştirme başarısız");
           }
         }}
         onFarmerUpdated={(updated) => {
           const fresh = { ...updated, _fetched_at_ms: Date.now() };
-          setFarmers((prev) =>
-            prev.map((f) => (f.id === updated.id ? fresh : f)),
+          queryClient.setQueryData<Farmer[]>(queryKeys.farmers(), (old) =>
+            (old ?? []).map((f) => (f.id === updated.id ? fresh : f)),
           );
-          setSelectedFarmer(fresh);
         }}
       />
 
@@ -1126,40 +1008,14 @@ export default function MainScreen() {
         onClose={() => setSelectedFarm(null)}
         onCollect={async (farm) => {
           try {
-            const res = await api.post(`/api/farms/${farm.farm_type}/collect`);
-            const now = Date.now();
-            const updated: Farm = {
-              ...res.data.farm,
-              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({
-                ...a,
-                _fetched_at_ms: now,
-              })),
-            };
-            setResources(res.data.resources);
-            setFarms((prev) =>
-              prev.map((f) => (f.id === farm.id ? updated : f)),
-            );
-            setSelectedFarm(updated);
+            await collectFarmMut.mutateAsync(farm.farm_type);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
           }
         }}
         onUpgrade={async (farm) => {
           try {
-            const res = await api.post(`/api/farms/${farm.farm_type}/upgrade`);
-            const now = Date.now();
-            const updated: Farm = {
-              ...res.data.farm,
-              animals: (res.data.farm.animals ?? []).map((a: Animal) => ({
-                ...a,
-                _fetched_at_ms: now,
-              })),
-            };
-            setResources(res.data.resources);
-            setFarms((prev) =>
-              prev.map((f) => (f.id === farm.id ? updated : f)),
-            );
-            setSelectedFarm(updated);
+            await upgradeFarmMut.mutateAsync(farm.farm_type);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Farm upgrade failed");
           }
@@ -1173,761 +1029,121 @@ export default function MainScreen() {
         onClose={() => setSelectedAnimal(null)}
         onFillStorage={async (animal) => {
           try {
-            const res = await api.post("/api/coins/fill-animal-storage", {
-              animal_id: animal.id,
-            });
-            setCoins(res.data.coins);
-            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? fresh : a)),
-            );
-            setSelectedAnimal(fresh);
+            await fillAnimalStorageMut.mutateAsync(animal.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Depo doldurulamadı");
           }
         }}
         onUpgrade={async (animal) => {
           try {
-            const res = await api.post(`/api/animals/${animal.id}/upgrade`);
-            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? fresh : a)),
-            );
-            setSelectedAnimal(fresh);
+            await upgradeAnimalMut.mutateAsync(animal.id);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Upgrade failed");
           }
         }}
         onFeed={(animal) => {
-          feedBufferRef.current += 1;
-          flushFeedBufferRef.current?.(animal.id);
+          tapFeed(animal, queryClient);
         }}
-        onFeedMax={async (animal, requestedUnits) => {
-          // Feed max bypasses the buffer — wait for any in-flight feed to finish first
-          if (feedInFlightRef.current) {
-            feedBufferRef.current += requestedUnits;
-            return;
-          }
-          try {
-            const res = await api.post(`/api/animals/${animal.id}/feed-max`, {
-              requestedUnits,
-            });
-            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? fresh : a)),
-            );
-            setSelectedAnimal(fresh);
-          } catch (err: any) {
-            alert(err.response?.data?.error ?? "Feed max failed");
-          }
+        onFeedMax={(animal, requestedUnits) => {
+          tapFeedMax(animal, requestedUnits, queryClient);
         }}
         onCollect={async (animal) => {
+          // Find which farm card (by index) contains this animal
+          const farmIdx = farms.findIndex(
+            (fm) => fm.animals?.some((a: any) => a.id === animal.id),
+          );
           try {
-            const res = await api.post(`/api/animals/${animal.id}/collect`);
-            const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-            setResources(res.data.resources);
-            setAnimals((prev) =>
-              prev.map((a) => (a.id === animal.id ? fresh : a)),
-            );
+            const data = await collectAnimalMut.mutateAsync(animal.id);
             setSelectedAnimal(null);
-            music.sfx("COLLECT");
-            const idx = animals.findIndex((a) => a.id === animal.id);
-            setAnimalCollectAnim({
-              animalId: animal.id,
-              amount: res.data.collected,
-              resourceType: animal.produce_resource,
-              animalIndex: idx >= 0 ? idx : 0,
-              key: Date.now(),
-            });
+            setTimeout(() => {
+              const cardRef  = farmCardRefs.current[farmIdx >= 0 ? farmIdx : 0];
+              const iconRef  = resourceIconRefs.current[animal.produce_resource];
+              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const fallbackTarget = { x: screenWidth / 2, y: 80 };
+
+              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+                music.sfxRepeat("COLLECT", data.collected);
+                setAnimalCollectAnim({
+                  amount: data.collected,
+                  resourceType: animal.produce_resource,
+                  startPosition: startPos,
+                  targetPosition: targetPos,
+                  key: Date.now(),
+                });
+              };
+
+              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+                cardRef
+                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackStart);
+              };
+              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+                iconRef
+                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackTarget);
+              };
+
+              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+            }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
           }
         }}
       />
 
-      {/* Capacity upgrade confirmation modal */}
-      <Modal
-        visible={capUpgradeConfirm !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCapUpgradeConfirm(null)}
-      >
-        <View style={styles.capModalOverlay}>
-          <View style={styles.capModalCard}>
-            {capUpgradeConfirm &&
-              (() => {
-                const { resource, currentCap, cost, costRes1, costRes2 } =
-                  capUpgradeConfirm;
-                const meta = RESOURCE_META[resource];
-                const meta1 = RESOURCE_META[costRes1];
-                const meta2 = RESOURCE_META[costRes2];
-                const canAfford =
-                  resources[costRes1] >= cost && resources[costRes2] >= cost;
-                return (
-                  <>
-                    <Text style={styles.capModalTitle}>
-                      {t("upgradeCapacityTitle")}
-                    </Text>
-                    {/* Resource icon + cap change */}
-                    <View style={styles.capModalResourceRow}>
-                      <Image
-                        source={meta.image}
-                        style={styles.capModalResIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={styles.capModalCapChange}>
-                        {currentCap}
-                        <Text style={styles.capModalArrow}> → </Text>
-                        <Text style={styles.capModalNewCap}>
-                          {currentCap + 2}
-                        </Text>
-                      </Text>
-                    </View>
-                    <Text style={styles.capModalInfo}>
-                      {t("upgradeCapacityInfo")}
-                    </Text>
-                    {/* Cost row */}
-                    <View style={styles.capModalCostRow}>
-                      <View style={styles.capModalCostItem}>
-                        <Image
-                          source={meta1.image}
-                          style={styles.capModalCostIcon}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.capModalCostText,
-                            resources[costRes1] < cost &&
-                              styles.capModalCostLow,
-                          ]}
-                        >
-                          ×{cost}
-                        </Text>
-                      </View>
-                      <Text style={styles.capModalPlus}>+</Text>
-                      <View style={styles.capModalCostItem}>
-                        <Image
-                          source={meta2.image}
-                          style={styles.capModalCostIcon}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.capModalCostText,
-                            resources[costRes2] < cost &&
-                              styles.capModalCostLow,
-                          ]}
-                        >
-                          ×{cost}
-                        </Text>
-                      </View>
-                    </View>
-                    {/* Buttons */}
-                    <View style={styles.capModalBtns}>
-                      <TouchableOpacity
-                        style={styles.capModalCancelBtn}
-                        onPress={() => setCapUpgradeConfirm(null)}
-                      >
-                        <Text style={styles.capModalCancelText}>
-                          {t("cancelBtn")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.capModalConfirmBtn,
-                          !canAfford && styles.capModalConfirmDisabled,
-                        ]}
-                        activeOpacity={canAfford ? 0.75 : 1}
-                        onPress={async () => {
-                          if (!canAfford) return;
-                          setCapUpgradeConfirm(null);
-                          try {
-                            const res = await api.post(
-                              "/api/resources/upgrade-capacity",
-                              { resource },
-                            );
-                            setResources(res.data);
-                          } catch (err: any) {
-                            alert(
-                              err.response?.data?.error ??
-                                "Kapasite artırılamadı",
-                            );
-                          }
-                        }}
-                      >
-                        <Text style={styles.capModalConfirmText}>
-                          {t("confirmUpgradeBtn")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                );
-              })()}
-          </View>
-        </View>
-      </Modal>
+      <CapUpgradeModal
+        confirm={capUpgradeConfirm}
+        resources={resources}
+        onClose={() => setCapUpgradeConfirm(null)}
+        onConfirm={upgradeResourceCapMut.mutateAsync}
+      />
 
-      {/* Advanced resource (egg/wool/milk) storage upgrade confirmation modal */}
-      <Modal
-        visible={advancedCapUpgradeConfirm !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setAdvancedCapUpgradeConfirm(null)}
-      >
-        <View style={styles.capModalOverlay}>
-          <View style={styles.capModalCard}>
-            {advancedCapUpgradeConfirm &&
-              (() => {
-                const {
-                  resource,
-                  currentCap,
-                  cost1,
-                  cost2,
-                  costRes1,
-                  costRes2,
-                  emoji,
-                } = advancedCapUpgradeConfirm;
-                const meta1 = RESOURCE_META[costRes1];
-                const meta2 = RESOURCE_META[costRes2];
-                const canAfford =
-                  resources[costRes1] >= cost1 && resources[costRes2] >= cost2;
-                return (
-                  <>
-                    <Text style={styles.capModalTitle}>
-                      {t("upgradeCapacityTitle")}
-                    </Text>
-                    {/* Resource emoji + cap change */}
-                    <View style={styles.capModalResourceRow}>
-                      <Text style={{ fontSize: 32 }}>{emoji}</Text>
-                      <Text style={styles.capModalCapChange}>
-                        {currentCap}
-                        <Text style={styles.capModalArrow}> → </Text>
-                        <Text style={styles.capModalNewCap}>
-                          {currentCap + 2}
-                        </Text>
-                      </Text>
-                    </View>
-                    <Text style={styles.capModalInfo}>
-                      {t("upgradeCapacityInfo")}
-                    </Text>
-                    {/* Cost row */}
-                    <View style={styles.capModalCostRow}>
-                      <View style={styles.capModalCostItem}>
-                        <Image
-                          source={meta1.image!}
-                          style={styles.capModalCostIcon}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.capModalCostText,
-                            resources[costRes1] < cost1 &&
-                              styles.capModalCostLow,
-                          ]}
-                        >
-                          ×{cost1}
-                        </Text>
-                      </View>
-                      <Text style={styles.capModalPlus}>+</Text>
-                      <View style={styles.capModalCostItem}>
-                        <Image
-                          source={meta2.image!}
-                          style={styles.capModalCostIcon}
-                          resizeMode="contain"
-                        />
-                        <Text
-                          style={[
-                            styles.capModalCostText,
-                            resources[costRes2] < cost2 &&
-                              styles.capModalCostLow,
-                          ]}
-                        >
-                          ×{cost2}
-                        </Text>
-                      </View>
-                    </View>
-                    {/* Buttons */}
-                    <View style={styles.capModalBtns}>
-                      <TouchableOpacity
-                        style={styles.capModalCancelBtn}
-                        onPress={() => setAdvancedCapUpgradeConfirm(null)}
-                      >
-                        <Text style={styles.capModalCancelText}>
-                          {t("cancelBtn")}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.capModalConfirmBtn,
-                          !canAfford && styles.capModalConfirmDisabled,
-                        ]}
-                        activeOpacity={canAfford ? 0.75 : 1}
-                        onPress={async () => {
-                          if (!canAfford) return;
-                          setAdvancedCapUpgradeConfirm(null);
-                          try {
-                            const res = await api.post(
-                              "/api/animals/upgrade-storage",
-                              { resource },
-                            );
-                            setResources(res.data);
-                          } catch (err: any) {
-                            alert(
-                              err.response?.data?.error ??
-                                "Kapasite artırılamadı",
-                            );
-                          }
-                        }}
-                      >
-                        <Text style={styles.capModalConfirmText}>
-                          {t("confirmUpgradeBtn")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                );
-              })()}
-          </View>
-        </View>
-      </Modal>
+      <AdvancedCapUpgradeModal
+        confirm={advancedCapUpgradeConfirm}
+        resources={resources}
+        onClose={() => setAdvancedCapUpgradeConfirm(null)}
+        onConfirm={upgradeAnimalStorageMut.mutateAsync}
+      />
 
-      {/* Battle log modal */}
-      <Modal
-        visible={claimResult !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setClaimResult(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            {/* Result header */}
-            <View
-              style={[
-                styles.modalHeader,
-                claimResult?.winner === "champion"
-                  ? styles.modalHeaderWin
-                  : styles.modalHeaderLose,
-              ]}
-            >
-              <Text style={styles.modalTitle}>
-                {claimResult?.winner === "champion"
-                  ? "⚔️ Zafer!"
-                  : "💀 Yenilgi"}
-              </Text>
-              <View style={styles.modalRewardRow}>
-                {claimResult?.rewardAmount && claimResult.rewardAmount > 0 ? (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    {claimResult.rewardResource &&
-                    RESOURCE_META[claimResult.rewardResource]?.image ? (
-                      <Image
-                        source={RESOURCE_META[claimResult.rewardResource].image}
-                        style={{ width: 24, height: 24 }}
-                        resizeMode="contain"
-                      />
-                    ) : null}
-                    <Text style={styles.modalReward}>
-                      +{claimResult.rewardAmount}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.modalNoReward}>Ödül yok</Text>
-                )}
-                {(claimResult?.xpGained ?? 0) > 0 && (
-                  <Text style={styles.modalXp}>
-                    +{claimResult!.xpGained} XP
-                  </Text>
-                )}
-              </View>
-              {(claimResult?.levelsGained ?? 0) > 0 && (
-                <View style={styles.levelUpBadge}>
-                  <Text style={styles.levelUpText}>
-                    ⬆️ SEVİYE ATLADI! LV {claimResult!.newLevel}
-                  </Text>
-                </View>
-              )}
-            </View>
+      <ClaimResultModal
+        result={claimResult}
+        onClose={() => setClaimResult(null)}
+      />
 
-            {/* Battle log */}
-            <Text style={styles.logTitle}>Savaş Günlüğü</Text>
-            <ScrollView
-              style={styles.logScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              {(claimResult?.log ?? []).map((entry: any, i: number) => {
-                const isChamp = entry.actor === "attacker";
-                const atkHp = isChamp
-                  ? entry.attackerHpAfter
-                  : entry.defenderHpAfter;
-                const defHp = isChamp
-                  ? entry.defenderHpAfter
-                  : entry.attackerHpAfter;
-                const blocked = entry.damage === 0;
-                const newRound =
-                  i === 0 || claimResult?.log[i - 1]?.round !== entry.round;
+      <PvpResultModal
+        result={pvpResult}
+        onClose={() => setPvpResult(null)}
+      />
 
-                return (
-                  <View key={i} style={styles.logRow}>
-                    {newRound && (
-                      <View style={styles.roundBadge}>
-                        <Text style={styles.roundBadgeText}>
-                          Tur {entry.round + 1}
-                        </Text>
-                      </View>
-                    )}
-                    <View
-                      style={[
-                        styles.logLine,
-                        isChamp ? styles.logLineChamp : styles.logLineEnemy,
-                      ]}
-                    >
-                      {/* Attacker */}
-                      <View style={styles.logSide}>
-                        <Text
-                          style={[
-                            styles.logSideName,
-                            isChamp
-                              ? styles.logActorChamp
-                              : styles.logActorEnemy,
-                          ]}
-                        >
-                          {isChamp ? "⚔️" : "👹"}{" "}
-                          {isChamp ? "Şampiyon" : "Düşman"}
-                        </Text>
-                        <Text style={styles.logSideHp}>{atkHp} HP</Text>
-                        <View style={styles.logSideStatRow}>
-                          <Text style={styles.logAtkVal}>
-                            ATK {entry.attackValue}
-                          </Text>
-                          {entry.atkBoosted && (
-                            <Text style={styles.logCritBadge}>KRİT</Text>
-                          )}
-                        </View>
-                      </View>
-
-                      {/* Center */}
-                      <View style={styles.logCenter}>
-                        <Text style={styles.logArrow}>→</Text>
-                        <View
-                          style={[
-                            styles.logDmgPill,
-                            blocked
-                              ? styles.logDmgPillBlock
-                              : styles.logDmgPillHit,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.logDmgText,
-                              blocked
-                                ? styles.logDmgTextBlock
-                                : styles.logDmgTextHit,
-                            ]}
-                          >
-                            {blocked ? "BLOK" : `−${entry.damage}`}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Defender */}
-                      <View style={[styles.logSide, styles.logSideRight]}>
-                        <Text
-                          style={[
-                            styles.logSideName,
-                            isChamp
-                              ? styles.logActorEnemy
-                              : styles.logActorChamp,
-                          ]}
-                        >
-                          {isChamp ? "👹" : "⚔️"}{" "}
-                          {isChamp ? "Düşman" : "Şampiyon"}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.logSideHp,
-                            !blocked && styles.logSideHpDamaged,
-                          ]}
-                        >
-                          {defHp} HP
-                        </Text>
-                        <View
-                          style={[
-                            styles.logSideStatRow,
-                            styles.logSideStatRight,
-                          ]}
-                        >
-                          {entry.defBoosted && (
-                            <Text style={styles.logBlockBadge}>BLOK</Text>
-                          )}
-                          <Text style={styles.logDefVal}>
-                            DEF {entry.defenseValue}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => setClaimResult(null)}
-            >
-              <Text style={styles.modalBtnText}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* PvP Result modal */}
-      <Modal
-        visible={pvpResult !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPvpResult(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            {pvpResult &&
-              (() => {
-                const won = pvpResult.winner_id === pvpResult.attacker_id;
-                const trophyDelta = pvpResult.attacker_trophies_delta;
-                return (
-                  <>
-                    <View
-                      style={[
-                        styles.modalHeader,
-                        won ? styles.modalHeaderWin : styles.modalHeaderLose,
-                      ]}
-                    >
-                      <Text style={styles.modalTitle}>
-                        {won ? "⚔️ Zafer!" : "💀 Yenilgi"}
-                      </Text>
-                      <View style={styles.modalRewardRow}>
-                        <Text
-                          style={
-                            won ? styles.modalReward : styles.modalNoReward
-                          }
-                        >
-                          {trophyDelta >= 0 ? "+" : ""}
-                          {trophyDelta} 🏆
-                        </Text>
-                        <Text style={styles.modalXp}>
-                          vs {pvpResult.defender_name}
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={{
-                        paddingHorizontal: 16,
-                        paddingTop: 12,
-                        gap: 8,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {(["strawberry", "pinecone", "blueberry"] as const).map(
-                        (r) => {
-                          const amt =
-                            (pvpResult as any)[`transferred_${r}`] ?? 0;
-                          if (amt === 0) return null;
-                          const meta = RESOURCE_META[r];
-                          return (
-                            <View
-                              key={r}
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              {meta.image ? (
-                                <Image
-                                  source={meta.image}
-                                  style={{ width: 22, height: 22 }}
-                                  resizeMode="contain"
-                                />
-                              ) : null}
-                              <Text
-                                style={[
-                                  styles.modalReward,
-                                  { color: won ? "#4a7c3f" : "#c0392b" },
-                                ]}
-                              >
-                                {won ? "+" : "-"}
-                                {amt}
-                              </Text>
-                            </View>
-                          );
-                        },
-                      )}
-                    </View>
-                    {/* Battle log */}
-                    {(pvpResult.combat_log?.length ?? 0) > 0 && (
-                      <>
-                        <Text style={styles.logTitle}>Savaş Günlüğü</Text>
-                        <ScrollView
-                          style={styles.logScroll}
-                          showsVerticalScrollIndicator={false}
-                          nestedScrollEnabled
-                        >
-                          {pvpResult.combat_log.map((entry: any, i: number) => {
-                            const isChamp = entry.actor === "attacker";
-                            const atkHp = isChamp
-                              ? entry.attackerHpAfter
-                              : entry.defenderHpAfter;
-                            const defHp = isChamp
-                              ? entry.defenderHpAfter
-                              : entry.attackerHpAfter;
-                            const blocked = entry.damage === 0;
-                            const newRound =
-                              i === 0 ||
-                              pvpResult.combat_log[i - 1]?.round !==
-                                entry.round;
-                            const atkName = isChamp
-                              ? pvpResult.attacker_champion_name
-                              : pvpResult.defender_champion_name;
-                            const defName = isChamp
-                              ? pvpResult.defender_champion_name
-                              : pvpResult.attacker_champion_name;
-
-                            return (
-                              <View key={i} style={styles.logRow}>
-                                {newRound && (
-                                  <View style={styles.roundBadge}>
-                                    <Text style={styles.roundBadgeText}>
-                                      Tur {entry.round + 1}
-                                    </Text>
-                                  </View>
-                                )}
-                                <View
-                                  style={[
-                                    styles.logLine,
-                                    isChamp
-                                      ? styles.logLineChamp
-                                      : styles.logLineEnemy,
-                                  ]}
-                                >
-                                  {/* Attacker side */}
-                                  <View style={styles.logSide}>
-                                    <Text
-                                      style={[
-                                        styles.logSideName,
-                                        isChamp
-                                          ? styles.logActorChamp
-                                          : styles.logActorEnemy,
-                                      ]}
-                                    >
-                                      {isChamp ? "⚔️" : "👹"} {atkName}
-                                    </Text>
-                                    <Text style={styles.logSideHp}>
-                                      {atkHp} HP
-                                    </Text>
-                                    <View style={styles.logSideStatRow}>
-                                      <Text style={styles.logAtkVal}>
-                                        ATK {entry.attackValue}
-                                      </Text>
-                                      {entry.atkBoosted && (
-                                        <Text style={styles.logCritBadge}>
-                                          KRİT
-                                        </Text>
-                                      )}
-                                    </View>
-                                  </View>
-
-                                  {/* Center */}
-                                  <View style={styles.logCenter}>
-                                    <Text style={styles.logArrow}>→</Text>
-                                    <View
-                                      style={[
-                                        styles.logDmgPill,
-                                        blocked
-                                          ? styles.logDmgPillBlock
-                                          : styles.logDmgPillHit,
-                                      ]}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.logDmgText,
-                                          blocked
-                                            ? styles.logDmgTextBlock
-                                            : styles.logDmgTextHit,
-                                        ]}
-                                      >
-                                        {blocked ? "BLOK" : `−${entry.damage}`}
-                                      </Text>
-                                    </View>
-                                  </View>
-
-                                  {/* Defender side */}
-                                  <View
-                                    style={[
-                                      styles.logSide,
-                                      styles.logSideRight,
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.logSideName,
-                                        isChamp
-                                          ? styles.logActorEnemy
-                                          : styles.logActorChamp,
-                                      ]}
-                                    >
-                                      {isChamp ? "👹" : "⚔️"} {defName}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.logSideHp,
-                                        !blocked && styles.logSideHpDamaged,
-                                      ]}
-                                    >
-                                      {defHp} HP
-                                    </Text>
-                                    <View
-                                      style={[
-                                        styles.logSideStatRow,
-                                        styles.logSideStatRight,
-                                      ]}
-                                    >
-                                      {entry.defBoosted && (
-                                        <Text style={styles.logBlockBadge}>
-                                          BLOK
-                                        </Text>
-                                      )}
-                                      <Text style={styles.logDefVal}>
-                                        DEF {entry.defenseValue}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </ScrollView>
-                      </>
-                    )}
-                    <TouchableOpacity
-                      style={styles.modalBtn}
-                      onPress={() => setPvpResult(null)}
-                    >
-                      <Text style={styles.modalBtnText}>Kapat</Text>
-                    </TouchableOpacity>
-                  </>
-                );
-              })()}
-          </View>
-        </View>
-      </Modal>
+      {/* Particle collect animations — full-screen overlay so particles can fly from cards → HUD */}
+      {collectAnim && (
+        <ResourceCollectAnimation
+          key={collectAnim.key}
+          startPosition={collectAnim.startPosition}
+          targetPosition={collectAnim.targetPosition}
+          amount={collectAnim.amount}
+          icon={RESOURCE_META[collectAnim.resourceType]?.image as any}
+          onDone={() => { setCollectAnim(null); setPulsingResource(null); }}
+          onArrival={() => setPulsingResource((p) => ({
+            key: collectAnim.resourceType,
+            version: (p?.version ?? 0) + 1,
+          }))}
+        />
+      )}
+      {animalCollectAnim && (
+        <ResourceCollectAnimation
+          key={animalCollectAnim.key}
+          startPosition={animalCollectAnim.startPosition}
+          targetPosition={animalCollectAnim.targetPosition}
+          amount={animalCollectAnim.amount}
+          icon={RESOURCE_META[animalCollectAnim.resourceType]?.image as any}
+          onDone={() => { setAnimalCollectAnim(null); setPulsingResource(null); }}
+          onArrival={() => setPulsingResource((p) => ({
+            key: animalCollectAnim.resourceType,
+            version: (p?.version ?? 0) + 1,
+          }))}
+        />
+      )}
     </View>
   );
 }
@@ -2227,343 +1443,5 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingTop: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: "#f5edd8",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 2,
-    borderBottomWidth: 0,
-    borderColor: "#d4b896",
-    maxHeight: "80%",
-    paddingBottom: 32,
-  },
-  modalHeader: {
-    alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    marginBottom: 4,
-  },
-  modalHeaderWin: {
-    backgroundColor: "#c8e6c9",
-  },
-  modalHeaderLose: {
-    backgroundColor: "#ffcdd2",
-  },
-  modalTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#3a2a10",
-    marginBottom: 4,
-  },
-  modalRewardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  modalReward: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#4a7c3f",
-  },
-  modalNoReward: {
-    fontSize: 14,
-    color: "#c0392b",
-  },
-  modalXp: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#b8860b",
-  },
-  levelUpBadge: {
-    marginTop: 8,
-    backgroundColor: "#3a1e00",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  levelUpText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#f5c842",
-    letterSpacing: 0.5,
-  },
-  logTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#9a7040",
-    letterSpacing: 1.2,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  logScroll: {
-    maxHeight: 340,
-    paddingHorizontal: 16,
-  },
-  logRow: {
-    marginBottom: 6,
-  },
-  roundBadge: {
-    alignSelf: "center",
-    backgroundColor: "#ede0c4",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 3,
-    marginBottom: 5,
-    marginTop: 8,
-  },
-  roundBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#9a7040",
-    letterSpacing: 0.8,
-  },
-  logLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderWidth: 1.5,
-  },
-  logLineChamp: {
-    backgroundColor: "#f0faf0",
-    borderColor: "#b2d8b2",
-  },
-  logLineEnemy: {
-    backgroundColor: "#fdf0f0",
-    borderColor: "#e0b8b8",
-  },
-  logSide: {
-    flex: 1,
-    gap: 2,
-  },
-  logSideRight: {
-    alignItems: "flex-end",
-  },
-  logSideName: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  logActorChamp: {
-    color: "#2d6e24",
-  },
-  logActorEnemy: {
-    color: "#a02020",
-  },
-  logSideHp: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#555",
-  },
-  logSideHpDamaged: {
-    color: "#c0392b",
-  },
-  logSideStatRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  logSideStatRight: {
-    justifyContent: "flex-end",
-  },
-  logAtkVal: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#888",
-  },
-  logDefVal: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#888",
-  },
-  logCritBadge: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#fff",
-    backgroundColor: "#e67e22",
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-  },
-  logBlockBadge: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#fff",
-    backgroundColor: "#2980b9",
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-  },
-  logCenter: {
-    alignItems: "center",
-    paddingHorizontal: 8,
-    gap: 4,
-  },
-  logArrow: {
-    fontSize: 16,
-    color: "#aaa",
-  },
-  logDmgPill: {
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  logDmgPillHit: {
-    backgroundColor: "#c0392b",
-  },
-  logDmgPillBlock: {
-    backgroundColor: "#bbb",
-  },
-  logDmgText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  logDmgTextHit: {
-    color: "#fff",
-  },
-  logDmgTextBlock: {
-    color: "#fff",
-  },
-  modalBtn: {
-    backgroundColor: "#4a7c3f",
-    borderRadius: 12,
-    marginHorizontal: 20,
-    marginTop: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  modalBtnText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fff",
-  },
-
-  // Capacity upgrade modal
-  capModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  capModalCard: {
-    backgroundColor: "#f5edd8",
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "#d4b896",
-    marginHorizontal: 32,
-    padding: 24,
-    alignItems: "center",
-  },
-  capModalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#3a2a10",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  capModalResourceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
-  },
-  capModalResIcon: {
-    width: 36,
-    height: 36,
-  },
-  capModalCapChange: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#3a2a10",
-  },
-  capModalArrow: {
-    color: "#9a7040",
-    fontSize: 20,
-  },
-  capModalNewCap: {
-    color: "#4a7c3f",
-    fontSize: 22,
-  },
-  capModalInfo: {
-    fontSize: 12,
-    color: "#9a7040",
-    marginBottom: 16,
-  },
-  capModalCostRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#ede0c4",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  capModalCostItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  capModalCostIcon: {
-    width: 24,
-    height: 24,
-  },
-  capModalCostText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#3a2a10",
-  },
-  capModalCostLow: {
-    color: "#c0392b",
-  },
-  capModalPlus: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#9a7040",
-  },
-  capModalBtns: {
-    flexDirection: "row",
-    gap: 10,
-    width: "100%",
-  },
-  capModalCancelBtn: {
-    flex: 1,
-    backgroundColor: "#ede0c4",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#d4b896",
-  },
-  capModalCancelText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#6a4010",
-  },
-  capModalConfirmBtn: {
-    flex: 1,
-    backgroundColor: "#4a7c3f",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  capModalConfirmDisabled: {
-    backgroundColor: "#9ab89a",
-  },
-  capModalConfirmText: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#fff",
   },
 });

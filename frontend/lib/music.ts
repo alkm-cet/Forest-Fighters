@@ -62,5 +62,18 @@ async function sfx(key: SoundKey): Promise<void> {
   });
 }
 
-const music = { play, stop, sfx };
+/**
+ * Play a one-shot SFX `times` times in rapid succession.
+ * Each play starts 50ms after the previous — no waiting for the sound to finish.
+ * Capped at 10 plays regardless of `times`.
+ * Fire and forget — does not block the caller.
+ */
+function sfxRepeat(key: SoundKey, times: number): void {
+  const count = Math.min(Math.max(Math.round(times), 1), 10);
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => sfx(key), i * 50);
+  }
+}
+
+const music = { play, stop, sfx, sfxRepeat };
 export default music;
