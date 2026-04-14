@@ -160,6 +160,26 @@ router.post('/use/:foodId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Food is not ready' });
     }
 
+    // Block food application while champion is on a dungeon mission or PvP battle
+    if (entity_id && recipe.target === 'fighters') {
+      const [activeRun] = await query(
+        `SELECT id FROM dungeon_runs
+          WHERE champion_id = $1 AND status = 'active' AND ends_at > NOW()`,
+        [entity_id]
+      );
+      if (activeRun) {
+        return res.status(400).json({ error: 'Cannot add food while champion is on a mission' });
+      }
+      const [pendingBattle] = await query(
+        `SELECT id FROM pvp_battles
+          WHERE attacker_champion_id = $1 AND status = 'pending'`,
+        [entity_id]
+      );
+      if (pendingBattle) {
+        return res.status(400).json({ error: 'Cannot add food while champion is in a PvP battle' });
+      }
+    }
+
     // is_one_shot = true when recipe has no duration (consumed after next battle)
     const isOneShot = !recipe.effect_duration_minutes;
 
@@ -269,6 +289,26 @@ router.delete('/boosts/:boostId', authMiddleware, async (req, res) => {
 
     const boost = boosts[0];
     let updatedChampion = null;
+
+    // Block removal while champion is on a dungeon mission or PvP battle
+    if (boost.entity_id && boost.r_target === 'fighters') {
+      const [activeRun] = await query(
+        `SELECT id FROM dungeon_runs
+          WHERE champion_id = $1 AND status = 'active' AND ends_at > NOW()`,
+        [boost.entity_id]
+      );
+      if (activeRun) {
+        return res.status(400).json({ error: 'Cannot remove food while champion is on a mission' });
+      }
+      const [pendingBattle] = await query(
+        `SELECT id FROM pvp_battles
+          WHERE attacker_champion_id = $1 AND status = 'pending'`,
+        [boost.entity_id]
+      );
+      if (pendingBattle) {
+        return res.status(400).json({ error: 'Cannot remove food while champion is in a PvP battle' });
+      }
+    }
 
     // Reverse the champion stat column for fighter boosts
     if (boost.entity_id && boost.r_target === 'fighters') {

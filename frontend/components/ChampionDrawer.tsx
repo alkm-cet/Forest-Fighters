@@ -27,6 +27,7 @@ import {
   Clock,
   ChevronLeft,
   Plus,
+  Lock,
 } from "lucide-react-native";
 import {
   Champion,
@@ -89,6 +90,8 @@ type Props = {
   isPvpBattle?: boolean;
   pvpBattleEndsAt?: string;
   onViewPvpResult?: () => void;
+  /** True when ANY of the player's champions has a pending PvP battle (player-level lock) */
+  playerHasPendingBattle?: boolean;
   coins?: number;
   onCoinRevive?: (champion: Champion) => void;
   onCoinHeal?: (champion: Champion) => void;
@@ -177,6 +180,7 @@ export default function ChampionDrawer({
   onSkipMission,
   onSkipPvp,
   onFoodUsed,
+  playerHasPendingBattle,
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
@@ -746,67 +750,80 @@ export default function ChampionDrawer({
               })()}
 
               {/* Food slots row — below HP bar */}
-              <View style={styles.foodSlotsRow}>
-                {([0, 1] as const).map((slot) => {
-                  const filled = slotFoods[slot];
-                  const emoji = filled
-                    ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴")
-                    : null;
-                  const countdown =
-                    filled &&
-                    filled.expires_at_ms &&
-                    filled.recipe.effect_duration_minutes != null
-                      ? formatCountdown(filled.expires_at_ms)
-                      : null;
-                  void tick;
-                  return (
-                    <TouchableOpacity
-                      key={slot}
-                      style={[
-                        styles.foodSlotBtn,
-                        filled && styles.foodSlotBtnFilled,
-                      ]}
-                      activeOpacity={0.75}
-                      onPress={() =>
-                        filled ? setRemoveSlot(slot) : openFoodInventory(slot)
-                      }
-                    >
-                      <View
-                        style={[
-                          styles.foodSlotIconBg,
-                          filled && styles.foodSlotIconBgFilled,
-                        ]}
-                      >
-                        {filled ? (
-                          <Text style={styles.foodSlotEmoji}>{emoji}</Text>
-                        ) : (
-                          <Plus size={16} color="#9a7040" strokeWidth={2.5} />
-                        )}
-                      </View>
-                      <View style={styles.foodSlotInfo}>
-                        {filled ? (
-                          <>
-                            <Text style={styles.foodSlotName} numberOfLines={1}>
-                              {filled.recipe.name}
-                            </Text>
-                            {countdown ? (
-                              <Text style={styles.foodSlotCountdown}>
-                                {countdown}
-                              </Text>
+              {(() => {
+                const foodLocked = !!(isOnMission || isPvpBattle);
+                return (
+                  <View style={styles.foodSlotsRow}>
+                    {([0, 1] as const).map((slot) => {
+                      const filled = slotFoods[slot];
+                      const emoji = filled
+                        ? (FOOD_EMOJIS[filled.recipe.name] ?? "🍴")
+                        : null;
+                      const countdown =
+                        filled &&
+                        filled.expires_at_ms &&
+                        filled.recipe.effect_duration_minutes != null
+                          ? formatCountdown(filled.expires_at_ms)
+                          : null;
+                      void tick;
+                      return (
+                        <TouchableOpacity
+                          key={slot}
+                          style={[
+                            styles.foodSlotBtn,
+                            filled && styles.foodSlotBtnFilled,
+                            foodLocked && styles.foodSlotBtnLocked,
+                          ]}
+                          activeOpacity={foodLocked ? 1 : 0.75}
+                          disabled={foodLocked}
+                          onPress={() =>
+                            filled ? setRemoveSlot(slot) : openFoodInventory(slot)
+                          }
+                        >
+                          <View
+                            style={[
+                              styles.foodSlotIconBg,
+                              filled && styles.foodSlotIconBgFilled,
+                            ]}
+                          >
+                            {foodLocked && !filled ? (
+                              <Lock size={14} color="#b8a070" strokeWidth={2.5} />
+                            ) : filled ? (
+                              <Text style={styles.foodSlotEmoji}>{emoji}</Text>
                             ) : (
-                              <Text style={styles.foodSlotOneShotLabel}>
-                                one-shot
+                              <Plus size={16} color="#9a7040" strokeWidth={2.5} />
+                            )}
+                          </View>
+                          <View style={styles.foodSlotInfo}>
+                            {filled ? (
+                              <>
+                                <Text style={styles.foodSlotName} numberOfLines={1}>
+                                  {filled.recipe.name}
+                                </Text>
+                                {countdown ? (
+                                  <Text style={styles.foodSlotCountdown}>
+                                    {countdown}
+                                  </Text>
+                                ) : (
+                                  <Text style={styles.foodSlotOneShotLabel}>
+                                    one-shot
+                                  </Text>
+                                )}
+                              </>
+                            ) : (
+                              <Text style={[styles.addFoodText, foodLocked && styles.addFoodTextLocked]}>
+                                {foodLocked
+                                  ? (isOnMission ? t("foodLockedOnMission") : t("foodLockedInBattle"))
+                                  : t("addFood")}
                               </Text>
                             )}
-                          </>
-                        ) : (
-                          <Text style={styles.addFoodText}>Add Food</Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
 
               {/* Divider */}
               <View style={styles.divider} />
@@ -1007,21 +1024,28 @@ export default function ChampionDrawer({
                       {/* === Normal button row === */}
                       <View style={styles.btnRow}>
                         {!isOnMission && !claimableRun && (
-                          <View
-                            style={[
-                              styles.btnFlex,
-                              isDefenderChamp && styles.btnDefenderDim,
-                            ]}
-                          >
-                            <PvpBattleButton
-                              onPress={() =>
-                                isDefenderChamp
-                                  ? setShowDefenderWarning(true)
-                                  : onPvp(champion)
-                              }
-                              style={styles.btnFlex}
-                            />
-                          </View>
+                          playerHasPendingBattle && !isPvpBattle ? (
+                            <View style={[styles.btnFlex, styles.pvpLockedBtn]}>
+                              <Swords size={14} color="#b8a070" strokeWidth={2} />
+                              <Text style={styles.pvpLockedText}>{t("pvpLockedWaiting")}</Text>
+                            </View>
+                          ) : (
+                            <View
+                              style={[
+                                styles.btnFlex,
+                                isDefenderChamp && styles.btnDefenderDim,
+                              ]}
+                            >
+                              <PvpBattleButton
+                                onPress={() =>
+                                  isDefenderChamp
+                                    ? setShowDefenderWarning(true)
+                                    : onPvp(champion)
+                                }
+                                style={styles.btnFlex}
+                              />
+                            </View>
+                          )
                         )}
                         {claimableRun ? (
                           <TouchableOpacity
@@ -1674,6 +1698,11 @@ const styles = StyleSheet.create({
     borderStyle: "solid",
     borderColor: "#4a7c3f",
   },
+  foodSlotBtnLocked: {
+    opacity: 0.5,
+    borderStyle: "solid",
+    borderColor: "#b8a070",
+  },
   foodSlotIconBg: {
     width: 38,
     height: 38,
@@ -1714,6 +1743,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#9a7040",
+  },
+  addFoodTextLocked: {
+    color: "#b8a070",
+    fontStyle: "italic",
   },
   // ── Remove food popup ──
   removeFoodOverlay: {
@@ -2200,6 +2233,24 @@ const styles = StyleSheet.create({
   // Defender-dimmed button overlay
   btnDefenderDim: {
     opacity: 0.5,
+  },
+  pvpLockedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 71,
+    backgroundColor: "rgba(58,30,0,0.06)",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "rgba(184,160,112,0.4)",
+    borderStyle: "dashed",
+  },
+  pvpLockedText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#b8a070",
+    fontStyle: "italic",
   },
 
   // History tab

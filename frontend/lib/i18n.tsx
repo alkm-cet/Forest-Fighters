@@ -209,6 +209,12 @@ const translations = {
     championLabel: "Champion",
     enemyLabel: "Enemy",
     levelUpLabel: "LEVEL UP!",
+
+    // Champion drawer — locked states
+    pvpLockedWaiting: "Another warrior is waiting",
+    foodLockedOnMission: "On Mission",
+    foodLockedInBattle: "In Battle",
+    addFood: "Add Food",
   },
   tr: {
     // App name
@@ -413,6 +419,12 @@ const translations = {
     championLabel: "Şampiyon",
     enemyLabel: "Düşman",
     levelUpLabel: "SEVİYE ATLADI!",
+
+    // Champion drawer — locked states
+    pvpLockedWaiting: "Diğer savaşçı bekleniyor",
+    foodLockedOnMission: "Görevde",
+    foodLockedInBattle: "Savaşta",
+    addFood: "Yemek Ekle",
   },
 } as const;
 

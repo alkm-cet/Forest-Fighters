@@ -850,6 +850,7 @@ export default function MainScreen() {
         pvpLeague={pvpLeague}
         pvpUnlocked={pvpUnlocked}
         isPvpBattle={pvpPendingChampionId === selectedChampion?.id}
+        playerHasPendingBattle={!!pvpPendingChampionId}
         pvpBattleEndsAt={
           pvpPendingChampionId === selectedChampion?.id
             ? (pvpBattleEndsAt ?? undefined)
