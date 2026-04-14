@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -27,7 +27,6 @@ import { LEAGUE_META } from "../../constants/leagues";
 import CustomButton from "../../components/CustomButton";
 import { queryKeys } from "../../lib/query/queryKeys";
 
-const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
 const PVP_BG = require("../../assets/pvp-screen-bg.webp");
 
 type OpponentInfo = {
@@ -242,17 +241,19 @@ export default function PvpScreen() {
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
             {phase === "searching" && (
               <View style={styles.searchingContainer}>
-                <View style={styles.dotsRow}>
-                  {Array.from({ length: DOT_COUNT }).map((_, i) => (
-                    <View
-                      key={i}
-                      style={[styles.dot, i === activeDot && styles.dotActive]}
-                    />
-                  ))}
+                <View style={styles.dotsWrap}>
+                  <View style={styles.dotsRow}>
+                    {Array.from({ length: DOT_COUNT }).map((_, i) => (
+                      <View
+                        key={i}
+                        style={[styles.dot, i === activeDot && styles.dotActive]}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.searchingText}>
+                    Uygun rakip aranıyor...
+                  </Text>
                 </View>
-                <Text style={styles.searchingText}>
-                  Uygun rakip aranıyor...
-                </Text>
                 <ChampionCard
                   name={championName ?? ""}
                   className={championClass ?? ""}
@@ -263,8 +264,7 @@ export default function PvpScreen() {
                   hp={hp}
                   maxHp={maxHp}
                   hpColor={hpColor}
-                  label="SEN"
-                  labelColor="#81c784"
+                  trophies={parseInt(myTrophies ?? "0")}
                   trophyLabel={myLeagueLabel}
                   trophyColor={myLeagueColor}
                 />
@@ -284,70 +284,57 @@ export default function PvpScreen() {
                 ) : (
                   opponent && (
                     <>
-                      {/* Loot + Trophy preview */}
+                      {/* Rewards card — top */}
                       <View style={styles.lootCard}>
-                        <Text style={styles.lootTitle}>
-                          Kazanılacak Ödüller
-                        </Text>
+                        {/* Header */}
+                        <View style={styles.lootHeader}>
+                          <Text style={styles.lootHeaderEmoji}>🏆</Text>
+                          <Text style={styles.lootTitle}>Kazanılacak Ödüller</Text>
+                        </View>
 
-                        {/* Trophy win/loss row */}
+                        {/* Divider */}
+                        <View style={styles.lootDivider} />
+
+                        {/* Trophy change */}
                         <View style={styles.trophyRow}>
-                          <View style={styles.trophyPill}>
-                            <Text style={styles.trophyWin}>
-                              🏆 +{trophyChange.win}
-                            </Text>
-                            <Text style={styles.trophySep}>/</Text>
-                            <Text style={styles.trophyLose}>
-                              -{trophyChange.lose}
-                            </Text>
+                          <View style={styles.trophyHalf}>
+                            <Text style={styles.trophyWinLabel}>Galibiyet</Text>
+                            <Text style={styles.trophyWin}>+{trophyChange.win} 🏆</Text>
+                          </View>
+                          <View style={styles.trophyDividerV} />
+                          <View style={styles.trophyHalf}>
+                            <Text style={styles.trophyLoseLabel}>Mağlubiyet</Text>
+                            <Text style={styles.trophyLose}>-{trophyChange.lose} 🏆</Text>
                           </View>
                         </View>
 
-                        {/* Resource loot row */}
+                        {/* Resource loot */}
                         {(opponent.preview_strawberry > 0 ||
                           opponent.preview_pinecone > 0 ||
                           opponent.preview_blueberry > 0) && (
-                          <View style={styles.lootPillsRow}>
-                            {opponent.preview_strawberry > 0 && (
-                              <View style={styles.lootPill}>
-                                <Image
-                                  source={require("../../assets/resource-images/strawberry.webp")}
-                                  style={styles.lootIcon}
-                                />
-                                <Text
-                                  style={[styles.lootVal, { color: "#e8534a" }]}
-                                >
-                                  +{opponent.preview_strawberry}
-                                </Text>
-                              </View>
-                            )}
-                            {opponent.preview_pinecone > 0 && (
-                              <View style={styles.lootPill}>
-                                <Image
-                                  source={require("../../assets/resource-images/pinecone.webp")}
-                                  style={styles.lootIcon}
-                                />
-                                <Text
-                                  style={[styles.lootVal, { color: "#6dbf67" }]}
-                                >
-                                  +{opponent.preview_pinecone}
-                                </Text>
-                              </View>
-                            )}
-                            {opponent.preview_blueberry > 0 && (
-                              <View style={styles.lootPill}>
-                                <Image
-                                  source={require("../../assets/resource-images/blueberry.webp")}
-                                  style={styles.lootIcon}
-                                />
-                                <Text
-                                  style={[styles.lootVal, { color: "#8b9cf7" }]}
-                                >
-                                  +{opponent.preview_blueberry}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
+                          <>
+                            <View style={styles.lootDivider} />
+                            <View style={styles.lootPillsRow}>
+                              {opponent.preview_strawberry > 0 && (
+                                <View style={styles.lootPill}>
+                                  <Image source={require("../../assets/resource-images/strawberry.webp")} style={styles.lootIcon} />
+                                  <Text style={[styles.lootVal, { color: "#e8534a" }]}>+{opponent.preview_strawberry}</Text>
+                                </View>
+                              )}
+                              {opponent.preview_pinecone > 0 && (
+                                <View style={styles.lootPill}>
+                                  <Image source={require("../../assets/resource-images/pinecone.webp")} style={styles.lootIcon} />
+                                  <Text style={[styles.lootVal, { color: "#6dbf67" }]}>+{opponent.preview_pinecone}</Text>
+                                </View>
+                              )}
+                              {opponent.preview_blueberry > 0 && (
+                                <View style={styles.lootPill}>
+                                  <Image source={require("../../assets/resource-images/blueberry.webp")} style={styles.lootIcon} />
+                                  <Text style={[styles.lootVal, { color: "#8b9cf7" }]}>+{opponent.preview_blueberry}</Text>
+                                </View>
+                              )}
+                            </View>
+                          </>
                         )}
                       </View>
 
@@ -362,8 +349,9 @@ export default function PvpScreen() {
                         hp={hp}
                         maxHp={maxHp}
                         hpColor={hpColor}
-                        label="SEN"
-                        labelColor="#81c784"
+                        trophies={parseInt(myTrophies ?? "0")}
+                        trophyLabel={myLeagueLabel}
+                        trophyColor={myLeagueColor}
                       />
 
                       {/* VS badge */}
@@ -382,6 +370,7 @@ export default function PvpScreen() {
                         hp={opponent.opponentStats.max_hp}
                         maxHp={opponent.opponentStats.max_hp}
                         hpColor="#4caf50"
+                        trophies={opponent.opponentTrophies}
                         trophyLabel={opponent.opponentLeague}
                         trophyColor={oppLeagueColor}
                         isEnemy
@@ -392,13 +381,7 @@ export default function PvpScreen() {
                         <CustomButton
                           text="Yeniden Ara"
                           onClick={doSearch}
-                          btnIcon={
-                            <RefreshCw
-                              size={15}
-                              color="#fff"
-                              strokeWidth={2.5}
-                            />
-                          }
+                          btnIcon={<RefreshCw size={15} color="#fff" strokeWidth={2.5} />}
                           bgColor="#2c3347"
                           borderColor="#3e4a62"
                           style={styles.reSearchBtnStyle}
@@ -430,7 +413,7 @@ export default function PvpScreen() {
   );
 }
 
-// ── Reusable champion card (dungeon strip style) ──────────────────────────────
+// ── Reusable champion card ────────────────────────────────────────────────────
 type CardProps = {
   name: string;
   className: string;
@@ -443,10 +426,29 @@ type CardProps = {
   hpColor: string;
   label?: string;
   labelColor?: string;
+  trophies?: number;
   trophyLabel?: string;
   trophyColor?: string;
   isEnemy?: boolean;
 };
+
+function StatPill({
+  icon,
+  label,
+  val,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  val: string;
+}) {
+  return (
+    <View style={cardStyles.pill}>
+      {icon}
+      <Text style={cardStyles.pillLabel}>{label}</Text>
+      <Text style={cardStyles.pillVal}>{val}</Text>
+    </View>
+  );
+}
 
 function ChampionCard({
   name,
@@ -458,155 +460,148 @@ function ChampionCard({
   hp,
   maxHp,
   hpColor,
-  label,
-  labelColor,
+  isEnemy,
+  trophies,
   trophyLabel,
   trophyColor,
-  isEnemy,
 }: CardProps) {
   const hpPct = maxHp > 0 ? hp / maxHp : 0;
+  const borderAccent = isEnemy ? "rgba(192,57,43,0.55)" : "rgba(46,125,50,0.45)";
+
   return (
-    <ImageBackground
-      source={CHAMP_CARD_BG}
-      style={[cardStyles.bg, isEnemy && cardStyles.bgEnemy]}
-      resizeMode="stretch"
-    >
-      <View style={cardStyles.content}>
-        {meta.image && (
-          <Image
-            source={meta.image}
-            style={cardStyles.image}
-            resizeMode="contain"
-          />
-        )}
+    <View style={[cardStyles.card, { borderColor: borderAccent }]}>
+      {/* Identity tag */}
+      <View style={[cardStyles.identityTag, isEnemy && cardStyles.identityTagEnemy]}>
+        <Text style={cardStyles.identityText}>{isEnemy ? "⚔️ DÜŞMAN" : "🛡️ SEN"}</Text>
+      </View>
+
+      {/* Card body */}
+      <View style={cardStyles.body}>
+        {/* Champion image */}
+        <View style={[cardStyles.imageWrap, { backgroundColor: meta.color + "18" }]}>
+          {meta.image && (
+            <Image source={meta.image} style={cardStyles.image} resizeMode="contain" />
+          )}
+        </View>
+
+        {/* Info */}
         <View style={cardStyles.right}>
-          {/* Name + class + label */}
-          <View style={cardStyles.nameRow}>
-            <Text style={cardStyles.name}>{name}</Text>
-            <View style={cardStyles.badgeRow}>
-              <Text style={[cardStyles.className, { color: meta.color }]}>
-                {className.toUpperCase()}
-              </Text>
-              {label && (
-                <View
-                  style={[
-                    cardStyles.labelBadge,
-                    { borderColor: labelColor ?? "#81c784" },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      cardStyles.labelText,
-                      { color: labelColor ?? "#81c784" },
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              )}
-              {trophyLabel && (
-                <View
-                  style={[
-                    cardStyles.labelBadge,
-                    { borderColor: trophyColor ?? "#cd7f32" },
-                  ]}
-                >
-                  <Trophy
-                    size={9}
-                    color={trophyColor ?? "#cd7f32"}
-                    strokeWidth={2}
-                  />
-                  <Text
-                    style={[
-                      cardStyles.labelText,
-                      { color: trophyColor ?? "#cd7f32" },
-                    ]}
-                  >
-                    {trophyLabel}
-                  </Text>
-                </View>
-              )}
+          {/* Top row: class badge + trophy */}
+          <View style={cardStyles.topRow}>
+            <View style={[cardStyles.classBadge, { backgroundColor: meta.color + "22", borderColor: meta.color + "66" }]}>
+              <Text style={[cardStyles.classText, { color: meta.color }]}>{className.toUpperCase()}</Text>
             </View>
+            {trophyLabel && (
+              <View style={[cardStyles.leagueBadge, { borderColor: (trophyColor ?? "#cd7f32") + "88" }]}>
+                <Trophy size={9} color={trophyColor ?? "#cd7f32"} strokeWidth={2.5} />
+                <Text style={[cardStyles.leagueText, { color: trophyColor ?? "#cd7f32" }]}>{trophyLabel}</Text>
+                {trophies != null && (
+                  <Text style={[cardStyles.trophiesText, { color: trophyColor ?? "#cd7f32" }]}>{trophies}</Text>
+                )}
+              </View>
+            )}
           </View>
+
+          {/* Name */}
+          <Text style={cardStyles.name} numberOfLines={1}>{name}</Text>
 
           {/* HP bar */}
           <View style={cardStyles.hpRow}>
-            <HeartPulse size={11} color={hpColor} strokeWidth={2.5} />
+            <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
             <View style={cardStyles.hpTrack}>
-              <View
-                style={[
-                  cardStyles.hpFill,
-                  {
-                    width: `${Math.round(hpPct * 100)}%` as any,
-                    backgroundColor: hpColor,
-                  },
-                ]}
-              />
+              <View style={[cardStyles.hpFill, { width: `${Math.round(hpPct * 100)}%` as any, backgroundColor: hpColor }]} />
             </View>
-            <Text style={[cardStyles.hpVal, { color: hpColor }]}>
-              {hp}/{maxHp}
-            </Text>
+            <Text style={[cardStyles.hpVal, { color: hpColor }]}>{hp}/{maxHp}</Text>
           </View>
 
           {/* Stats */}
           <View style={cardStyles.statsRow}>
-            <View style={cardStyles.pill}>
-              <Swords size={10} color="#e57373" strokeWidth={2.5} />
-              <Text style={cardStyles.pillLabel}>ATK</Text>
-              <Text style={cardStyles.pillVal}>{atk}</Text>
-            </View>
-            <View style={cardStyles.pill}>
-              <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
-              <Text style={cardStyles.pillLabel}>DEF</Text>
-              <Text style={cardStyles.pillVal}>{def}</Text>
-            </View>
-            <View style={cardStyles.pill}>
-              <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
-              <Text style={cardStyles.pillLabel}>CHC</Text>
-              <Text style={cardStyles.pillVal}>{chc}%</Text>
-            </View>
+            <StatPill icon={<Swords size={9} color="#e57373" strokeWidth={2.5} />} label="ATK" val={String(atk)} />
+            <StatPill icon={<Shield size={9} color="#90a4ae" strokeWidth={2.5} />} label="DEF" val={String(def)} />
+            <StatPill icon={<Zap    size={9} color="#ce93d8" strokeWidth={2.5} />} label="CHC" val={`${chc}%`} />
           </View>
         </View>
       </View>
-    </ImageBackground>
+    </View>
   );
 }
 
 const cardStyles = StyleSheet.create({
-  bg: { width: "100%" },
-  bgEnemy: {
-    shadowColor: "#c0392b",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 18,
-    elevation: 12,
+  card: {
+    backgroundColor: "#fdf3dc",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#a07030",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 2,
   },
-  content: {
-    flexDirection: "row",
+  // Small corner identity tag
+  identityTag: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "rgba(46,125,50,0.15)",
+    borderBottomLeftRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    zIndex: 2,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: "rgba(46,125,50,0.3)",
+  },
+  identityTagEnemy: {
+    backgroundColor: "rgba(192,57,43,0.12)",
+    borderColor: "rgba(192,57,43,0.3)",
+  },
+  identityText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#3a1e00",
+    letterSpacing: 0.8,
+  },
+  body: { flexDirection: "row" },
+  imageWrap: {
+    width: 68,
     alignItems: "center",
-    marginHorizontal: 40,
-    paddingTop: 22,
-    paddingBottom: 22,
-    gap: 12,
+    justifyContent: "center",
+    paddingVertical: 12,
   },
-  image: { width: 52, height: 52 },
-  right: { flex: 1, gap: 12, paddingVertical: 30 },
-  nameRow: { gap: 3 },
-  name: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#3a2a10",
-    textShadowColor: "rgba(255,255,255,0.4)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  image: { width: 50, height: 50 },
+  right: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 6,
   },
-  badgeRow: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     flexWrap: "wrap",
+    paddingRight: 70, // leave room for identity tag
   },
-  className: { fontSize: 12, fontWeight: "700", letterSpacing: 1.4 },
+  classBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+  },
+  classText: { fontSize: 9, fontWeight: "800", letterSpacing: 1 },
+  leagueBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  leagueText: { fontSize: 9, fontWeight: "800" },
+  trophiesText: { fontSize: 9, fontWeight: "700", opacity: 0.8 },
   labelBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -617,35 +612,33 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   labelText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
-  hpRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  name: { fontSize: 15, fontWeight: "800", color: "#3a1e00" },
+  hpRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   hpTrack: {
     flex: 1,
-    height: 6,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    height: 5,
+    backgroundColor: "rgba(58,30,0,0.1)",
     borderRadius: 3,
     overflow: "hidden",
   },
   hpFill: { height: "100%", borderRadius: 3 },
-  hpVal: { fontSize: 14, fontWeight: "700", minWidth: 48, textAlign: "right" },
+  hpVal: { fontSize: 11, fontWeight: "700", minWidth: 40, textAlign: "right" },
   statsRow: { flexDirection: "row", gap: 5 },
   pill: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 3,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    borderRadius: 8,
-    paddingHorizontal: 7,
+    backgroundColor: "rgba(58,30,0,0.06)",
+    borderRadius: 7,
+    paddingHorizontal: 4,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(58,30,0,0.1)",
   },
-  pillLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "rgba(58,42,16,0.7)",
-    letterSpacing: 0.5,
-  },
-  pillVal: { fontSize: 12, fontWeight: "800", color: "#3a2a10" },
+  pillLabel: { fontSize: 9, fontWeight: "700", color: "#7a5a30", letterSpacing: 0.5 },
+  pillVal:  { fontSize: 11, fontWeight: "800", color: "#3a1e00" },
 });
 
 function sleep(ms: number) {
@@ -698,12 +691,15 @@ const styles = StyleSheet.create({
   // Searching phase
   searchingContainer: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    gap: 16,
     paddingHorizontal: 16,
   },
-  dotsRow: { flexDirection: "row", gap: 10, marginBottom: 4 },
+  dotsWrap: {
+    alignItems: "center",
+    gap: 8,
+  },
+  dotsRow: { flexDirection: "row", gap: 10 },
   dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: "#3e4a62" },
   dotActive: { backgroundColor: "#ecf0f1" },
   searchingText: {
@@ -719,101 +715,118 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 16,
-    paddingVertical: 24,
-    gap: 4,
+    paddingVertical: 12,
+    gap: 6,
   },
 
   vsBadge: {
     alignSelf: "center",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#c0392b",
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 6,
     shadowColor: "#c0392b",
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  vsText: { fontSize: 13, fontWeight: "900", color: "#fff" },
+  vsText: { fontSize: 11, fontWeight: "900", color: "#fff" },
 
   lootCard: {
-    backgroundColor: "rgba(245,237,216,0.13)",
-    borderRadius: 16,
+    backgroundColor: "#fdf3dc",
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: "rgba(245,220,160,0.35)",
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    alignItems: "center",
-    gap: 8,
+    borderColor: "rgba(200,160,80,0.35)",
+    overflow: "hidden",
+    shadowColor: "#a07030",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  lootTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#f0d898",
-    letterSpacing: 0.8,
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  lootPillsRow: {
+  lootHeader: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-  },
-  lootPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  lootIcon: { width: 28, height: 28, resizeMode: "contain" },
-  lootVal: { fontSize: 18, fontWeight: "900" },
-
-  trophyRow: {
-    alignItems: "center",
-    width: "100%",
-  },
-  trophyPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 14,
-    paddingHorizontal: 20,
+    gap: 6,
+    backgroundColor: "rgba(160,112,48,0.1)",
     paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,215,80,0.25)",
+    paddingHorizontal: 14,
+  },
+  lootHeaderEmoji: { fontSize: 16 },
+  lootTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#7a5a30",
+    letterSpacing: 0.8,
+  },
+  lootDivider: {
+    height: 1,
+    backgroundColor: "rgba(160,112,48,0.18)",
+  },
+  trophyRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  trophyHalf: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 3,
+  },
+  trophyDividerV: {
+    width: 1,
+    backgroundColor: "rgba(160,112,48,0.18)",
+    marginVertical: 10,
+  },
+  trophyWinLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a5a30",
+    letterSpacing: 0.5,
+  },
+  trophyLoseLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a5a30",
+    letterSpacing: 0.5,
   },
   trophyWin: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#f5d060",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  trophySep: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.3)",
+    color: "#b87820",
   },
   trophyLose: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#e07070",
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#c0392b",
   },
+  lootPillsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  lootPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(58,30,0,0.06)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(58,30,0,0.1)",
+  },
+  lootIcon: { width: 22, height: 22, resizeMode: "contain" },
+  lootVal: { fontSize: 16, fontWeight: "900" },
 
-  actionRow: { flexDirection: "row", gap: 12, marginTop: 20 },
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 4 },
   reSearchBtnStyle: { flex: 1 },
-  fightBtnStyle: { flex: 2 },
+  fightBtnStyle: { flex: 1 },
 
   errorBox: {
     backgroundColor: "#2c3347",
