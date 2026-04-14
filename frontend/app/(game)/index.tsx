@@ -56,6 +56,7 @@ import {
   useCoinHealChampionMutation,
   useClaimRunMutation,
   useSkipMissionMutation,
+  useSkipPvpMutation,
   useUpgradeResourceCapMutation,
   useUpgradeAnimalStorageMutation,
 } from "../../lib/query/mutations";
@@ -208,6 +209,7 @@ export default function MainScreen() {
   const coinHealChampionMut = useCoinHealChampionMutation();
   const claimRunMut = useClaimRunMutation();
   const skipMissionMut = useSkipMissionMutation();
+  const skipPvpMut = useSkipPvpMutation();
   const upgradeResourceCapMut = useUpgradeResourceCapMutation();
   const upgradeAnimalStorageMut = useUpgradeAnimalStorageMutation();
   // ─────────────────────────────────────────────────────────────────────────
@@ -291,9 +293,9 @@ export default function MainScreen() {
     useCallback(() => {
       queryClient.refetchQueries({ queryKey: queryKeys.resources(),   type: 'active', stale: true });
       queryClient.refetchQueries({ queryKey: queryKeys.farmers(),     type: 'active', stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: 'active', stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: 'active' });
       queryClient.refetchQueries({ queryKey: queryKeys.dungeonRuns(), type: 'active' });
-      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: 'active', stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: 'active' });
     }, [queryClient]),
   );
 
@@ -892,6 +894,15 @@ export default function MainScreen() {
             ),
           );
         }}
+        onSkipPvp={async () => {
+          const battleId = pvpStatus?.pending_battle?.battleId;
+          if (!battleId) return;
+          try {
+            await skipPvpMut.mutateAsync(battleId);
+          } catch (err: any) {
+            alert(err.response?.data?.error ?? "Skip başarısız");
+          }
+        }}
         onSkipMission={async (champion) => {
           const run = selectedChampion && runMap[selectedChampion.id];
           if (!run) return;
@@ -1007,8 +1018,38 @@ export default function MainScreen() {
         resources={resources}
         onClose={() => setSelectedFarm(null)}
         onCollect={async (farm) => {
+          const idx = farms.findIndex((f) => f.farm_type === farm.farm_type);
+          const amount = farm.total_pending ?? 1;
           try {
             await collectFarmMut.mutateAsync(farm.farm_type);
+            setSelectedFarm(null);
+            setTimeout(() => {
+              const cardRef  = farmCardRefs.current[idx >= 0 ? idx : 0];
+              const iconRef  = resourceIconRefs.current[farm.produce_resource];
+              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const fallbackTarget = { x: screenWidth / 2, y: 80 };
+              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+                music.sfxRepeat("COLLECT", amount);
+                setAnimalCollectAnim({
+                  amount,
+                  resourceType: farm.produce_resource,
+                  startPosition: startPos,
+                  targetPosition: targetPos,
+                  key: Date.now(),
+                });
+              };
+              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+                cardRef
+                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackStart);
+              };
+              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+                iconRef
+                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  : cb(fallbackTarget);
+              };
+              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+            }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
           }

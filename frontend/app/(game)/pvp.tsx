@@ -20,10 +20,12 @@ import {
   RefreshCw,
 } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { CLASS_META } from "../../constants/resources";
 import { LEAGUE_META } from "../../constants/leagues";
 import CustomButton from "../../components/CustomButton";
+import { queryKeys } from "../../lib/query/queryKeys";
 
 const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
 const PVP_BG = require("../../assets/pvp-screen-bg.webp");
@@ -56,6 +58,7 @@ const MIN_SEARCH_MS = 2000;
 
 export default function PvpScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     championId,
     championName,
@@ -146,16 +149,23 @@ export default function PvpScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Fire API in background
-    api
+    // Fire API — keep the promise so we can await it before navigating
+    const attackPromise = api
       .post("/api/pvp/attack", {
         champion_id: championId,
         opponent_id: opponent.opponentId,
       })
-      .catch(() => {});
+      .catch(() => null);
 
     // After a beat, fade the whole screen to black then navigate
     await sleep(900);
+
+    // Wait for API to settle (it's had 900ms already, typically done by now)
+    await attackPromise;
+
+    // Invalidate pvpStatus so ChampionCard shows "Savaşta!" immediately on return
+    queryClient.invalidateQueries({ queryKey: queryKeys.pvpStatus() });
+
     Animated.timing(screenExitAnim, {
       toValue: 1,
       duration: 900,

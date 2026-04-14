@@ -93,6 +93,7 @@ type Props = {
   onCoinRevive?: (champion: Champion) => void;
   onCoinHeal?: (champion: Champion) => void;
   onSkipMission?: (champion: Champion) => void;
+  onSkipPvp?: () => void;
   /** Called after a food boost is applied; receives the updated champion from server */
   onFoodUsed?: (updatedChampion: Champion) => void;
 };
@@ -174,6 +175,7 @@ export default function ChampionDrawer({
   onCoinRevive,
   onCoinHeal,
   onSkipMission,
+  onSkipPvp,
   onFoodUsed,
 }: Props) {
   const { t } = useLanguage();
@@ -954,33 +956,50 @@ export default function ChampionDrawer({
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      // Battle in progress — countdown box
-                      <View
-                        style={[
-                          styles.onMissionBtn,
-                          styles.btnFlex,
-                          styles.pvpBattleBtn,
-                          { marginTop: 20 },
-                        ]}
-                      >
-                        <Swords size={16} color="#8a5cc7" strokeWidth={2} />
-                        <View style={styles.onMissionInner}>
-                          <Text
-                            style={[styles.onMissionText, { color: "#8a5cc7" }]}
-                          >
-                            Savaşta!
-                          </Text>
-                          {pvpBattleEndsAt && (
-                            <CountdownTimer
-                              endsAt={pvpBattleEndsAt}
-                              style={[
-                                styles.onMissionTimer,
-                                { color: "#6a3ca7" },
-                              ]}
-                              onExpire={() => setPvpBattleExpired(true)}
-                            />
-                          )}
+                      // Battle in progress — countdown + skip button
+                      <View style={[styles.btnRow, { marginTop: 20 }]}>
+                        <View style={[styles.onMissionBtn, styles.btnFlex, styles.pvpBattleBtn]}>
+                          <Swords size={16} color="#8a5cc7" strokeWidth={2} />
+                          <View style={styles.onMissionInner}>
+                            <Text style={[styles.onMissionText, { color: "#8a5cc7" }]}>
+                              Savaşta!
+                            </Text>
+                            {pvpBattleEndsAt && (
+                              <CountdownTimer
+                                endsAt={pvpBattleEndsAt}
+                                style={[styles.onMissionTimer, { color: "#6a3ca7" }]}
+                                onExpire={() => setPvpBattleExpired(true)}
+                              />
+                            )}
+                          </View>
                         </View>
+                        {pvpBattleEndsAt &&
+                          (() => {
+                            const secsLeft = Math.max(0, (new Date(pvpBattleEndsAt).getTime() - Date.now()) / 1000);
+                            const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
+                            const canSkip = coins >= skipCost;
+                            return (
+                              <TouchableOpacity
+                                style={[styles.missionSkipBtn, styles.btnFlex, !canSkip && styles.btnDisabled]}
+                                onPress={() =>
+                                  canSkip &&
+                                  triggerCoinConfirm({
+                                    transactionCost: skipCost,
+                                    transactionTitle: t("skipCooldown"),
+                                    transactionDesc: `${champion.name} savaşı anında tamamlansın mı?`,
+                                    onConfirm: () => onSkipPvp?.(),
+                                  })
+                                }
+                                activeOpacity={0.8}
+                              >
+                                <Text style={styles.missionSkipLabel}>{t("skipBattleNow")}</Text>
+                                <View style={styles.missionSkipRow}>
+                                  <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
+                                  <Text style={styles.missionSkipCost}>×{skipCost}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })()}
                       </View>
                     )
                   ) : (
@@ -1016,65 +1035,50 @@ export default function ChampionDrawer({
                             </Text>
                           </TouchableOpacity>
                         ) : isOnMission ? (
-                          <View style={[styles.onMissionBtn, styles.btnFlex]}>
-                            <MapPin size={16} color="#4a7c3f" strokeWidth={2} />
-                            <View style={styles.onMissionInner}>
-                              <Text style={styles.onMissionText}>
-                                {t("onMission")}
-                              </Text>
-                              {activeRunEndsAt && (
-                                <CountdownTimer
-                                  endsAt={activeRunEndsAt}
-                                  style={styles.onMissionTimer}
-                                  onExpire={onMissionExpire}
-                                />
-                              )}
+                          <>
+                            <View style={[styles.onMissionBtn, styles.btnFlex]}>
+                              <MapPin size={16} color="#4a7c3f" strokeWidth={2} />
+                              <View style={styles.onMissionInner}>
+                                <Text style={styles.onMissionText}>
+                                  {t("onMission")}
+                                </Text>
+                                {activeRunEndsAt && (
+                                  <CountdownTimer
+                                    endsAt={activeRunEndsAt}
+                                    style={styles.onMissionTimer}
+                                    onExpire={onMissionExpire}
+                                  />
+                                )}
+                              </View>
                             </View>
                             {activeRunEndsAt &&
                               (() => {
-                                const secsLeft = Math.max(
-                                  0,
-                                  (new Date(activeRunEndsAt).getTime() -
-                                    Date.now()) /
-                                    1000,
-                                );
-                                const skipCost = Math.max(
-                                  1,
-                                  Math.ceil(secsLeft / 60),
-                                );
+                                const secsLeft = Math.max(0, (new Date(activeRunEndsAt).getTime() - Date.now()) / 1000);
+                                const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
                                 const canSkip = coins >= skipCost;
                                 return (
                                   <TouchableOpacity
-                                    style={[
-                                      styles.missionSkipBtn,
-                                      !canSkip && styles.btnDisabled,
-                                    ]}
+                                    style={[styles.missionSkipBtn, styles.btnFlex, !canSkip && styles.btnDisabled]}
                                     onPress={() =>
                                       canSkip &&
                                       triggerCoinConfirm({
                                         transactionCost: skipCost,
                                         transactionTitle: t("skipCooldown"),
                                         transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
-                                        onConfirm: () =>
-                                          onSkipMission?.(champion),
+                                        onConfirm: () => onSkipMission?.(champion),
                                       })
                                     }
                                     activeOpacity={0.8}
                                   >
+                                    <Text style={styles.missionSkipLabel}>{t("skipMissionNow")}</Text>
                                     <View style={styles.missionSkipRow}>
-                                      <Image
-                                        source={COIN_IMG}
-                                        style={styles.costCoinImg}
-                                        resizeMode="contain"
-                                      />
-                                      <Text style={styles.missionSkipText}>
-                                        ×{skipCost}
-                                      </Text>
+                                      <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
+                                      <Text style={styles.missionSkipCost}>×{skipCost}</Text>
                                     </View>
                                   </TouchableOpacity>
                                 );
                               })()}
-                          </View>
+                          </>
                         ) : (
                           <View
                             style={[
@@ -2083,7 +2087,8 @@ const styles = StyleSheet.create({
   missionSkipRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    justifyContent: "center",
+    gap: 4,
   },
   costText: {
     fontSize: 12,
@@ -2096,17 +2101,35 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.55)",
   },
   missionSkipBtn: {
-    backgroundColor: "#b8860b",
-    borderRadius: 10,
+    backgroundColor: "#2e7d32",
+    borderRadius: 12,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 10,
     borderWidth: 1.5,
-    borderColor: "#8b6508",
-    marginLeft: 6,
+    borderColor: "#1b5e20",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  missionSkipLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#c8f5c8",
+    letterSpacing: 0.3,
+    textAlign: "center",
   },
   missionSkipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
+    color: "#fff",
+  },
+  skipCoinImg: {
+    width: 20,
+    height: 20,
+  },
+  missionSkipCost: {
+    fontSize: 16,
+    fontWeight: "900",
     color: "#fff",
   },
   costIcon: {

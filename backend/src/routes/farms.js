@@ -5,7 +5,8 @@ const authMiddleware = require('../middleware/auth');
 
 const ANIMAL_MAX_LEVEL = 50;
 const MAX_FARM_SLOTS = 20;
-const FARM_UPGRADE_COST_PER_LEVEL = 10; // cost = level * 10 pinecones
+// Farm upgrade costs level * 5 of each: strawberry + pinecone + blueberry
+const FARM_UPGRADE_COST_PER_LEVEL = 5;
 
 const MINUTES_PER_FEED = {
   chicken: 5,
@@ -388,13 +389,20 @@ router.post('/:type/upgrade', authMiddleware, async (req, res) => {
     const cost = farm.level * FARM_UPGRADE_COST_PER_LEVEL;
     const [playerRes] = await query('SELECT * FROM player_resources WHERE player_id=$1', [playerId]);
 
-    if ((playerRes.pinecone ?? 0) < cost) {
-      return res.status(400).json({ error: `Not enough pinecones (need ${cost})`, cost });
+    if (
+      (playerRes.strawberry ?? 0) < cost ||
+      (playerRes.pinecone   ?? 0) < cost ||
+      (playerRes.blueberry  ?? 0) < cost
+    ) {
+      return res.status(400).json({
+        error: `Not enough resources (need ${cost} strawberry + ${cost} pinecone + ${cost} blueberry)`,
+        cost,
+      });
     }
 
     await query(
-      `UPDATE player_resources SET pinecone = pinecone - $1 WHERE player_id=$2`,
-      [cost, playerId]
+      `UPDATE player_resources SET strawberry = strawberry - $1, pinecone = pinecone - $2, blueberry = blueberry - $3 WHERE player_id=$4`,
+      [cost, cost, cost, playerId]
     );
     await query(`UPDATE player_farms SET level = level + 1 WHERE id=$1`, [farm.id]);
 

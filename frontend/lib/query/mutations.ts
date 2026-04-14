@@ -431,6 +431,24 @@ export function useHealChampionMutation() {
       await queryClient.cancelQueries({ queryKey: queryKeys.resources() });
       const prevChampions = queryClient.getQueryData<Champion[]>(queryKeys.champions());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
+
+      // Optimistic: +20 HP (capped at max_hp + boost_hp), deduct 2 milk + 2 egg
+      const champion = prevChampions?.find((c) => c.id === championId);
+      if (champion) {
+        const effectiveMaxHp = champion.max_hp + (champion.boost_hp ?? 0);
+        const newHp = Math.min(champion.current_hp + 20, effectiveMaxHp);
+        queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
+          (old ?? []).map((c) => (c.id === championId ? { ...c, current_hp: newHp } : c)),
+        );
+      }
+      if (prevResources) {
+        queryClient.setQueryData<Resources>(queryKeys.resources(), {
+          ...prevResources,
+          milk: Math.max(0, prevResources.milk - 2),
+          egg: Math.max(0, prevResources.egg - 2),
+        });
+      }
+
       return { prevChampions, prevResources };
     },
 
@@ -440,14 +458,15 @@ export function useHealChampionMutation() {
     },
 
     onSuccess: (data, championId) => {
+      // Settle with authoritative HP from server
       queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
         (old ?? []).map((c) => (c.id === championId ? { ...c, current_hp: data.newHp } : c)),
       );
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
     },
 
     onSettled: (_data, _err, championId) => {
       useUIStore.getState().setLock(championId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
     },
   });
 }
@@ -570,23 +589,45 @@ export function useCoinHealChampionMutation() {
     onMutate: async (championId) => {
       useUIStore.getState().setLock(championId, true);
       await queryClient.cancelQueries({ queryKey: queryKeys.champions() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.player() });
       const prevChampions = queryClient.getQueryData<Champion[]>(queryKeys.champions());
-      return { prevChampions };
+      const prevPlayer = queryClient.getQueryData<Player>(queryKeys.player());
+
+      // Optimistic: fully heal to max_hp + boost_hp, deduct coin cost
+      const champion = prevChampions?.find((c) => c.id === championId);
+      if (champion) {
+        const effectiveMaxHp = champion.max_hp + (champion.boost_hp ?? 0);
+        const missingHp = Math.max(0, effectiveMaxHp - champion.current_hp);
+        const cost = Math.ceil(missingHp / 20) * 4;
+        queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
+          (old ?? []).map((c) => (c.id === championId ? { ...c, current_hp: effectiveMaxHp } : c)),
+        );
+        if (prevPlayer) {
+          queryClient.setQueryData<Player>(queryKeys.player(), {
+            ...prevPlayer,
+            coins: Math.max(0, (prevPlayer.coins ?? 0) - cost),
+          });
+        }
+      }
+
+      return { prevChampions, prevPlayer };
     },
 
     onError: (_err, _id, context) => {
       if (context?.prevChampions) queryClient.setQueryData(queryKeys.champions(), context.prevChampions);
+      if (context?.prevPlayer) queryClient.setQueryData(queryKeys.player(), context.prevPlayer);
     },
 
     onSuccess: (data, championId) => {
+      // Settle with authoritative data from server
       queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
         (old ?? []).map((c) => (c.id === championId ? { ...c, ...data.champion } : c)),
       );
-      queryClient.invalidateQueries({ queryKey: queryKeys.player() });
     },
 
     onSettled: (_data, _err, championId) => {
       useUIStore.getState().setLock(championId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.player() });
     },
   });
 }
@@ -619,6 +660,31 @@ export function useSkipMissionMutation() {
       // The caller updates expiredRunChampions and the run's ends_at
       queryClient.invalidateQueries({ queryKey: queryKeys.player() });
       return data;
+    },
+  });
+}
+
+export function useSkipPvpMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (battleId: string) =>
+      api.post('/api/coins/skip-pvp', { battle_id: battleId }).then((r) => r.data),
+
+    onSuccess: (data) => {
+      // Optimistically mark the pending_battle as expired so the card/drawer updates immediately
+      queryClient.setQueryData<import('../../types').PvpStatus>(queryKeys.pvpStatus(), (old) => {
+        if (!old?.pending_battle) return old;
+        return {
+          ...old,
+          pending_battle: {
+            ...old.pending_battle,
+            result_available_at: data.result_available_at,
+          },
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.pvpStatus() });
     },
   });
 }

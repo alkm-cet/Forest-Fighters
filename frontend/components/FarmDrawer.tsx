@@ -19,7 +19,8 @@ import { useRouter } from "expo-router";
 const DISMISS_THRESHOLD = 100;
 
 const MAX_FARM_SLOTS = 20;
-const FARM_UPGRADE_COST_PER_LEVEL = 10;
+// Farm upgrade costs level * 5 of each: strawberry + pinecone + blueberry
+const FARM_UPGRADE_COST_PER_LEVEL = 5;
 
 function getFarmUpgradeCost(farmLevel: number) {
   return farmLevel * FARM_UPGRADE_COST_PER_LEVEL;
@@ -77,8 +78,13 @@ export default function FarmDrawer({
   // Farm header: show upgrade cost hint
   const isMaxLevel = farm.level >= MAX_FARM_SLOTS;
   const upgradeCost = getFarmUpgradeCost(farm.level);
-  const pineconeCount = (resources?.pinecone ?? 0);
-  const pineconesMeta = RESOURCE_META["pinecone"];
+  const strawberryCount = (resources?.strawberry ?? 0);
+  const pineconeCount   = (resources?.pinecone   ?? 0);
+  const blueberryCount  = (resources?.blueberry  ?? 0);
+  const canAffordUpgrade = strawberryCount >= upgradeCost && pineconeCount >= upgradeCost && blueberryCount >= upgradeCost;
+  const strawberryMeta = RESOURCE_META["strawberry"];
+  const pineconesMeta  = RESOURCE_META["pinecone"];
+  const blueberryMeta  = RESOURCE_META["blueberry"];
 
   // Collect
   const currentProduced = (resources?.[farm.produce_resource as keyof Resources] as number) ?? 0;
@@ -121,12 +127,14 @@ export default function FarmDrawer({
           <View style={styles.upgradeMini}>
             {!isMaxLevel ? (
               <>
-                {pineconesMeta?.image && (
-                  <Image source={pineconesMeta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />
-                )}
-                <Text style={[styles.upgradeMiniCost, pineconeCount < upgradeCost && styles.costShort]}>
-                  ×{upgradeCost}
-                </Text>
+                {strawberryMeta?.image && <Image source={strawberryMeta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />}
+                <Text style={[styles.upgradeMiniCost, strawberryCount < upgradeCost && styles.costShort]}>×{upgradeCost}</Text>
+                <Text style={styles.upgradeMiniPlus}>+</Text>
+                {pineconesMeta?.image && <Image source={pineconesMeta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />}
+                <Text style={[styles.upgradeMiniCost, pineconeCount < upgradeCost && styles.costShort]}>×{upgradeCost}</Text>
+                <Text style={styles.upgradeMiniPlus}>+</Text>
+                {blueberryMeta?.image && <Image source={blueberryMeta.image} style={styles.upgradeMiniIcon} resizeMode="contain" />}
+                <Text style={[styles.upgradeMiniCost, blueberryCount < upgradeCost && styles.costShort]}>×{upgradeCost}</Text>
                 <Text style={styles.upgradeMiniArrow}>→</Text>
                 <Text style={styles.upgradeMiniLevel}>LV {farm.level + 1}</Text>
               </>
@@ -227,19 +235,19 @@ export default function FarmDrawer({
             subContent={
               !isMaxLevel ? (
                 <View style={styles.costRow}>
-                  {pineconesMeta?.image && (
-                    <Image source={pineconesMeta.image} style={styles.costIcon} resizeMode="contain" />
-                  )}
-                  <Text style={[styles.costText, pineconeCount < upgradeCost && { color: "#ff8080" }]}>
-                    ×{upgradeCost}
-                  </Text>
+                  {strawberryMeta?.image && <Image source={strawberryMeta.image} style={styles.costIcon} resizeMode="contain" />}
+                  <Text style={[styles.costText, strawberryCount < upgradeCost && { color: "#ff8080" }]}>×{upgradeCost}</Text>
+                  {pineconesMeta?.image && <Image source={pineconesMeta.image} style={styles.costIcon} resizeMode="contain" />}
+                  <Text style={[styles.costText, pineconeCount < upgradeCost && { color: "#ff8080" }]}>×{upgradeCost}</Text>
+                  {blueberryMeta?.image && <Image source={blueberryMeta.image} style={styles.costIcon} resizeMode="contain" />}
+                  <Text style={[styles.costText, blueberryCount < upgradeCost && { color: "#ff8080" }]}>×{upgradeCost}</Text>
                 </View>
               ) : undefined
             }
             onClick={() => onUpgrade(farm)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
             borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
-            disabled={isMaxLevel || pineconeCount < upgradeCost}
+            disabled={isMaxLevel || !canAffordUpgrade}
             style={{ flex: 1 }}
           />
         </View>
@@ -299,6 +307,7 @@ const styles = StyleSheet.create({
   upgradeMiniIcon: { width: 20, height: 20 },
   upgradeMiniCost: { fontSize: 13, fontWeight: "800", color: "#3a1e00" },
   costShort: { color: "#c0392b" },
+  upgradeMiniPlus: { fontSize: 11, fontWeight: "700", color: "#9a7040", marginHorizontal: 1 },
   upgradeMiniArrow: { fontSize: 11, fontWeight: "700", color: "#9a7040", marginLeft: 2 },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
   levelBadge: {

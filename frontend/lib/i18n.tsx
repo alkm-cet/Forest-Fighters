@@ -130,6 +130,8 @@ const translations = {
     // Coins
     coins: "Coins",
     skipCooldown: "Skip",
+    skipBattleNow: "Finish Battle!",
+    skipMissionNow: "Finish Mission!",
     notEnoughCoins: "Not enough coins",
     coinRevive: "Revive",
     alreadyReady: "Already ready!",
@@ -332,6 +334,8 @@ const translations = {
     // Coins
     coins: "Altın",
     skipCooldown: "Atla",
+    skipBattleNow: "Savaşı Hemen Bitir!",
+    skipMissionNow: "Görevi Hemen Bitir!",
     notEnoughCoins: "Yeterli altın yok",
     coinRevive: "Canlandır",
     alreadyReady: "Zaten hazır!",

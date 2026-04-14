@@ -1,3 +1,10 @@
+// =============================================================================
+// DEPRECATED — Bu bileşen artık kullanılmıyor.
+// Ana ekrandaki hayvan kartlarına tıklandığında eskiden bu drawer açılırdı.
+// Şu an farm/[type].tsx ekranı tüm hayvan yönetimini karşılıyor.
+// Silme — referans ve ileride kullanım ihtimaline karşı burada tutuluyor.
+// =============================================================================
+
 import { useRef, useEffect, useState } from "react";
 import {
   Modal,

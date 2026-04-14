@@ -15,7 +15,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, ArrowUp, Info, Package, Plus, Timer } from "lucide-react-native";
 // ArrowUp used in farmUpgradeSection CustomButton icon
+import { useQueryClient } from "@tanstack/react-query";
 import api from "../../../lib/api";
+import { queryKeys } from "../../../lib/query/queryKeys";
 import { Farm, Animal, Resources } from "../../../types";
 import { FARM_META, RESOURCE_META } from "../../../constants/resources";
 import CustomButton from "../../../components/CustomButton";
@@ -74,6 +76,7 @@ type AnimalLive = {
 export default function FarmScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const farmType = type as "chicken" | "sheep" | "cow";
 
   const [farm, setFarm] = useState<Farm | null>(null);
@@ -90,6 +93,13 @@ export default function FarmScreen() {
   const [upgradeTarget, setUpgradeTarget] = useState<Animal | null>(null);
   // Fill storage coin modal
   const [showFillStorageConfirm, setShowFillStorageConfirm] = useState(false);
+
+  // Sync an updated Farm object into the React Query farms cache
+  function syncFarm(updated: Farm) {
+    queryClient.setQueryData<Farm[]>(queryKeys.farms(), (old) =>
+      (old ?? []).map((f) => (f.id === updated.id ? updated : f)),
+    );
+  }
 
   // Feed buffer (same pattern as index.tsx)
   const feedBufferRef = useRef(0);
@@ -110,13 +120,15 @@ export default function FarmScreen() {
         const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
         if (fresh.current_feed >= fresh.max_feed) feedBufferRef.current = 0;
         if (res.data.resources) setResources(res.data.resources);
-        setFarm((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            animals: prev.animals.map((a) => (a.id === animalId ? fresh : a)),
+        const currentFarm = farm;
+        if (currentFarm) {
+          const updated = {
+            ...currentFarm,
+            animals: currentFarm.animals.map((a) => (a.id === animalId ? fresh : a)),
           };
-        });
+          syncFarm(updated);
+          setFarm(updated);
+        }
         // Re-interpolate updated animal; reset initialFuelSec so fuel bar proportions correctly
         const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
         setLiveMap((prev) => ({
@@ -276,6 +288,7 @@ export default function FarmScreen() {
       const updated: Farm = res.data.farm;
       updated.animals = stampAnimals(updated.animals);
       setFarm(updated);
+      syncFarm(updated);
       initLiveMap(updated.animals);
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Failed to add animal");
@@ -296,17 +309,15 @@ export default function FarmScreen() {
       const apiRes = await api.post(`/api/animals/${animal.id}/upgrade`);
       const fresh = { ...apiRes.data.animal, _fetched_at_ms: Date.now() };
       setResources(apiRes.data.resources);
-      setFarm((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          animals: prev.animals.map((a) => (a.id === animal.id ? fresh : a)),
-        };
-      });
+      if (farm) {
+        const updated = { ...farm, animals: farm.animals.map((a) => (a.id === animal.id ? fresh : a)) };
+        syncFarm(updated);
+        setFarm(updated);
+      }
       const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
       setLiveMap((prev) => ({
         ...prev,
-        [animal.id]: { id: animal.id, fuelSec, progressSec, pending },
+        [animal.id]: { id: animal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
       }));
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Upgrade failed");
@@ -320,6 +331,7 @@ export default function FarmScreen() {
       const updated: Farm = res.data.farm;
       updated.animals = stampAnimals(updated.animals);
       setFarm(updated);
+      syncFarm(updated);
       setResources(res.data.resources);
       initLiveMap(updated.animals);
     } catch (err: any) {
@@ -328,21 +340,42 @@ export default function FarmScreen() {
   }
 
   async function handleFillAnimalStorage() {
-    if (!selectedAnimal) return;
+    if (!selectedAnimal || !farm) return;
+
+    // Optimistic update — set pending to maxCap immediately
+    const maxCap = getMaxCapacity(selectedAnimal.level);
+    const optimisticAnimal = { ...selectedAnimal, pending: maxCap, _fetched_at_ms: Date.now() };
+    const optimisticFarm = { ...farm, animals: farm.animals.map((a) => (a.id === selectedAnimal.id ? optimisticAnimal : a)) };
+    const prevFarm = farm;
+    syncFarm(optimisticFarm);
+    setFarm(optimisticFarm);
+    const { fuelSec, progressSec, pending } = interpolateAnimal(optimisticAnimal);
+    setLiveMap((prev) => ({
+      ...prev,
+      [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+    }));
+
     try {
       const res = await api.post("/api/coins/fill-animal-storage", { animal_id: selectedAnimal.id });
       setCoins(res.data.coins);
       const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-      setFarm((prev) => {
-        if (!prev) return prev;
-        return { ...prev, animals: prev.animals.map((a) => (a.id === selectedAnimal.id ? fresh : a)) };
-      });
-      const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
+      const confirmedFarm = { ...farm, animals: farm.animals.map((a) => (a.id === selectedAnimal.id ? fresh : a)) };
+      syncFarm(confirmedFarm);
+      setFarm(confirmedFarm);
+      const interp = interpolateAnimal(fresh);
       setLiveMap((prev) => ({
         ...prev,
-        [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+        [selectedAnimal.id]: { id: selectedAnimal.id, ...interp, initialFuelSec: interp.fuelSec },
       }));
     } catch (err: any) {
+      // Rollback
+      syncFarm(prevFarm);
+      setFarm(prevFarm);
+      const interp = interpolateAnimal(selectedAnimal);
+      setLiveMap((prev) => ({
+        ...prev,
+        [selectedAnimal.id]: { id: selectedAnimal.id, ...interp, initialFuelSec: interp.fuelSec },
+      }));
       alert(err.response?.data?.error ?? "Depo doldurulamadı");
     }
   }
@@ -411,11 +444,11 @@ export default function FarmScreen() {
           const initialFuelSec = live?.initialFuelSec ?? 0;
           const fuelFrac = initialFuelSec > 0 ? Math.min((live?.fuelSec ?? 0), initialFuelSec) / initialFuelSec : 0;
 
-          const [res1, res2] = UPGRADE_RESOURCES[animal.animal_type] ?? ["?", "?"];
+          const [r1, r2] = UPGRADE_RESOURCES[animal.animal_type] ?? ["?", "?"];
           const upgCost = getUpgradeCost(animal.level);
           const canUpgradeAnimal = animal.level < ANIMAL_MAX_LEVEL &&
-            ((resources?.[res1 as keyof Resources] as number) ?? 0) >= upgCost &&
-            ((resources?.[res2 as keyof Resources] as number) ?? 0) >= upgCost;
+            ((resources?.[r1 as keyof Resources] as number) ?? 0) >= upgCost &&
+            ((resources?.[r2 as keyof Resources] as number) ?? 0) >= upgCost;
 
           return (
             <View key={animal.id}>
@@ -686,10 +719,10 @@ export default function FarmScreen() {
         confirmDisabled={!canUpgradeSelected}
       >
         {upgradeTarget && (() => {
-          const [r1, r2] = UPGRADE_RESOURCES[upgradeTarget.animal_type] ?? ["?", "?"];
+          const [ur1, ur2] = UPGRADE_RESOURCES[upgradeTarget.animal_type] ?? ["?", "?"];
           const cost = getUpgradeCost(upgradeTarget.level);
-          const r1Meta = RESOURCE_META[r1];
-          const r2Meta = RESOURCE_META[r2];
+          const r1Meta = RESOURCE_META[ur1];
+          const r2Meta = RESOURCE_META[ur2];
           return (
             <View style={styles.upgradeModalBody}>
               <Text style={styles.upgradeModalText}>

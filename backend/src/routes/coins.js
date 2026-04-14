@@ -159,6 +159,46 @@ router.post('/skip-dungeon', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/coins/skip-pvp — spend coins to make PvP result available immediately
+// Cost: max(1, ceil(secondsRemaining / 60))
+router.post('/skip-pvp', authMiddleware, async (req, res) => {
+  const { battle_id } = req.body;
+  if (!battle_id) return res.status(400).json({ error: 'battle_id required' });
+
+  const playerId = req.player.id;
+
+  try {
+    const rows = await query(
+      `SELECT id, result_available_at, status FROM pvp_battles
+       WHERE id = $1 AND attacker_id = $2 AND status = 'pending'`,
+      [battle_id, playerId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Battle not found' });
+
+    const battle = rows[0];
+    const secondsRemaining = Math.max(0, (new Date(battle.result_available_at).getTime() - Date.now()) / 1000);
+    if (secondsRemaining <= 0) {
+      return res.status(400).json({ error: 'Already finished' });
+    }
+
+    const cost = Math.max(1, Math.ceil(secondsRemaining / 60));
+    const currentCoins = await getCoins(playerId);
+
+    if (currentCoins < cost) {
+      return res.status(400).json({ error: 'Not enough coins', cost, coins: currentCoins });
+    }
+
+    await query('UPDATE players SET coins = coins - $1 WHERE id = $2', [cost, playerId]);
+    await query("UPDATE pvp_battles SET result_available_at = NOW() WHERE id = $1", [battle_id]);
+
+    const newCoins = await getCoins(playerId);
+    return res.json({ coins: newCoins, result_available_at: new Date().toISOString() });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to skip PvP battle' });
+  }
+});
+
 // POST /api/coins/fill-animal-storage — spend coins to fill animal pending_production to max
 // Cost: maxCap - currentPending (min 1)
 router.post('/fill-animal-storage', authMiddleware, async (req, res) => {
