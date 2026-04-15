@@ -233,6 +233,59 @@ export type ActiveBoost = {
   is_one_shot: boolean;
 };
 
+// ── Quest System ──────────────────────────────────────────────────────────────
+
+export type QuestStatus = 'in_progress' | 'completed' | 'claimed';
+
+export type PlayerQuest = {
+  id: string;
+  definition_id: string;
+  quest_type: 'daily' | 'weekly';
+  period_key: string;
+  progress: number;
+  target_count: number;
+  reward_coins: number;
+  metadata: Record<string, any>;
+  status: QuestStatus;
+  bonus_claimed: boolean;
+  assigned_at: string;
+  completed_at: string | null;
+  claimed_at: string | null;
+  // joined from quest_definitions
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  action_key: string;
+};
+
+export type DailyBonus = {
+  claimed_count: number;
+  total: number;
+  bonus_coins: number;
+  bonus_resource: string;
+  bonus_amount: number;
+  already_claimed: boolean;
+};
+
+export type QuestsResponse = {
+  daily: PlayerQuest[];
+  weekly: PlayerQuest[];
+  dailyBonus: DailyBonus;
+};
+
+export type ClaimQuestResult = {
+  success: boolean;
+  coins_awarded: number;
+  new_coin_total: number;
+  bonus: {
+    awarded: boolean;
+    coins?: number;
+    resource?: string;
+    amount?: number;
+  };
+};
+
 export type PvpBattle = {
   id: string;
   attacker_id: string;

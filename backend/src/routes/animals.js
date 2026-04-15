@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { incrementQuestProgress } = require('../quests');
 
 const ANIMAL_MAX_LEVEL = 50;
 
@@ -258,6 +259,9 @@ router.post('/:id/feed', authMiddleware, async (req, res) => {
       [state.fuel_remaining_minutes + minutesPerFeed, state.progress_minutes, state.pending_production, nowMs, animalId]
     );
 
+    // Quest progress — single feed action
+    await incrementQuestProgress(playerId, 'animal_feed', { animalType: animal.animal_type });
+
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
@@ -325,6 +329,9 @@ router.post('/:id/feed-max', authMiddleware, async (req, res) => {
       [newFuelMinutes, state.progress_minutes, state.pending_production, nowMs, animalId]
     );
 
+    // Quest progress — counts as 1 feed action regardless of units filled
+    await incrementQuestProgress(playerId, 'animal_feed', { animalType: animal.animal_type });
+
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
@@ -385,6 +392,13 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
       [collectible, playerId]
     );
 
+    // Quest progress — variable increment by actual collected amount
+    await incrementQuestProgress(playerId, 'animal_collect', {
+      resourceType: cfg.produceResource,
+      animalType:   animal.animal_type,
+      amount:       collectible,
+    });
+
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
 
@@ -438,6 +452,9 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
       [cost, cost, playerId]
     );
     await query('UPDATE player_animals SET level = level + 1 WHERE id = $1', [animalId]);
+
+    // Quest progress — upgrade action
+    await incrementQuestProgress(playerId, 'any_upgrade');
 
     const [updated]    = await query(`SELECT ${SELECT_COLS} FROM player_animals WHERE id = $1`, [animalId]);
     const [updatedRes] = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);

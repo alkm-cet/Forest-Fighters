@@ -359,21 +359,40 @@ async function migrate() {
       )
     `);
 
-    // Seed harvest dungeons (idempotent)
+    // Unique index on dungeon name — required for the upsert below
+    await query(`CREATE UNIQUE INDEX IF NOT EXISTS dungeons_name_unique ON dungeons(name)`);
+
+    // Seed harvest dungeons — this array is the single source of truth.
+    // ON CONFLICT DO UPDATE ensures the DB always matches these definitions.
+    // duration_seconds is explicitly kept NULL for harvest dungeons.
     const harvestDungeons = [
-      { name: 'Berry Cave', desc: 'A cozy cave filled with wild berries.', enemy: 'Chipmunk', atk: 6, def: 3, chc: 10, hp: 50, dur: 15, res: 'strawberry', amt: 6, res2: 'pinecone', amt2: 4, cooldown: 30, limit: null },
-      { name: 'Chicken Nest', desc: 'A fox guards a hidden nest of eggs.', enemy: 'Fox', atk: 10, def: 6, chc: 15, hp: 65, dur: 20, res: 'egg', amt: 8, res2: null, amt2: 0, cooldown: 60, limit: 3 },
-      { name: 'Sheep Meadow', desc: 'A peaceful meadow where wolves prowl.', enemy: 'Wolf', atk: 14, def: 8, chc: 12, hp: 80, dur: 25, res: 'wool', amt: 8, res2: null, amt2: 0, cooldown: 60, limit: 3 },
-      { name: 'Golden Farm', desc: 'A prosperous farm guarded by bandits.', enemy: 'Bandit', atk: 20, def: 14, chc: 20, hp: 90, dur: 30, res: 'milk', amt: 5, res2: 'egg', amt2: 5, cooldown: 120, limit: 2 },
+      { name: 'Berry Cave',    desc: 'A cozy cave filled with wild berries.', enemy: 'Chipmunk', atk: 6,  def: 3,  chc: 10, hp: 50, dur: 15, res: 'strawberry', amt: 6, res2: 'pinecone', amt2: 4, cooldown: 30,  limit: null },
+      { name: 'Chicken Nest',  desc: 'A fox guards a hidden nest of eggs.',   enemy: 'Fox',      atk: 10, def: 6,  chc: 15, hp: 65, dur: 20, res: 'egg',        amt: 8, res2: null,       amt2: 0, cooldown: 60,  limit: 3    },
+      { name: 'Sheep Meadow',  desc: 'A peaceful meadow where wolves prowl.', enemy: 'Wolf',     atk: 14, def: 8,  chc: 12, hp: 80, dur: 25, res: 'wool',       amt: 8, res2: null,       amt2: 0, cooldown: 60,  limit: 3    },
+      { name: 'Golden Farm',   desc: 'A prosperous farm guarded by bandits.', enemy: 'Bandit',   atk: 20, def: 14, chc: 20, hp: 90, dur: 30, res: 'milk',       amt: 5, res2: 'egg',      amt2: 5, cooldown: 120, limit: 2    },
     ];
     for (const d of harvestDungeons) {
       await query(`
         INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
-          duration_minutes, reward_resource, reward_amount, reward_resource_2, reward_amount_2,
+          duration_minutes, duration_seconds, reward_resource, reward_amount, reward_resource_2, reward_amount_2,
           dungeon_type, cooldown_minutes, daily_run_limit, xp_reward)
-        SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
-               $8::INT, $9::VARCHAR, $10::INT, $11::VARCHAR, $12::INT, 'harvest', $13::INT, $14::INT, 0
-        WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
+        VALUES ($1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
+                $8::INT, NULL, $9::VARCHAR, $10::INT, $11::VARCHAR, $12::INT, 'harvest', $13::INT, $14::INT, 0)
+        ON CONFLICT (name) DO UPDATE SET
+          description      = EXCLUDED.description,
+          enemy_name       = EXCLUDED.enemy_name,
+          enemy_attack     = EXCLUDED.enemy_attack,
+          enemy_defense    = EXCLUDED.enemy_defense,
+          enemy_chance     = EXCLUDED.enemy_chance,
+          enemy_hp         = EXCLUDED.enemy_hp,
+          duration_minutes = EXCLUDED.duration_minutes,
+          duration_seconds = NULL,
+          reward_resource  = EXCLUDED.reward_resource,
+          reward_amount    = EXCLUDED.reward_amount,
+          reward_resource_2 = EXCLUDED.reward_resource_2,
+          reward_amount_2  = EXCLUDED.reward_amount_2,
+          cooldown_minutes = EXCLUDED.cooldown_minutes,
+          daily_run_limit  = EXCLUDED.daily_run_limit
       `, [d.name, d.desc, d.enemy, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null]);
     }
 
@@ -518,6 +537,108 @@ async function migrate() {
     }
 
     console.log('Kitchen system migrated');
+
+    // ── Quest System ─────────────────────────────────────────────────────────
+    await query(`
+      CREATE TABLE IF NOT EXISTS quest_definitions (
+        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title         VARCHAR(150) NOT NULL,
+        description   VARCHAR(255) NOT NULL,
+        quest_type    VARCHAR(20)  NOT NULL CHECK (quest_type IN ('daily', 'weekly')),
+        difficulty    VARCHAR(30)  NOT NULL CHECK (difficulty IN (
+                        'easy', 'medium', 'action', 'passive',
+                        'weekly_easy', 'weekly_medium', 'weekly_hard'
+                      )),
+        category      VARCHAR(30)  NOT NULL,
+        action_key    VARCHAR(50)  NOT NULL,
+        target_count  INT          NOT NULL DEFAULT 1,
+        reward_coins  INT          NOT NULL,
+        metadata      JSONB        NOT NULL DEFAULT '{}',
+        scale_factors JSONB        NOT NULL DEFAULT '{"t1":1.0,"t2":1.5,"t3":2.5}',
+        is_active     BOOLEAN      NOT NULL DEFAULT TRUE
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS player_quests (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id       UUID REFERENCES players(id) ON DELETE CASCADE,
+        definition_id   UUID REFERENCES quest_definitions(id),
+        quest_type      VARCHAR(20)  NOT NULL,
+        period_key      VARCHAR(20)  NOT NULL,
+        progress        INT          NOT NULL DEFAULT 0,
+        target_count    INT          NOT NULL,
+        reward_coins    INT          NOT NULL,
+        metadata        JSONB        NOT NULL DEFAULT '{}',
+        status          VARCHAR(20)  NOT NULL DEFAULT 'in_progress',
+        bonus_claimed   BOOLEAN      NOT NULL DEFAULT FALSE,
+        assigned_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        completed_at    TIMESTAMPTZ,
+        claimed_at      TIMESTAMPTZ
+      )
+    `);
+
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_player_quests_period_def
+        ON player_quests (player_id, period_key, definition_id)
+    `);
+
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_player_quests_player_period
+        ON player_quests (player_id, period_key)
+    `);
+
+    console.log('Quest system migrated');
+
+    // ── Fix quest titles/descriptions (remove hardcoded numbers that conflict with scaling) ──
+    await query(`
+      UPDATE quest_definitions SET
+        title = CASE title
+          WHEN 'Feed Animals 3 Times'        THEN 'Feed Animals'
+          WHEN 'Collect from Farmers 3 Times' THEN 'Collect from Farmers'
+          WHEN 'Complete 2 Harvest Dungeons'  THEN 'Complete Harvest Dungeons'
+          WHEN 'Collect Animal Products 3x'   THEN 'Collect Animal Products'
+          WHEN 'Cook 2 Meals'                 THEN 'Cook Meals'
+          ELSE title
+        END,
+        description = CASE title
+          WHEN 'Feed Animals 3 Times'             THEN 'Feed any animal.'
+          WHEN 'Feed Animals'                     THEN 'Feed any animal.'
+          WHEN 'Collect from Farmers 3 Times'     THEN 'Collect resources from farmers.'
+          WHEN 'Collect from Farmers'             THEN 'Collect resources from farmers.'
+          WHEN 'Complete 2 Harvest Dungeons'      THEN 'Win harvest dungeon runs.'
+          WHEN 'Complete Harvest Dungeons'        THEN 'Win harvest dungeon runs.'
+          WHEN 'Collect Animal Products 3x'       THEN 'Collect produce from animals.'
+          WHEN 'Collect Animal Products'          THEN 'Collect produce from animals.'
+          WHEN 'Cook 2 Meals'                     THEN 'Cook meals in the kitchen.'
+          WHEN 'Cook Meals'                       THEN 'Cook meals in the kitchen.'
+          WHEN 'Gather Pinecone'                  THEN 'Collect pinecone from farmers.'
+          WHEN 'Gather Strawberry'                THEN 'Collect strawberry from farmers.'
+          WHEN 'Gather Blueberry'                 THEN 'Collect blueberry from farmers.'
+          WHEN 'Collect Eggs'                     THEN 'Collect eggs from chickens.'
+          WHEN 'Collect Wool'                     THEN 'Collect wool from sheep.'
+          WHEN 'Collect Milk'                     THEN 'Collect milk from cows.'
+          WHEN 'PvP Participant'                  THEN 'Start PvP battles.'
+          WHEN 'Kitchen Student'                  THEN 'Cook meals.'
+          WHEN 'Dungeon Explorer'                 THEN 'Enter adventure dungeons.'
+          WHEN 'Diligent Farmer'                  THEN 'Collect resources from farmers.'
+          WHEN 'PvP Victor'                       THEN 'Win PvP battles.'
+          WHEN 'Harvest Master'                   THEN 'Win harvest dungeon runs.'
+          WHEN 'Animal Caretaker'                 THEN 'Collect produce from animals.'
+          WHEN 'Pinecone Baron'                   THEN 'Collect pinecone from farmers.'
+          WHEN 'Head Chef'                        THEN 'Use prepared meals.'
+          WHEN 'PvP Champion'                     THEN 'Win PvP battles.'
+          WHEN 'Archer Duelist'                   THEN 'Win PvP battles with an Archer.'
+          WHEN 'Warrior Duelist'                  THEN 'Win PvP battles with a Warrior.'
+          WHEN 'Deep Dungeon'                     THEN 'Win harvest dungeon runs.'
+          WHEN 'Egg Producer'                     THEN 'Collect eggs from chickens.'
+          WHEN 'Wool Producer'                    THEN 'Collect wool from sheep.'
+          WHEN 'Upgrade Enthusiast'               THEN 'Upgrade any farmer or animal.'
+          ELSE description
+        END
+    `);
+    console.log('Quest titles/descriptions cleaned up');
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

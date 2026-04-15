@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { incrementQuestProgress } = require('../quests');
 
 // ─── GET /api/kitchen/recipes ────────────────────────────────────────────────
 // Return all 11 recipes. Used by Kitchen screen.
@@ -64,6 +65,9 @@ router.post('/cook/:recipeId', authMiddleware, async (req, res) => {
          EXTRACT(EPOCH FROM cooking_started_at)::BIGINT * 1000 AS cooking_started_at_ms`,
       [playerId, recipeId, recipe.cook_duration_minutes]
     );
+
+    // Quest progress
+    await incrementQuestProgress(playerId, 'kitchen_cook');
 
     // Re-fetch resources to return updated totals
     const [updatedRes] = await query(`SELECT * FROM player_resources WHERE player_id = $1`, [playerId]);
@@ -224,6 +228,9 @@ router.post('/use/:foodId', authMiddleware, async (req, res) => {
       `UPDATE player_food SET status='used', used_at=NOW() WHERE id=$1`,
       [foodId]
     );
+
+    // Quest progress
+    await incrementQuestProgress(playerId, 'kitchen_use');
 
     return res.json({
       boost: { ...boost, expires_at_ms: Number(boost.expires_at_ms) },

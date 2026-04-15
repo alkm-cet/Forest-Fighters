@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { incrementQuestProgress } = require('../quests');
 
 const ANIMAL_MAX_LEVEL = 50;
 const MAX_FARM_SLOTS = 20;
@@ -268,6 +269,11 @@ router.post('/:type/collect', authMiddleware, async (req, res) => {
         `UPDATE player_resources SET ${cfg.produceResource} = LEAST(${cfg.produceResource} + $1, ${capCol}) WHERE player_id=$2`,
         [totalCollected, playerId]
       );
+      await incrementQuestProgress(playerId, 'animal_collect', {
+        resourceType: cfg.produceResource,
+        animalType:   farmType,
+        amount:       totalCollected,
+      });
     }
 
     const updatedAnimals = await query(
@@ -344,6 +350,11 @@ router.post('/:type/animals/:animalId/collect', authMiddleware, async (req, res)
       `UPDATE player_resources SET ${cfg.produceResource} = LEAST(${cfg.produceResource} + $1, ${capCol}) WHERE player_id=$2`,
       [collectible, playerId]
     );
+    await incrementQuestProgress(playerId, 'animal_collect', {
+      resourceType: cfg.produceResource,
+      animalType:   farmType,
+      amount:       collectible,
+    });
 
     const updatedAnimals = await query(
       `SELECT ${SELECT_COLS} FROM player_animals WHERE farm_id=$1 ORDER BY id ASC`,

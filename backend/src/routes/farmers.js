@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { incrementQuestProgress } = require('../quests');
 
 const FARMER_MAX_LEVEL = 50;
 
@@ -188,6 +189,12 @@ router.post('/:id/collect', authMiddleware, async (req, res) => {
       [newLastCollected, farmerId]
     );
 
+    // Quest progress — variable increment by actual collected amount
+    await incrementQuestProgress(playerId, 'farmer_collect', {
+      resourceType: farmer.resource_type,
+      amount: collectible,
+    });
+
     const updatedRes = await query(
       'SELECT strawberry, pinecone, blueberry, strawberry_cap, pinecone_cap, blueberry_cap, egg, wool, milk, egg_cap, wool_cap, milk_cap FROM player_resources WHERE player_id = $1',
       [playerId]
@@ -250,6 +257,9 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
       [cost, cost, playerId]
     );
     await query('UPDATE farmers SET level = level + 1 WHERE id = $1', [farmerId]);
+
+    // Quest progress — upgrade action
+    await incrementQuestProgress(playerId, 'any_upgrade');
 
     const updatedRes = await query('SELECT * FROM player_resources WHERE player_id = $1', [playerId]);
     const updatedFarmer = await query(

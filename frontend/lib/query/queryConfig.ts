@@ -8,4 +8,5 @@ export const STALE_TIMES = {
   pvpStatus:           30 * 1000,  // 30s
   kitchenRecipes:  10 * 60 * 1000, // 10m — static data
   kitchenInventory:    30 * 1000,  // 30s — cooking timers
+  quests:              30 * 1000,  // 30s — progress updates from actions
 } as const;

@@ -18,6 +18,7 @@ import { ArrowLeft, ArrowUp, Info, Package, Plus, Timer } from "lucide-react-nat
 import { useQueryClient } from "@tanstack/react-query";
 import api from "../../../lib/api";
 import { queryKeys } from "../../../lib/query/queryKeys";
+import { optimisticQuestProgress } from "../../../lib/query/questOptimistic";
 import { Farm, Animal, Resources } from "../../../types";
 import { FARM_META, RESOURCE_META } from "../../../constants/resources";
 import CustomButton from "../../../components/CustomButton";
@@ -135,6 +136,7 @@ export default function FarmScreen() {
           ...prev,
           [animalId]: { id: animalId, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
         }));
+        queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
       })
       .catch(() => { feedBufferRef.current = 0; })
       .finally(() => {
@@ -626,6 +628,7 @@ export default function FarmScreen() {
               activeOpacity={0.7}
               onPress={() => {
                 if (!canFeedOne) return;
+                optimisticQuestProgress(queryClient, 'animal_feed', { animalType: selectedAnimal.animal_type });
                 feedBufferRef.current += 1;
                 flushFeedBufferRef.current?.(selectedAnimal.id);
               }}
@@ -750,6 +753,7 @@ export default function FarmScreen() {
             feedBufferRef.current += feedNeededForMax;
             return;
           }
+          optimisticQuestProgress(queryClient, 'animal_feed', { animalType: selectedAnimal.animal_type });
           api.post(`/api/animals/${selectedAnimal.id}/feed-max`, { requestedUnits: feedNeededForMax })
             .then((res) => {
               const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
@@ -763,6 +767,7 @@ export default function FarmScreen() {
                 ...prev,
                 [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
               }));
+              queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
             })
             .catch((err: any) => alert(err.response?.data?.error ?? "Feed max failed"));
         }}

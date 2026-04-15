@@ -15,6 +15,11 @@ export default function CountdownTimer({ endsAt, onExpire, style }: Props) {
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
 
+  // Reset secondsLeft whenever endsAt changes (e.g. after a coin-skip updates the cache)
+  useEffect(() => {
+    setSecondsLeft(Math.max(0, Math.floor((new Date(endsAt).getTime() - Date.now()) / 1000)));
+  }, [endsAt]);
+
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const id = setInterval(() => {

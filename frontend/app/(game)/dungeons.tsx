@@ -23,6 +23,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import api from "../../lib/api";
 import { queryKeys } from "../../lib/query/queryKeys";
+import { useDungeonRunsQuery, usePlayerQuery } from "../../lib/query/queries";
+import { useSkipMissionMutation } from "../../lib/query/mutations";
+import { useCoinConfirm } from "../../lib/coin-confirm-context";
+import InGameCoinConfirmModal from "../../components/InGameCoinConfirmModal";
 import { useLanguage } from "../../lib/i18n";
 import {
   Dungeon,
@@ -78,11 +82,16 @@ export default function DungeonsScreen() {
     championBoostHp: string;
   }>();
 
+  const { data: runs = [] } = useDungeonRunsQuery();
+  const { data: player } = usePlayerQuery();
+  const coins = (player as any)?.coins ?? 0;
+  const skipMissionMut = useSkipMissionMutation();
+  const { triggerCoinConfirm } = useCoinConfirm();
+
   const [activeTab, setActiveTab] = useState<TabKey>("adventure");
   const [harvestDungeons, setHarvestDungeons] = useState<HarvestDungeon[]>([]);
   const [adventureDungeons, setAdventureDungeons] = useState<AdventureDungeon[]>([]);
   const [eventDungeons, setEventDungeons] = useState<EventDungeon[]>([]);
-  const [runs, setRuns] = useState<DungeonRun[]>([]);
   const [adventureProgress, setAdventureProgress] = useState<AdventureProgress[]>([]);
   const [harvestCooldowns, setHarvestCooldowns] = useState<HarvestCooldown[]>([]);
   const [milestones, setMilestones] = useState<AdventureMilestone[]>([]);
@@ -97,10 +106,9 @@ export default function DungeonsScreen() {
 
   async function loadData() {
     try {
-      const [dungeonsRes, runsRes, progressRes, cooldownRes, milestoneRes] =
+      const [dungeonsRes, progressRes, cooldownRes, milestoneRes] =
         await Promise.all([
           api.get("/api/dungeons"),
-          api.get("/api/dungeons/runs"),
           api.get("/api/dungeons/adventure/progress"),
           api.get("/api/dungeons/harvest/cooldowns"),
           api.get("/api/dungeons/milestones"),
@@ -119,7 +127,6 @@ export default function DungeonsScreen() {
         all.filter((d) => d.dungeon_type === "event") as EventDungeon[]
       );
 
-      setRuns(runsRes.data);
       setAdventureProgress(progressRes.data);
       setHarvestCooldowns(cooldownRes.data);
       setMilestones(milestoneRes.data.milestones ?? []);
@@ -130,8 +137,11 @@ export default function DungeonsScreen() {
   }
 
   function getRunForDungeon(dungeonId: string): DungeonRun | undefined {
-    return runs.find(
-      (r) => r.dungeon_id === dungeonId && r.status === "active"
+    // Prefer the selected champion's run so the countdown matches ChampionDrawer.
+    // Stale active runs from other champions are used as a fallback.
+    return (
+      runs.find((r) => r.dungeon_id === dungeonId && r.champion_id === championId && r.status === "active") ??
+      runs.find((r) => r.dungeon_id === dungeonId && r.status === "active")
     );
   }
 
@@ -145,9 +155,17 @@ export default function DungeonsScreen() {
       return;
     }
     try {
-      await api.post(`/api/dungeons/${dungeon.id}/enter`, {
+      const res = await api.post(`/api/dungeons/${dungeon.id}/enter`, {
         champion_id: championId,
       });
+      // Immediately put the new run in the cache so that when loadData() triggers
+      // a re-render with fresh cooldown data, getRunForDungeon already finds it.
+      // Without this, there's a flicker: cooldown block shows briefly before the
+      // background dungeonRuns refetch returns.
+      queryClient.setQueryData<DungeonRun[]>(queryKeys.dungeonRuns(), (old) => [
+        ...(old ?? []),
+        res.data,
+      ]);
       await loadData();
       queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
     } catch (err: any) {
@@ -166,6 +184,28 @@ export default function DungeonsScreen() {
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to claim reward");
     }
+  }
+
+  function handleSkipMission(run: DungeonRun) {
+    const secsLeft = Math.max(0, Math.ceil((new Date(run.ends_at).getTime() - Date.now()) / 1000));
+    const cost = Math.max(1, Math.ceil(secsLeft / 60));
+    triggerCoinConfirm({
+      transactionCost: cost,
+      transactionTitle: t("skipMissionNow"),
+      transactionDesc: t("skipMissionNow"),
+      onConfirm: async () => {
+        try {
+          const data = await skipMissionMut.mutateAsync(run.id);
+          queryClient.setQueryData<DungeonRun[]>(queryKeys.dungeonRuns(), (old) =>
+            (old ?? []).map((r) =>
+              r.id === run.id ? { ...r, ends_at: data.ends_at } : r
+            )
+          );
+        } catch (err: any) {
+          Alert.alert(err.response?.data?.error ?? "Skip başarısız");
+        }
+      },
+    });
   }
 
   async function handleMilestoneClaim(requiredStars: number) {
@@ -379,6 +419,8 @@ export default function DungeonsScreen() {
                     dailyRunLimit={dungeon.daily_run_limit}
                     rewardResource2={dungeon.reward_resource_2}
                     rewardAmount2={dungeon.reward_amount_2}
+                    coins={coins}
+                    onSkipMission={handleSkipMission}
                   />
                 );
               })
@@ -450,6 +492,8 @@ export default function DungeonsScreen() {
             )}
           </ScrollView>
         )}
+
+        <InGameCoinConfirmModal coins={coins} />
 
         {/* Claim result modal */}
         <CustomModal

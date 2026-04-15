@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from './queryKeys';
 import { STALE_TIMES } from './queryConfig';
-import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood } from '../../types';
+import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood, QuestsResponse } from '../../types';
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +92,16 @@ export function useKitchenRecipesQuery() {
     queryKey: queryKeys.kitchenRecipes(),
     queryFn: () => api.get<Recipe[]>('/api/kitchen/recipes').then((r) => r.data),
     staleTime: STALE_TIMES.kitchenRecipes,
+  });
+}
+
+// ─── Quests ───────────────────────────────────────────────────────────────────
+
+export function useQuestsQuery() {
+  return useQuery({
+    queryKey: queryKeys.quests(),
+    queryFn: () => api.get<QuestsResponse>('/api/quests').then((r) => r.data),
+    staleTime: STALE_TIMES.quests,
   });
 }
 

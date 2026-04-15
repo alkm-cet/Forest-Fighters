@@ -1,5 +1,6 @@
 const { query } = require('../db');
 const { simulateCombat } = require('../combat');
+const { incrementQuestProgress } = require('../quests');
 
 const MAIN_RESOURCES = ['strawberry', 'pinecone', 'blueberry'];
 
@@ -132,6 +133,11 @@ async function enterDungeon(req, res) {
 
     await query('UPDATE champions SET is_deployed = TRUE WHERE id = $1', [champion_id]);
 
+    // Quest progress — entering an adventure dungeon
+    if (dungeon.dungeon_type === 'adventure') {
+      await incrementQuestProgress(playerId, 'dungeon_enter_adventure');
+    }
+
     // Harvest: upsert cooldown record
     if (dungeon.dungeon_type === 'harvest') {
       await query(`
@@ -187,7 +193,7 @@ async function claimRun(req, res) {
               d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward,
               d.dungeon_type, d.coin_reward, d.reward_resource_2, d.reward_amount_2,
-              d.reward_multiplier, d.stage_number
+              d.reward_multiplier, d.stage_number, d.is_boss_stage
        FROM dungeon_runs dr
        JOIN champions c ON c.id = dr.champion_id
        JOIN dungeons d ON d.id = dr.dungeon_id
@@ -241,6 +247,18 @@ async function claimRun(req, res) {
       `UPDATE dungeon_runs SET status = 'claimed', winner = $1, battle_log = $2, reward_resource = $3, reward_amount = $4, stars_earned = $5 WHERE id = $6`,
       [winner, JSON.stringify(result.log), rewardResource, effectiveAmount, starsEarned, runId]
     );
+
+    // ── Quest progress ────────────────────────────────────────────────────────
+    if (winner === 'champion') {
+      if (run.dungeon_type === 'harvest') {
+        await incrementQuestProgress(playerId, 'dungeon_claim_harvest');
+      } else if (run.dungeon_type === 'adventure') {
+        await incrementQuestProgress(playerId, 'dungeon_claim_adventure', {
+          stars:  starsEarned,
+          isBoss: !!run.is_boss_stage,
+        });
+      }
+    }
 
     // XP gain (only on victory, only for dungeons with xp_reward > 0)
     let xpGained = 0;

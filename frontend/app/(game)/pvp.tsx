@@ -164,6 +164,7 @@ export default function PvpScreen() {
 
     // Invalidate pvpStatus so ChampionCard shows "Savaşta!" immediately on return
     queryClient.invalidateQueries({ queryKey: queryKeys.pvpStatus() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
 
     Animated.timing(screenExitAnim, {
       toValue: 1,

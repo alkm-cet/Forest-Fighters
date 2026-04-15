@@ -21,6 +21,8 @@ import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 import FoodInventoryDrawer from "./FoodInventoryDrawer";
 import { FOOD_EMOJIS, describeEffect } from "./FoodCard";
 import api from "../lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../lib/query/queryKeys";
 
 // Cross-resource upgrade costs
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
@@ -69,6 +71,7 @@ export default function FarmerDrawer({
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
+  const queryClient = useQueryClient();
   const translateY = useRef(new Animated.Value(0)).current;
 
   // Food slots state
@@ -267,6 +270,7 @@ export default function FarmerDrawer({
       } catch { /* non-critical */ }
       setFoodInventoryOpen(false);
       api.get("/api/kitchen/inventory").then((res) => setPlayerFoods(res.data)).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Could not use food");
     }

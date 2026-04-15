@@ -120,7 +120,11 @@ router.post('/skip-dungeon', authMiddleware, async (req, res) => {
 
   try {
     const rows = await query(
-      'SELECT id, ends_at, status FROM dungeon_runs WHERE id = $1 AND player_id = $2',
+      `SELECT dr.id, dr.ends_at, dr.status, dr.dungeon_id,
+              d.dungeon_type, d.cooldown_minutes
+       FROM dungeon_runs dr
+       JOIN dungeons d ON d.id = dr.dungeon_id
+       WHERE dr.id = $1 AND dr.player_id = $2`,
       [run_id, playerId]
     );
     if (!rows.length) return res.status(404).json({ error: 'Run not found' });
@@ -150,6 +154,17 @@ router.post('/skip-dungeon', authMiddleware, async (req, res) => {
       "UPDATE dungeon_runs SET ends_at = NOW() WHERE id = $1",
       [run_id]
     );
+
+    // For harvest dungeons: reset the cooldown so re-entry is available immediately after claim.
+    // Spending coins buys both the run time skip and the cooldown skip.
+    if (run.dungeon_type === 'harvest' && run.cooldown_minutes) {
+      await query(
+        `UPDATE harvest_cooldowns
+         SET last_run_at = NOW() - ($1 * INTERVAL '1 minute')
+         WHERE player_id = $2 AND dungeon_id = $3`,
+        [run.cooldown_minutes, playerId, run.dungeon_id]
+      );
+    }
 
     const newCoins = await getCoins(playerId);
     return res.json({ coins: newCoins, ends_at: new Date().toISOString() });

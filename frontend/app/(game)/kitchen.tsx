@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/query/queryKeys";
 import {
   View,
   StyleSheet,
@@ -88,6 +90,7 @@ function CookingRow({ food }: { food: PlayerFood }) {
 
 export default function KitchenScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [recipes, setRecipes]         = useState<Recipe[]>([]);
   const [resources, setResources]     = useState<Resources>({
     strawberry: 0, pinecone: 0, blueberry: 0,
@@ -148,6 +151,7 @@ export default function KitchenScreen() {
       const food: PlayerFood = res.data.food;
       setCookingMap((prev) => ({ ...prev, [recipe.id]: food.cooking_ready_at_ms }));
       setCookingItems((prev) => [...prev, food]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Cook failed");
     }

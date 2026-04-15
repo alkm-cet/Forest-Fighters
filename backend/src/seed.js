@@ -7,45 +7,47 @@ async function seed() {
     const passwordHash = await bcrypt.hash('password123', 10);
 
     const existing = await query('SELECT id FROM players WHERE email = $1', ['test@test.com']);
-    if (existing.length > 0) {
-      console.log('Test player already exists. Skipping seed.');
-      process.exit(0);
+    const playerExists = existing.length > 0;
+    if (playerExists) {
+      console.log('Test player already exists. Skipping player seed.');
     }
 
-    const playerRows = await query(
-      'INSERT INTO players (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
-      ['testplayer', 'test@test.com', passwordHash]
-    );
-    const playerId = playerRows[0].id;
-    console.log('Created player:', playerId);
-
-    await query(
-      'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, $2, $3, $4)',
-      [playerId, 10, 10, 10]
-    );
-    console.log('Added starting resources');
-
-    const champions = [
-      { name: 'Oak Warrior', class: 'Warrior' },
-      { name: 'Forest Mage', class: 'Mage' },
-      { name: 'Pine Archer', class: 'Archer' },
-    ];
-    for (const c of champions) {
-      await query(
-        'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3)',
-        [playerId, c.name, c.class]
+    if (!playerExists) {
+      const playerRows = await query(
+        'INSERT INTO players (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
+        ['testplayer', 'test@test.com', passwordHash]
       );
-    }
-    console.log('Added 3 champions');
+      const playerId = playerRows[0].id;
+      console.log('Created player:', playerId);
 
-    const farmerTypes = ['strawberry', 'pinecone', 'blueberry'];
-    for (const type of farmerTypes) {
       await query(
-        'INSERT INTO farmers (player_id, name, resource_type) VALUES ($1, $2, $3)',
-        [playerId, `${type} farmer`, type]
+        'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, $2, $3, $4)',
+        [playerId, 10, 10, 10]
       );
+      console.log('Added starting resources');
+
+      const champions = [
+        { name: 'Oak Warrior', class: 'Warrior' },
+        { name: 'Forest Mage', class: 'Mage' },
+        { name: 'Pine Archer', class: 'Archer' },
+      ];
+      for (const c of champions) {
+        await query(
+          'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3)',
+          [playerId, c.name, c.class]
+        );
+      }
+      console.log('Added 3 champions');
+
+      const farmerTypes = ['strawberry', 'pinecone', 'blueberry'];
+      for (const type of farmerTypes) {
+        await query(
+          'INSERT INTO farmers (player_id, name, resource_type) VALUES ($1, $2, $3)',
+          [playerId, `${type} farmer`, type]
+        );
+      }
+      console.log('Added 3 farmers');
     }
-    console.log('Added 3 farmers');
 
     // Seed dungeons (idempotent — skip if already exist)
     const existingDungeons = await query('SELECT id FROM dungeons LIMIT 1');
@@ -112,6 +114,71 @@ async function seed() {
       console.log('Added 3 bot players for PvP');
     } else {
       console.log('Bot players already seeded. Skipping.');
+    }
+
+    // ── Quest definitions (idempotent) ────────────────────────────────────────
+    const questCheck = await query('SELECT 1 FROM quest_definitions LIMIT 1');
+    if (questCheck.length === 0) {
+      const quests = [
+        // ── Daily: EASY pool (pick 1, scale: t1=1.0 t2=1.0 t3=1.5) ──────────
+        { title: 'Enter a Dungeon',       description: 'Enter any adventure dungeon.',           quest_type: 'daily', difficulty: 'easy',   category: 'dungeon',  action_key: 'dungeon_enter_adventure', target_count: 1,  reward_coins: 2,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.0, t3: 1.5 } },
+        { title: 'Collect from a Farmer', description: 'Collect resources from any farmer.',     quest_type: 'daily', difficulty: 'easy',   category: 'resource', action_key: 'farmer_collect',          target_count: 1,  reward_coins: 2,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.0, t3: 1.5 } },
+        { title: 'Feed an Animal',        description: 'Feed any animal once.',                  quest_type: 'daily', difficulty: 'easy',   category: 'animal',   action_key: 'animal_feed',             target_count: 1,  reward_coins: 2,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.0, t3: 1.5 } },
+        { title: 'Cook a Meal',           description: 'Cook any meal in the kitchen.',          quest_type: 'daily', difficulty: 'easy',   category: 'cooking',  action_key: 'kitchen_cook',            target_count: 1,  reward_coins: 2,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.0, t3: 1.5 } },
+        { title: 'Start a PvP Battle',    description: 'Start a PvP battle.',                    quest_type: 'daily', difficulty: 'easy',   category: 'pvp',      action_key: 'pvp_attack',              target_count: 1,  reward_coins: 2,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.0, t3: 1.5 } },
+        // ── Daily: MEDIUM pool (pick 1, scale: t1=1.0 t2=1.5 t3=2.5) ─────────
+        { title: 'Feed Animals',                description: 'Feed any animal.',                           quest_type: 'daily', difficulty: 'medium', category: 'animal',   action_key: 'animal_feed',             target_count: 3,  reward_coins: 4,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Collect from Farmers',        description: 'Collect resources from farmers.',            quest_type: 'daily', difficulty: 'medium', category: 'resource', action_key: 'farmer_collect',          target_count: 3,  reward_coins: 4,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Complete Harvest Dungeons',   description: 'Win harvest dungeon runs.',                  quest_type: 'daily', difficulty: 'medium', category: 'dungeon',  action_key: 'dungeon_claim_harvest',   target_count: 2,  reward_coins: 4,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Use a Prepared Meal',         description: 'Use a meal from your inventory.',           quest_type: 'daily', difficulty: 'medium', category: 'cooking',  action_key: 'kitchen_use',             target_count: 1,  reward_coins: 4,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Win a PvP Battle',            description: 'Win a PvP battle.',                         quest_type: 'daily', difficulty: 'medium', category: 'pvp',      action_key: 'pvp_win',                 target_count: 1,  reward_coins: 4,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        // ── Daily: ACTION pool (pick 1, scale: t1=1.0 t2=1.5 t3=2.0) ─────────
+        { title: 'PvP Warrior',                  description: 'Start a PvP battle.',                       quest_type: 'daily', difficulty: 'action', category: 'pvp',      action_key: 'pvp_attack',              target_count: 1,  reward_coins: 6,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Upgrade Something',            description: 'Upgrade any farmer or animal once.',        quest_type: 'daily', difficulty: 'action', category: 'upgrade',  action_key: 'any_upgrade',             target_count: 1,  reward_coins: 6,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Collect Animal Products',      description: 'Collect produce from animals.',              quest_type: 'daily', difficulty: 'action', category: 'animal',   action_key: 'animal_collect',          target_count: 3,  reward_coins: 6,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Complete an Adventure Dungeon',description: 'Win any adventure dungeon.',                quest_type: 'daily', difficulty: 'action', category: 'dungeon',  action_key: 'dungeon_claim_adventure', target_count: 1,  reward_coins: 6,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Cook Meals',                   description: 'Cook meals in the kitchen.',                quest_type: 'daily', difficulty: 'action', category: 'cooking',  action_key: 'kitchen_cook',            target_count: 2,  reward_coins: 6,  metadata: {},                          scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        // ── Daily: PASSIVE pool (pick 1, scale: t1=1.0 t2=2.0 t3=3.5) ────────
+        { title: 'Gather Pinecone',   description: 'Collect pinecone from farmers.',  quest_type: 'daily', difficulty: 'passive', category: 'resource', action_key: 'farmer_collect', target_count: 20, reward_coins: 3, metadata: { resourceType: 'pinecone'   }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        { title: 'Gather Strawberry', description: 'Collect strawberry from farmers.',quest_type: 'daily', difficulty: 'passive', category: 'resource', action_key: 'farmer_collect', target_count: 20, reward_coins: 3, metadata: { resourceType: 'strawberry' }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        { title: 'Gather Blueberry',  description: 'Collect blueberry from farmers.', quest_type: 'daily', difficulty: 'passive', category: 'resource', action_key: 'farmer_collect', target_count: 15, reward_coins: 3, metadata: { resourceType: 'blueberry'  }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        { title: 'Collect Eggs',      description: 'Collect eggs from chickens.',     quest_type: 'daily', difficulty: 'passive', category: 'animal',   action_key: 'animal_collect', target_count: 10, reward_coins: 3, metadata: { resourceType: 'egg'        }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        { title: 'Collect Wool',      description: 'Collect wool from sheep.',        quest_type: 'daily', difficulty: 'passive', category: 'animal',   action_key: 'animal_collect', target_count: 10, reward_coins: 3, metadata: { resourceType: 'wool'       }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        { title: 'Collect Milk',      description: 'Collect milk from cows.',         quest_type: 'daily', difficulty: 'passive', category: 'animal',   action_key: 'animal_collect', target_count: 10, reward_coins: 3, metadata: { resourceType: 'milk'       }, scale_factors: { t1: 1.0, t2: 2.0, t3: 3.5 } },
+        // ── Weekly: WEEKLY_EASY pool (pick 1, scale: t1=1.0 t2=1.5 t3=2.0) ───
+        { title: 'PvP Participant',   description: 'Start PvP battles.',                   quest_type: 'weekly', difficulty: 'weekly_easy', category: 'pvp',      action_key: 'pvp_attack',              target_count: 3,  reward_coins: 15, metadata: {}, scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Kitchen Student',   description: 'Cook meals.',                         quest_type: 'weekly', difficulty: 'weekly_easy', category: 'cooking',  action_key: 'kitchen_cook',            target_count: 3,  reward_coins: 15, metadata: {}, scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Dungeon Explorer',  description: 'Enter adventure dungeons.',           quest_type: 'weekly', difficulty: 'weekly_easy', category: 'dungeon',  action_key: 'dungeon_enter_adventure', target_count: 3,  reward_coins: 15, metadata: {}, scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        { title: 'Diligent Farmer',   description: 'Collect resources from farmers.',     quest_type: 'weekly', difficulty: 'weekly_easy', category: 'resource', action_key: 'farmer_collect',          target_count: 5,  reward_coins: 15, metadata: {}, scale_factors: { t1: 1.0, t2: 1.5, t3: 2.0 } },
+        // ── Weekly: WEEKLY_MEDIUM pool (pick 1, scale: t1=1.0 t2=1.5 t3=2.5) ─
+        { title: 'PvP Victor',        description: 'Win PvP battles.',                     quest_type: 'weekly', difficulty: 'weekly_medium', category: 'pvp',      action_key: 'pvp_win',              target_count: 2,  reward_coins: 20, metadata: {},                           scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Harvest Master',    description: 'Win harvest dungeon runs.',            quest_type: 'weekly', difficulty: 'weekly_medium', category: 'dungeon',  action_key: 'dungeon_claim_harvest',target_count: 5,  reward_coins: 20, metadata: {},                           scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Animal Caretaker',  description: 'Collect produce from animals.',        quest_type: 'weekly', difficulty: 'weekly_medium', category: 'animal',   action_key: 'animal_collect',       target_count: 5,  reward_coins: 20, metadata: {},                           scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Pinecone Baron',    description: 'Collect pinecone from farmers.',       quest_type: 'weekly', difficulty: 'weekly_medium', category: 'resource', action_key: 'farmer_collect',       target_count: 50, reward_coins: 20, metadata: { resourceType: 'pinecone' }, scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        { title: 'Head Chef',         description: 'Use prepared meals.',                  quest_type: 'weekly', difficulty: 'weekly_medium', category: 'cooking',  action_key: 'kitchen_use',          target_count: 3,  reward_coins: 20, metadata: {},                           scale_factors: { t1: 1.0, t2: 1.5, t3: 2.5 } },
+        // ── Weekly: WEEKLY_HARD pool (pick 2, scale: t1=1.0 t2=2.0 t3=3.0) ───
+        { title: 'PvP Champion',        description: 'Win PvP battles.',                     quest_type: 'weekly', difficulty: 'weekly_hard', category: 'pvp',      action_key: 'pvp_win',                 target_count: 5,  reward_coins: 25, metadata: {},                              scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Archer Duelist',      description: 'Win PvP battles with an Archer.',      quest_type: 'weekly', difficulty: 'weekly_hard', category: 'pvp',      action_key: 'pvp_win',                 target_count: 2,  reward_coins: 25, metadata: { championClass: 'Archer'  },  scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Warrior Duelist',     description: 'Win PvP battles with a Warrior.',      quest_type: 'weekly', difficulty: 'weekly_hard', category: 'pvp',      action_key: 'pvp_win',                 target_count: 2,  reward_coins: 25, metadata: { championClass: 'Warrior' },  scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Boss Slayer',         description: 'Defeat a boss stage in Adventure.',    quest_type: 'weekly', difficulty: 'weekly_hard', category: 'dungeon',  action_key: 'dungeon_claim_adventure', target_count: 1,  reward_coins: 25, metadata: { isBoss: true },              scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Three Star Run',      description: 'Get 3 stars in an adventure dungeon.', quest_type: 'weekly', difficulty: 'weekly_hard', category: 'dungeon',  action_key: 'dungeon_claim_adventure', target_count: 1,  reward_coins: 25, metadata: { minStars: 3 },               scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Deep Dungeon',        description: 'Win harvest dungeon runs.',             quest_type: 'weekly', difficulty: 'weekly_hard', category: 'dungeon',  action_key: 'dungeon_claim_harvest',   target_count: 10, reward_coins: 25, metadata: {},                              scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Egg Producer',        description: 'Collect eggs from chickens.',           quest_type: 'weekly', difficulty: 'weekly_hard', category: 'animal',   action_key: 'animal_collect',          target_count: 15, reward_coins: 25, metadata: { resourceType: 'egg'  },      scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Wool Producer',       description: 'Collect wool from sheep.',              quest_type: 'weekly', difficulty: 'weekly_hard', category: 'animal',   action_key: 'animal_collect',          target_count: 15, reward_coins: 25, metadata: { resourceType: 'wool' },      scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+        { title: 'Upgrade Enthusiast',  description: 'Upgrade any farmer or animal.',         quest_type: 'weekly', difficulty: 'weekly_hard', category: 'upgrade',  action_key: 'any_upgrade',             target_count: 3,  reward_coins: 25, metadata: {},                              scale_factors: { t1: 1.0, t2: 2.0, t3: 3.0 } },
+      ];
+
+      for (const q of quests) {
+        await query(
+          `INSERT INTO quest_definitions
+             (title, description, quest_type, difficulty, category, action_key, target_count, reward_coins, metadata, scale_factors)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)`,
+          [q.title, q.description, q.quest_type, q.difficulty, q.category, q.action_key, q.target_count, q.reward_coins, JSON.stringify(q.metadata), JSON.stringify(q.scale_factors)]
+        );
+      }
+      console.log(`Seeded ${quests.length} quest definitions`);
+    } else {
+      console.log('Quest definitions already seeded. Skipping.');
     }
 
     console.log('\nSeed complete! Login with test@test.com / password123');

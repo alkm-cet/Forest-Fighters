@@ -51,6 +51,8 @@ import CustomButton from "./CustomButton";
 import CountdownTimer from "./CountdownTimer";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
 import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../lib/query/queryKeys";
 
 const REVIVE_MILK_COST = 4;
 const REVIVE_WOOL_COST = 4;
@@ -184,6 +186,7 @@ export default function ChampionDrawer({
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
+  const queryClient = useQueryClient();
   const translateY = useRef(new Animated.Value(0)).current;
   const contentScrollY = useRef(0);
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
@@ -379,6 +382,7 @@ export default function ChampionDrawer({
         .get("/api/kitchen/inventory")
         .then((r) => setPlayerFoods(r.data))
         .catch(() => {});
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Could not use food");
     }

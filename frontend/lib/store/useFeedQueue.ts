@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { QueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from '../query/queryKeys';
+import { optimisticQuestProgress } from '../query/questOptimistic';
 import type { Animal, Farm } from '../../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -81,8 +82,9 @@ async function _flush(
       }));
     });
 
-    // Invalidate resources to get authoritative deduction from server
+    // Invalidate resources and quests to get authoritative data from server
     queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
   } catch {
     // On network failure: rollback optimistic feed increment, let server state win
     queryClient.invalidateQueries({ queryKey: queryKeys.farms() });
@@ -115,8 +117,9 @@ export const useFeedQueue = create<FeedQueueState>((set, get) => ({
     // Reject if animal is already full
     if (animal.current_feed >= animal.max_feed) return;
 
-    // Optimistic: increment fuel bar immediately
+    // Optimistic: increment fuel bar + quest progress immediately
     applyOptimisticFeed(queryClient, animal.id, 1);
+    optimisticQuestProgress(queryClient, 'animal_feed', { animalType: animal.animal_type });
 
     set({
       queues: {
@@ -136,8 +139,9 @@ export const useFeedQueue = create<FeedQueueState>((set, get) => ({
 
     if (requested <= 0) return;
 
-    // Optimistic: increment fuel bar by requested amount (capped at max)
+    // Optimistic: increment fuel bar + quest progress (feed-max = 1 feed event)
     applyOptimisticFeed(queryClient, animal.id, requested);
+    optimisticQuestProgress(queryClient, 'animal_feed', { animalType: animal.animal_type });
 
     set({
       queues: {

@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
 } from "react-native";
+import { useState } from "react";
 import { Text } from "./StyledText";
 import {
   Gift,
@@ -19,6 +20,8 @@ import { RESOURCE_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
 import CountdownTimer from "./CountdownTimer";
 import CustomButton from "./CustomButton";
+
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 const CARD_BG = require("../assets/dungeon/dungeon-card-bg.webp");
 const ENEMY_BOX_BG = require("../assets/dungeon/dungeon-enemy-info-box.webp");
@@ -49,6 +52,9 @@ type Props = {
   isBossStage?: boolean;
   rewardResource2?: string | null;
   rewardAmount2?: number;
+  // In-card skip
+  coins?: number;
+  onSkipMission?: (run: DungeonRun) => void;
 };
 
 function formatDuration(minutes: number) {
@@ -69,8 +75,11 @@ export default function DungeonCard({
   isBossStage,
   rewardResource2,
   rewardAmount2,
+  coins,
+  onSkipMission,
 }: Props) {
   const { t } = useLanguage();
+  const [, forceUpdate] = useState(0);
   const rewardMeta = RESOURCE_META[dungeon.reward_resource];
   const reward2Meta = rewardResource2 ? RESOURCE_META[rewardResource2] : null;
   const enemyKey = dungeon.enemy_name?.toLowerCase() ?? "";
@@ -209,13 +218,35 @@ export default function DungeonCard({
 
         {/* Bottom: action */}
         {isActive && !isExpired ? (
-          <View style={styles.missionBlock}>
-            <Text style={styles.onMissionLabel}>{t("onMission")}</Text>
-            <CountdownTimer
-              endsAt={activeRun!.ends_at}
-              style={styles.countdownText}
-              onExpire={() => {}}
-            />
+          <View style={styles.missionRow}>
+            {/* Left: on-mission badge */}
+            <View style={[styles.missionBlock, styles.missionFlex]}>
+              <Text style={styles.onMissionLabel}>{t("onMission")}</Text>
+              <CountdownTimer
+                endsAt={activeRun!.ends_at}
+                style={styles.countdownText}
+                onExpire={() => forceUpdate(n => n + 1)}
+              />
+            </View>
+            {/* Right: skip button (only when callback provided) */}
+            {onSkipMission && (() => {
+              const secsLeft = Math.max(0, Math.ceil((new Date(activeRun!.ends_at).getTime() - Date.now()) / 1000));
+              const cost = Math.max(1, Math.ceil(secsLeft / 60));
+              const canAfford = (coins ?? 0) >= cost;
+              return (
+                <TouchableOpacity
+                  style={[styles.skipBtn, styles.missionFlex, !canAfford && styles.skipBtnDisabled]}
+                  onPress={() => canAfford && onSkipMission(activeRun!)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.skipLabel}>{t("skipMissionNow")}</Text>
+                  <View style={styles.skipCostRow}>
+                    <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
+                    <Text style={styles.skipCost}>×{cost}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })()}
           </View>
         ) : isExpired ? (
           <TouchableOpacity
@@ -421,25 +452,70 @@ const styles = StyleSheet.create({
     color: "#ce93d8",
     letterSpacing: 1.5,
   },
+  missionRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "95%",
+  },
+  missionFlex: {
+    flex: 1,
+  },
   missionBlock: {
-    backgroundColor: "#30336b",
-    borderRadius: 10,
+    backgroundColor: "#e8f5e9",
+    borderRadius: 12,
     alignItems: "center",
-    width: "90%",
-    gap: 3,
+    gap: 2,
     paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: "#a5d6a7",
   },
   onMissionLabel: {
     fontSize: 10,
-    fontWeight: "700",
-    color: "#81c784",
+    fontWeight: "800",
+    color: "#4a7c3f",
     letterSpacing: 1.5,
   },
-  countdownText: {
-    fontSize: 18,
+  skipBtn: {
+    backgroundColor: "#2e7d32",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: "#1b5e20",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  skipBtnDisabled: {
+    opacity: 0.45,
+  },
+  skipLabel: {
+    fontSize: 11,
     fontWeight: "800",
-    color: "#a8d8b0",
-    letterSpacing: 1.5,
+    color: "#c8f5c8",
+    letterSpacing: 0.3,
+    textAlign: "center",
+  },
+  skipCostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  skipCoinImg: {
+    width: 20,
+    height: 20,
+  },
+  skipCost: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#fff",
+  },
+  countdownText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#2d5a24",
+    letterSpacing: 1.2,
   },
   claimBtn: {
     flexDirection: "row",
@@ -451,6 +527,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 1.5,
     borderColor: "#d35400",
+    width: "95%",
   },
   claimBtnText: {
     fontSize: 14,

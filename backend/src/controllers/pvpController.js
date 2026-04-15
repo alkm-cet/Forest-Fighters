@@ -1,6 +1,7 @@
 const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { getIo } = require('../socket');
+const { incrementQuestProgress } = require('../quests');
 
 const TROPHY_FLOOR    = 10;
 const RESULT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
@@ -263,6 +264,12 @@ async function attackPvp(req, res) {
        resultAvailableAt, attDelta, defDelta,
        transfers.strawberry, transfers.pinecone, transfers.blueberry]
     );
+
+    // ── Quest progress ────────────────────────────────────────────────────────
+    await incrementQuestProgress(playerId, 'pvp_attack', { championClass: attChamp.class });
+    if (attackerWon) {
+      await incrementQuestProgress(playerId, 'pvp_win', { championClass: attChamp.class });
+    }
 
     // ── WebSocket notification ─────────────────────────────────────────────────
     if (!opponent.is_bot) {

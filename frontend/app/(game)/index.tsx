@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Text } from "../../components/StyledText";
-import { AlertTriangle, Trophy, Settings } from "lucide-react-native";
+import { AlertTriangle, Trophy, Settings, Scroll } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ import {
   useFarmsQuery,
   useDungeonRunsQuery,
   usePvpStatusQuery,
+  useQuestsQuery,
 } from "../../lib/query/queries";
 import {
   useCollectFarmerMutation,
@@ -100,34 +101,50 @@ export default function MainScreen() {
   // ── React Query — server state ───────────────────────────────────────────
   const queryClient = useQueryClient();
   const { data: player = null } = usePlayerQuery();
-  const { data: resources = {
-    strawberry: 0, pinecone: 0, blueberry: 0,
-    strawberry_cap: 10, pinecone_cap: 10, blueberry_cap: 10,
-    egg: 0, wool: 0, milk: 0,
-    egg_cap: 10, wool_cap: 10, milk_cap: 10,
-  } } = useResourcesQuery();
+  const {
+    data: resources = {
+      strawberry: 0,
+      pinecone: 0,
+      blueberry: 0,
+      strawberry_cap: 10,
+      pinecone_cap: 10,
+      blueberry_cap: 10,
+      egg: 0,
+      wool: 0,
+      milk: 0,
+      egg_cap: 10,
+      wool_cap: 10,
+      milk_cap: 10,
+    },
+  } = useResourcesQuery();
   const { data: champions = [] } = useChampionsQuery();
   const { data: farmers = [] } = useFarmersQuery();
   const { data: farms = [] } = useFarmsQuery();
   const { data: dungeonRuns = [] } = useDungeonRunsQuery();
   const { data: pvpStatus } = usePvpStatusQuery();
+  const { data: questsData } = useQuestsQuery();
 
   // Derived from server state
   const coins = (player as Player | null)?.coins ?? 0;
-  const animals = useMemo(() => farms.flatMap(f => f.animals ?? []), [farms]);
+  const animals = useMemo(() => farms.flatMap((f) => f.animals ?? []), [farms]);
   const runMap = useMemo(() => {
     const m: Record<string, DungeonRun> = {};
     for (const r of dungeonRuns) {
-      if (r.status === 'active') m[r.champion_id] = r;
+      if (r.status === "active") m[r.champion_id] = r;
     }
     return m;
   }, [dungeonRuns]);
+  const claimableQuestCount = (questsData?.daily ?? []).filter(
+    (q) => q.status === "completed",
+  ).length;
   const pvpDefenderId = pvpStatus?.defender_champion_id ?? null;
   const pvpTrophies = pvpStatus?.trophies ?? 10;
-  const pvpLeague = pvpStatus?.league ?? 'Bronz';
+  const pvpLeague = pvpStatus?.league ?? "Bronz";
   const pvpUnlocked = pvpStatus?.pvp_unlocked ?? false;
-  const pvpPendingChampionId = pvpStatus?.pending_battle?.attacker_champion_id ?? null;
-  const pvpBattleEndsAt = pvpStatus?.pending_battle?.result_available_at ?? null;
+  const pvpPendingChampionId =
+    pvpStatus?.pending_battle?.attacker_champion_id ?? null;
+  const pvpBattleEndsAt =
+    pvpStatus?.pending_battle?.result_available_at ?? null;
   // ─────────────────────────────────────────────────────────────────────────
 
   const [capUpgradeConfirm, setCapUpgradeConfirm] = useState<{
@@ -172,9 +189,12 @@ export default function MainScreen() {
   const resourceIconRefs = useRef<Record<string, View | null>>({});
   // Refs for each card in the current tab's row (up to 3)
   const farmerCardRefs = useRef<(View | null)[]>([null, null, null]);
-  const farmCardRefs   = useRef<(View | null)[]>([null, null, null]);
+  const farmCardRefs = useRef<(View | null)[]>([null, null, null]);
   // Pulse state: which resource icon to pulse + version counter to re-trigger same key
-  const [pulsingResource, setPulsingResource] = useState<{ key: string; version: number } | null>(null);
+  const [pulsingResource, setPulsingResource] = useState<{
+    key: string;
+    version: number;
+  } | null>(null);
   type TabName = "champions" | "farmers" | "animals";
   const TAB_ORDER: TabName[] = ["champions", "farmers", "animals"];
   const [activeTab, setActiveTab] = useState<TabName>("champions");
@@ -291,11 +311,28 @@ export default function MainScreen() {
   // refetchType:'active' means only queries with mounted subscribers are touched.
   useFocusEffect(
     useCallback(() => {
-      queryClient.refetchQueries({ queryKey: queryKeys.resources(),   type: 'active', stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.farmers(),     type: 'active', stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: 'active' });
-      queryClient.refetchQueries({ queryKey: queryKeys.dungeonRuns(), type: 'active' });
-      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: 'active' });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.resources(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.farmers(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.farms(),
+        type: "active",
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.dungeonRuns(),
+        type: "active",
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.pvpStatus(),
+        type: "active",
+      });
     }, [queryClient]),
   );
 
@@ -470,12 +507,28 @@ export default function MainScreen() {
               </View>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push("/(game)/settings")}
-            style={styles.settingsBtn}
-          >
-            <Settings size={22} color="#7a5a30" strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={styles.topRightBtns}>
+            <TouchableOpacity
+              onPress={() => router.push("/(game)/quests")}
+              style={styles.settingsBtn}
+              activeOpacity={0.75}
+            >
+              <Scroll size={20} color="#7a5a30" strokeWidth={2} />
+              {claimableQuestCount > 0 && (
+                <View style={styles.questBadge}>
+                  <Text style={styles.questBadgeText}>
+                    {claimableQuestCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(game)/settings")}
+              style={styles.settingsBtn}
+            >
+              <Settings size={22} color="#7a5a30" strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Resource pills */}
@@ -545,7 +598,9 @@ export default function MainScreen() {
               costRes2,
             });
           }}
-          onIconRef={(key, ref) => { resourceIconRefs.current[key] = ref; }}
+          onIconRef={(key, ref) => {
+            resourceIconRefs.current[key] = ref;
+          }}
           pulsingKey={pulsingResource?.key ?? null}
           pulseVersion={pulsingResource?.version ?? 0}
         />
@@ -726,13 +781,12 @@ export default function MainScreen() {
                   {farmers.slice(0, 3).map((f, i) => (
                     <View
                       key={f.id}
-                      ref={(el) => { farmerCardRefs.current[i] = el as any; }}
+                      ref={(el) => {
+                        farmerCardRefs.current[i] = el as any;
+                      }}
                       style={{ flex: 1 }}
                     >
-                      <FarmerCard
-                        farmer={f}
-                        onPress={setSelectedFarmer}
-                      />
+                      <FarmerCard farmer={f} onPress={setSelectedFarmer} />
                     </View>
                   ))}
                 </View>
@@ -742,7 +796,9 @@ export default function MainScreen() {
                   {farms.slice(0, 3).map((f, i) => (
                     <View
                       key={f.id}
-                      ref={(el) => { farmCardRefs.current[i] = el as any; }}
+                      ref={(el) => {
+                        farmCardRefs.current[i] = el as any;
+                      }}
                       style={{ flex: 1 }}
                     >
                       <FarmCard farm={f} onPress={setSelectedFarm} />
@@ -878,14 +934,18 @@ export default function MainScreen() {
           try {
             await coinReviveChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
-            alert(err.response?.data?.error ?? "Coin ile canlandırma başarısız");
+            alert(
+              err.response?.data?.error ?? "Coin ile canlandırma başarısız",
+            );
           }
         }}
         onCoinHeal={async (champion) => {
           try {
             await coinHealChampionMut.mutateAsync(champion.id);
           } catch (err: any) {
-            alert(err.response?.data?.error ?? "Coin ile iyileştirme başarısız");
+            alert(
+              err.response?.data?.error ?? "Coin ile iyileştirme başarısız",
+            );
           }
         }}
         onFoodUsed={(updatedChampion) => {
@@ -910,10 +970,14 @@ export default function MainScreen() {
           try {
             const data = await skipMissionMut.mutateAsync(run.id);
             setExpiredRunChampions((prev) => new Set([...prev, champion.id]));
-            queryClient.setQueryData<DungeonRun[]>(queryKeys.dungeonRuns(), (old) =>
-              (old ?? []).map((r) =>
-                r.champion_id === champion.id ? { ...r, ends_at: data.ends_at } : r,
-              ),
+            queryClient.setQueryData<DungeonRun[]>(
+              queryKeys.dungeonRuns(),
+              (old) =>
+                (old ?? []).map((r) =>
+                  r.champion_id === champion.id
+                    ? { ...r, ends_at: data.ends_at }
+                    : r,
+                ),
             );
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Skip başarısız");
@@ -966,12 +1030,18 @@ export default function MainScreen() {
             setSelectedFarmer(null);
             // 200ms lets the drawer close; then measure BOTH positions lazily via measureInWindow
             setTimeout(() => {
-              const cardRef  = farmerCardRefs.current[idx >= 0 ? idx : 0];
-              const iconRef  = resourceIconRefs.current[farmer.resource_type];
-              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const cardRef = farmerCardRefs.current[idx >= 0 ? idx : 0];
+              const iconRef = resourceIconRefs.current[farmer.resource_type];
+              const fallbackStart = {
+                x: screenWidth / 2,
+                y: screenHeight * 0.7,
+              };
               const fallbackTarget = { x: screenWidth / 2, y: 80 };
 
-              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+              const launch = (
+                startPos: { x: number; y: number },
+                targetPos: { x: number; y: number },
+              ) => {
                 music.sfxRepeat("COLLECT", data.collected);
                 setCollectAnim({
                   amount: data.collected,
@@ -982,18 +1052,28 @@ export default function MainScreen() {
                 });
               };
 
-              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+              const measureStart = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 cardRef
-                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? cardRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackStart);
               };
-              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+              const measureTarget = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 iconRef
-                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? iconRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackTarget);
               };
 
-              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+              measureStart((startPos) =>
+                measureTarget((targetPos) => launch(startPos, targetPos)),
+              );
             }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Toplama başarısız");
@@ -1025,11 +1105,17 @@ export default function MainScreen() {
             await collectFarmMut.mutateAsync(farm.farm_type);
             setSelectedFarm(null);
             setTimeout(() => {
-              const cardRef  = farmCardRefs.current[idx >= 0 ? idx : 0];
-              const iconRef  = resourceIconRefs.current[farm.produce_resource];
-              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const cardRef = farmCardRefs.current[idx >= 0 ? idx : 0];
+              const iconRef = resourceIconRefs.current[farm.produce_resource];
+              const fallbackStart = {
+                x: screenWidth / 2,
+                y: screenHeight * 0.7,
+              };
               const fallbackTarget = { x: screenWidth / 2, y: 80 };
-              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+              const launch = (
+                startPos: { x: number; y: number },
+                targetPos: { x: number; y: number },
+              ) => {
                 music.sfxRepeat("COLLECT", amount);
                 setAnimalCollectAnim({
                   amount,
@@ -1039,17 +1125,27 @@ export default function MainScreen() {
                   key: Date.now(),
                 });
               };
-              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+              const measureStart = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 cardRef
-                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? cardRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackStart);
               };
-              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+              const measureTarget = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 iconRef
-                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? iconRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackTarget);
               };
-              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+              measureStart((startPos) =>
+                measureTarget((targetPos) => launch(startPos, targetPos)),
+              );
             }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
@@ -1091,19 +1187,25 @@ export default function MainScreen() {
         }}
         onCollect={async (animal) => {
           // Find which farm card (by index) contains this animal
-          const farmIdx = farms.findIndex(
-            (fm) => fm.animals?.some((a: any) => a.id === animal.id),
+          const farmIdx = farms.findIndex((fm) =>
+            fm.animals?.some((a: any) => a.id === animal.id),
           );
           try {
             const data = await collectAnimalMut.mutateAsync(animal.id);
             setSelectedAnimal(null);
             setTimeout(() => {
-              const cardRef  = farmCardRefs.current[farmIdx >= 0 ? farmIdx : 0];
-              const iconRef  = resourceIconRefs.current[animal.produce_resource];
-              const fallbackStart  = { x: screenWidth / 2, y: screenHeight * 0.7 };
+              const cardRef = farmCardRefs.current[farmIdx >= 0 ? farmIdx : 0];
+              const iconRef = resourceIconRefs.current[animal.produce_resource];
+              const fallbackStart = {
+                x: screenWidth / 2,
+                y: screenHeight * 0.7,
+              };
               const fallbackTarget = { x: screenWidth / 2, y: 80 };
 
-              const launch = (startPos: { x: number; y: number }, targetPos: { x: number; y: number }) => {
+              const launch = (
+                startPos: { x: number; y: number },
+                targetPos: { x: number; y: number },
+              ) => {
                 music.sfxRepeat("COLLECT", data.collected);
                 setAnimalCollectAnim({
                   amount: data.collected,
@@ -1114,18 +1216,28 @@ export default function MainScreen() {
                 });
               };
 
-              const measureStart = (cb: (p: { x: number; y: number }) => void) => {
+              const measureStart = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 cardRef
-                  ? cardRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? cardRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackStart);
               };
-              const measureTarget = (cb: (p: { x: number; y: number }) => void) => {
+              const measureTarget = (
+                cb: (p: { x: number; y: number }) => void,
+              ) => {
                 iconRef
-                  ? iconRef.measureInWindow((x, y, w, h) => cb({ x: x + w / 2, y: y + h / 2 }))
+                  ? iconRef.measureInWindow((x, y, w, h) =>
+                      cb({ x: x + w / 2, y: y + h / 2 }),
+                    )
                   : cb(fallbackTarget);
               };
 
-              measureStart((startPos) => measureTarget((targetPos) => launch(startPos, targetPos)));
+              measureStart((startPos) =>
+                measureTarget((targetPos) => launch(startPos, targetPos)),
+              );
             }, 200);
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Collect failed");
@@ -1152,10 +1264,7 @@ export default function MainScreen() {
         onClose={() => setClaimResult(null)}
       />
 
-      <PvpResultModal
-        result={pvpResult}
-        onClose={() => setPvpResult(null)}
-      />
+      <PvpResultModal result={pvpResult} onClose={() => setPvpResult(null)} />
 
       {/* Particle collect animations — full-screen overlay so particles can fly from cards → HUD */}
       {collectAnim && (
@@ -1165,11 +1274,16 @@ export default function MainScreen() {
           targetPosition={collectAnim.targetPosition}
           amount={collectAnim.amount}
           icon={RESOURCE_META[collectAnim.resourceType]?.image as any}
-          onDone={() => { setCollectAnim(null); setPulsingResource(null); }}
-          onArrival={() => setPulsingResource((p) => ({
-            key: collectAnim.resourceType,
-            version: (p?.version ?? 0) + 1,
-          }))}
+          onDone={() => {
+            setCollectAnim(null);
+            setPulsingResource(null);
+          }}
+          onArrival={() =>
+            setPulsingResource((p) => ({
+              key: collectAnim.resourceType,
+              version: (p?.version ?? 0) + 1,
+            }))
+          }
         />
       )}
       {animalCollectAnim && (
@@ -1179,11 +1293,16 @@ export default function MainScreen() {
           targetPosition={animalCollectAnim.targetPosition}
           amount={animalCollectAnim.amount}
           icon={RESOURCE_META[animalCollectAnim.resourceType]?.image as any}
-          onDone={() => { setAnimalCollectAnim(null); setPulsingResource(null); }}
-          onArrival={() => setPulsingResource((p) => ({
-            key: animalCollectAnim.resourceType,
-            version: (p?.version ?? 0) + 1,
-          }))}
+          onDone={() => {
+            setAnimalCollectAnim(null);
+            setPulsingResource(null);
+          }}
+          onArrival={() =>
+            setPulsingResource((p) => ({
+              key: animalCollectAnim.resourceType,
+              version: (p?.version ?? 0) + 1,
+            }))
+          }
         />
       )}
     </View>
@@ -1294,6 +1413,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  topRightBtns: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 8,
+  },
   settingsBtn: {
     backgroundColor: "#f5edd8",
     borderRadius: 14,
@@ -1307,6 +1432,23 @@ const styles = StyleSheet.create({
   settingsBtnIcon: {
     width: 26,
     height: 26,
+  },
+  questBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#e53935",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#fff",
   },
   errorBanner: {
     marginHorizontal: 16,

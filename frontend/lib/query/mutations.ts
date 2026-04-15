@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from './queryKeys';
 import { useUIStore } from '../store/useUIStore';
-import type { Farmer, Farm, Animal, Champion, DungeonRun, Resources, Player } from '../../types';
+import type { Farmer, Farm, Animal, Champion, DungeonRun, Resources, Player, PlayerQuest, QuestsResponse, ClaimQuestResult } from '../../types';
+import { optimisticQuestProgress, optimisticQuestClaim } from './questOptimistic';
 
 // ─── Shared utility ───────────────────────────────────────────────────────────
 
@@ -75,6 +76,10 @@ export function useCollectFarmerMutation() {
         queryClient.setQueryData<Resources>(queryKeys.resources(), (old) =>
           old ? { ...old, [farmer.resource_type]: Math.min(current + delta, cap) } : old,
         );
+        optimisticQuestProgress(queryClient, 'farmer_collect', {
+          resourceType: farmer.resource_type,
+          amount: Math.max(delta, 1),
+        });
       }
 
       return { prevFarmers, prevResources };
@@ -89,6 +94,7 @@ export function useCollectFarmerMutation() {
       useUIStore.getState().setLock(farmerId, false);
       queryClient.invalidateQueries({ queryKey: queryKeys.farmers() });
       queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -106,6 +112,7 @@ export function useUpgradeFarmerMutation() {
       await queryClient.cancelQueries({ queryKey: queryKeys.resources() });
       const prevFarmers = queryClient.getQueryData<Farmer[]>(queryKeys.farmers());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
+      optimisticQuestProgress(queryClient, 'any_upgrade');
       return { prevFarmers, prevResources };
     },
 
@@ -124,6 +131,7 @@ export function useUpgradeFarmerMutation() {
 
     onSettled: (_data, _err, farmerId) => {
       useUIStore.getState().setLock(farmerId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -205,7 +213,8 @@ export function useCollectAnimalMutation() {
       const prevFarms = queryClient.getQueryData<Farm[]>(queryKeys.farms());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
 
-      // Optimistic: reset pending on the animal
+      // Optimistic: reset pending on the animal + quest progress
+      const animal = prevFarms?.flatMap((f) => f.animals ?? []).find((a) => a.id === animalId);
       queryClient.setQueryData<Farm[]>(queryKeys.farms(), (old) =>
         updateAnimalInFarms(old, animalId, (a) => ({
           ...a,
@@ -213,6 +222,13 @@ export function useCollectAnimalMutation() {
           _fetched_at_ms: Date.now(),
         })),
       );
+      if (animal) {
+        optimisticQuestProgress(queryClient, 'animal_collect', {
+          resourceType: animal.produce_resource,
+          animalType:   animal.animal_type,
+          amount:       Math.max(animal.pending ?? 1, 1),
+        });
+      }
 
       return { prevFarms, prevResources };
     },
@@ -232,6 +248,7 @@ export function useCollectAnimalMutation() {
 
     onSettled: (_data, _err, animalId) => {
       useUIStore.getState().setLock(animalId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -249,6 +266,7 @@ export function useUpgradeAnimalMutation() {
       await queryClient.cancelQueries({ queryKey: queryKeys.resources() });
       const prevFarms = queryClient.getQueryData<Farm[]>(queryKeys.farms());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
+      optimisticQuestProgress(queryClient, 'any_upgrade');
       return { prevFarms, prevResources };
     },
 
@@ -267,6 +285,7 @@ export function useUpgradeAnimalMutation() {
 
     onSettled: (_data, _err, animalId) => {
       useUIStore.getState().setLock(animalId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -351,6 +370,16 @@ export function useCollectFarmMutation() {
       await queryClient.cancelQueries({ queryKey: queryKeys.resources() });
       const prevFarms = queryClient.getQueryData<Farm[]>(queryKeys.farms());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
+      const PRODUCE: Record<string, string> = { chicken: 'egg', sheep: 'wool', cow: 'milk' };
+      const farm = prevFarms?.find((f) => f.farm_type === farmType);
+      if (farm) {
+        const totalPending = (farm.animals ?? []).reduce((s, a) => s + (a.pending ?? 0), 0);
+        optimisticQuestProgress(queryClient, 'animal_collect', {
+          resourceType: PRODUCE[farmType] ?? farmType,
+          animalType:   farmType,
+          amount:       Math.max(totalPending, 1),
+        });
+      }
       return { prevFarms, prevResources };
     },
 
@@ -373,6 +402,7 @@ export function useCollectFarmMutation() {
 
     onSettled: (_data, _err, farmType) => {
       useUIStore.getState().setLock(`farm:${farmType}`, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -645,6 +675,7 @@ export function useClaimRunMutation() {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
       queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
       queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     },
   });
 }
@@ -659,6 +690,7 @@ export function useSkipMissionMutation() {
     onSuccess: (data, _runId) => {
       // The caller updates expiredRunChampions and the run's ends_at
       queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
       return data;
     },
   });
@@ -713,6 +745,42 @@ export function useUpgradeAnimalStorageMutation() {
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+    },
+  });
+}
+
+// ─── Quest mutations ──────────────────────────────────────────────────────────
+
+export function useClaimQuestMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (questId: string) =>
+      api.post<ClaimQuestResult>(`/api/quests/${questId}/claim`).then((r) => r.data),
+
+    onMutate: async (questId) => {
+      useUIStore.getState().setLock(questId, true);
+      await queryClient.cancelQueries({ queryKey: queryKeys.quests() });
+      const prevQuests = queryClient.getQueryData<QuestsResponse>(queryKeys.quests());
+      optimisticQuestClaim(queryClient, questId);
+      return { prevQuests };
+    },
+
+    onSuccess: (data) => {
+      queryClient.setQueryData<Player>(queryKeys.player(), (old) =>
+        old ? { ...old, coins: data.new_coin_total } : old,
+      );
+    },
+
+    onError: (_err, _questId, context) => {
+      if (context?.prevQuests) queryClient.setQueryData(queryKeys.quests(), context.prevQuests);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
+    },
+
+    onSettled: (_data, _err, questId) => {
+      useUIStore.getState().setLock(questId, false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player() });
     },
   });
 }
