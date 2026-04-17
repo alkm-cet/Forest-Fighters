@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from './queryKeys';
 import { STALE_TIMES } from './queryConfig';
-import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood, QuestsResponse } from '../../types';
+import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood, QuestsResponse, PlayerGear } from '../../types';
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +102,15 @@ export function useQuestsQuery() {
     queryKey: queryKeys.quests(),
     queryFn: () => api.get<QuestsResponse>('/api/quests').then((r) => r.data),
     staleTime: STALE_TIMES.quests,
+  });
+}
+
+// ─── Gear Inventory ───────────────────────────────────────────────────────────
+
+export function useGearInventoryQuery() {
+  return useQuery({
+    queryKey: queryKeys.gearInventory(),
+    queryFn: () => api.get<PlayerGear[]>('/api/gear/inventory').then((r) => r.data),
   });
 }
 

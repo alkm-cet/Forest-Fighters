@@ -144,3 +144,11 @@ export const CLASS_META: Record<
     cost: 75,
   },
 };
+
+import type { GearRarity } from '../types';
+
+export const RARITY_META: Record<GearRarity, { label: string; color: string; borderColor: string }> = {
+  common: { label: 'Common', color: '#757575', borderColor: '#9E9E9E' },
+  rare:   { label: 'Rare',   color: '#1976D2', borderColor: '#2196F3' },
+  epic:   { label: 'Epic',   color: '#7B1FA2', borderColor: '#8A5CC7' },
+};

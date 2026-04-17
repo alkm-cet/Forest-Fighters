@@ -98,18 +98,22 @@ export default function ChampionCard({
       )}
       {/* Stats row */}
       <View style={styles.statsRow}>
-        <StatCell label={t("atk")} value={String(champion.attack)} />
+        <StatCell
+          label={t("atk")}
+          value={String(champion.attack + (champion.boost_attack ?? 0) + (champion.gear_attack ?? 0))}
+          boosted={(champion.boost_attack ?? 0) > 0 || (champion.gear_attack ?? 0) > 0}
+        />
         <View style={styles.statDivider} />
         <StatCell
           label={t("def")}
-          value={String(champion.defense + (champion.boost_defense ?? 0))}
-          boosted={(champion.boost_defense ?? 0) > 0}
+          value={String(champion.defense + (champion.boost_defense ?? 0) + (champion.gear_defense ?? 0))}
+          boosted={(champion.boost_defense ?? 0) > 0 || (champion.gear_defense ?? 0) > 0}
         />
         <View style={styles.statDivider} />
         <StatCell
           label={t("chc")}
-          value={`${champion.chance + (champion.boost_chance ?? 0)}%`}
-          boosted={(champion.boost_chance ?? 0) > 0}
+          value={`${champion.chance + (champion.boost_chance ?? 0) + (champion.gear_chance ?? 0)}%`}
+          boosted={(champion.boost_chance ?? 0) > 0 || (champion.gear_chance ?? 0) > 0}
         />
       </View>
 

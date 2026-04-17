@@ -53,6 +53,9 @@ import { useCoinConfirm } from "../lib/coin-confirm-context";
 import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/query/queryKeys";
+import GearDrawer, { GEAR_IMAGES } from "./GearDrawer";
+import { RARITY_META } from "../constants/resources";
+import { useGearInventoryQuery } from "../lib/query/queries";
 
 const REVIVE_MILK_COST = 4;
 const REVIVE_WOOL_COST = 4;
@@ -110,19 +113,22 @@ function StatRow({
   label,
   value,
   boost,
+  gearBonus,
   canUpgrade,
   onUpgrade,
 }: {
   label: string;
   value: number;
   boost?: number;
+  gearBonus?: number;
   canUpgrade?: boolean;
   onUpgrade?: () => void;
 }) {
-  const pct = Math.min((value + (boost ?? 0)) / STAT_MAX, 1);
+  const pct = Math.min((value + (boost ?? 0) + (gearBonus ?? 0)) / STAT_MAX, 1);
+  const total = value + (boost ?? 0) + (gearBonus ?? 0);
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statLabel}>{label} <Text style={styles.statLabelTotal}>({total})</Text></Text>
       <View style={styles.statBarLine}>
         <View style={styles.barTrack}>
           <View
@@ -135,6 +141,7 @@ function StatRow({
         <View style={styles.statValueRow}>
           <Text style={styles.statValue}>{value}</Text>
           {(boost ?? 0) > 0 && <Text style={styles.statBoost}> +{boost}</Text>}
+          {(gearBonus ?? 0) > 0 && <Text style={styles.statGearBonus}> +{gearBonus}</Text>}
         </View>
         {canUpgrade && (
           <TouchableOpacity
@@ -200,6 +207,9 @@ export default function ChampionDrawer({
   const [removeSlot, setRemoveSlot] = useState<0 | 1 | null>(null);
   const [historyTab, setHistoryTab] = useState(false);
   const [history, setHistory] = useState<PvpBattle[]>([]);
+  const [gearDrawerOpen, setGearDrawerOpen] = useState(false);
+
+  const { data: allGear = [] } = useGearInventoryQuery();
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedBattle, setSelectedBattle] = useState<PvpBattle | null>(null);
   const [showDefenderWarning, setShowDefenderWarning] = useState(false);
@@ -249,6 +259,7 @@ export default function ChampionDrawer({
     if (type === "boost_hp") return "HP Boost";
     if (type === "boost_defense") return "DEF Boost";
     if (type === "boost_chance") return "CRIT Boost";
+    if (type === "boost_attack") return "ATK Boost";
     if (type === "boost_production") return "Production Boost";
     return "Boost";
   }
@@ -367,9 +378,12 @@ export default function ChampionDrawer({
       const expiresAtMs: number | undefined = res.data.boost?.expires_at_ms
         ? Number(res.data.boost.expires_at_ms)
         : undefined;
+      // Use the boost ID (from active_boosts table) — NOT the food item ID.
+      // The DELETE endpoint expects the boost UUID, not the player_food UUID.
+      const boostId: string = res.data.boost?.id ?? food.id;
       setSlotFoods((prev) => {
         const next: [PlayerFood | null, PlayerFood | null] = [...prev] as any;
-        next[activeSlot] = { ...food, expires_at_ms: expiresAtMs };
+        next[activeSlot] = { ...food, id: boostId, expires_at_ms: expiresAtMs };
         return next;
       });
       setFoodInventoryOpen(false);
@@ -666,6 +680,59 @@ export default function ChampionDrawer({
                       </View>
                     )}
                   </View>
+                  {/* Gear slots below image frame */}
+                  {(() => {
+                    const equippedWeapon = allGear.find(
+                      (g) => g.equipped_champion_id === champion.id && g.equipped_slot === 'weapon'
+                    );
+                    const equippedCharm = allGear.find(
+                      (g) => g.equipped_champion_id === champion.id && g.equipped_slot === 'charm'
+                    );
+                    return (
+                      <View style={styles.gearSlotsRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.gearSlot,
+                            equippedWeapon
+                              ? { borderColor: RARITY_META[equippedWeapon.rarity].borderColor }
+                              : styles.gearSlotEmpty,
+                          ]}
+                          onPress={() => setGearDrawerOpen(true)}
+                          activeOpacity={0.75}
+                        >
+                          {equippedWeapon && GEAR_IMAGES[equippedWeapon.definition.id]
+                            ? <Image source={GEAR_IMAGES[equippedWeapon.definition.id]} style={styles.gearSlotImg} resizeMode="contain" />
+                            : <Text style={styles.gearSlotEmoji}>{equippedWeapon ? equippedWeapon.definition.emoji : '⚔️'}</Text>
+                          }
+                          {equippedWeapon && (
+                            <View style={[styles.gearSlotLvBadge, { backgroundColor: RARITY_META[equippedWeapon.rarity].borderColor }]}>
+                              <Text style={styles.gearSlotLvText}>Lv{equippedWeapon.level}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.gearSlot,
+                            equippedCharm
+                              ? { borderColor: RARITY_META[equippedCharm.rarity].borderColor }
+                              : styles.gearSlotEmpty,
+                          ]}
+                          onPress={() => setGearDrawerOpen(true)}
+                          activeOpacity={0.75}
+                        >
+                          {equippedCharm && GEAR_IMAGES[equippedCharm.definition.id]
+                            ? <Image source={GEAR_IMAGES[equippedCharm.definition.id]} style={styles.gearSlotImg} resizeMode="contain" />
+                            : <Text style={styles.gearSlotEmoji}>{equippedCharm ? equippedCharm.definition.emoji : '🍀'}</Text>
+                          }
+                          {equippedCharm && (
+                            <View style={[styles.gearSlotLvBadge, { backgroundColor: RARITY_META[equippedCharm.rarity].borderColor }]}>
+                              <Text style={styles.gearSlotLvText}>Lv{equippedCharm.level}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 {/* Right col — basic stats */}
@@ -686,6 +753,8 @@ export default function ChampionDrawer({
                   <StatRow
                     label={t("attack")}
                     value={champion.attack}
+                    boost={champion.boost_attack || undefined}
+                    gearBonus={champion.gear_attack || undefined}
                     canUpgrade={champion.stat_points > 0 && !isPvpBattle}
                     onUpgrade={() => setPendingStat("attack")}
                   />
@@ -693,6 +762,7 @@ export default function ChampionDrawer({
                     label={t("defense")}
                     value={champion.defense}
                     boost={champion.boost_defense || undefined}
+                    gearBonus={champion.gear_defense || undefined}
                     canUpgrade={champion.stat_points > 0 && !isPvpBattle}
                     onUpgrade={() => setPendingStat("defense")}
                   />
@@ -700,11 +770,13 @@ export default function ChampionDrawer({
                     label={t("chance")}
                     value={champion.chance}
                     boost={champion.boost_chance || undefined}
+                    gearBonus={champion.gear_chance || undefined}
                     canUpgrade={champion.stat_points > 0 && !isPvpBattle}
                     onUpgrade={() => setPendingStat("chance")}
                   />
                 </View>
               </View>
+
 
               {/* HP Bar */}
               {(() => {
@@ -1429,6 +1501,34 @@ export default function ChampionDrawer({
           onClose={() => setFoodInventoryOpen(false)}
           onUseFood={handleUseFood}
           context="fighter"
+          coins={coins}
+          onInstantCook={(foodId, coinCost) =>
+            triggerCoinConfirm({
+              transactionCost: coinCost,
+              transactionTitle: "Hemen Pişir",
+              transactionDesc: "Yemek anında hazır olsun mu?",
+              onConfirm: async () => {
+                try {
+                  const res = await api.post(`/api/kitchen/instant/${foodId}`);
+                  // Refresh kitchen inventory and player coins
+                  queryClient.invalidateQueries({ queryKey: queryKeys.kitchenInventory() });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+                  // Reload the food list
+                  const r = await api.get("/api/kitchen/inventory");
+                  setPlayerFoods(r.data);
+                } catch (err: any) {
+                  alert(err.response?.data?.error ?? "Instant cook failed");
+                }
+              },
+            })
+          }
+        />
+
+        {/* Gear drawer — rendered as overlay inside this Modal to avoid nested Modals */}
+        <GearDrawer
+          champion={champion}
+          visible={gearDrawerOpen}
+          onClose={() => setGearDrawerOpen(false)}
         />
 
         {/* Remove food popup */}
@@ -1630,10 +1730,11 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     overflow: "visible",
+    alignItems: "center",
   },
   imageFrame: {
-    width: 140,
-    height: 140,
+    width: 120,
+    height: 120,
     backgroundColor: "#ede0c4",
     borderRadius: 16,
     borderWidth: 2,
@@ -1648,8 +1749,57 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   champImage: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
+  },
+  gearSlotsRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 6,
+  },
+  gearSlot: {
+    width: 52,
+    height: 44,
+    backgroundColor: "#ede0c4",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    position: "relative",
+  },
+  gearSlotEmpty: {
+    borderStyle: "dashed",
+    borderColor: "#b8a070",
+    backgroundColor: "#f0e4c4",
+  },
+  gearSlotEmoji: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  gearSlotImg: {
+    width: 36,
+    height: 36,
+  },
+  gearSlotLvBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderWidth: 1.5,
+    borderColor: "#f5e9cc",
+  },
+  gearSlotLvText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: "#fff",
   },
   boostBadge: {
     position: "absolute",
@@ -1915,6 +2065,13 @@ const styles = StyleSheet.create({
     color: "#9a7040",
     letterSpacing: 0.8,
     textTransform: "uppercase",
+  },
+  statLabelTotal: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a5a30",
+    letterSpacing: 0,
+    textTransform: "none",
   },
   barTrack: {
     flex: 1,
@@ -2452,5 +2609,10 @@ const styles = StyleSheet.create({
   },
   defenderPillTextDisabled: {
     color: "#5a7a5a",
+  },
+  statGearBonus: {
+    color: "#66bb6a",
+    fontSize: 12,
+    fontWeight: "700",
   },
 });

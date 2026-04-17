@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import {
   View,
+  Image,
   TouchableOpacity,
   TouchableWithoutFeedback,
   StyleSheet,
@@ -9,9 +10,12 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Timer, ChefHat, Info } from "lucide-react-native";
+import { X, Timer, ChefHat, Info, Zap } from "lucide-react-native";
 import { PlayerFood } from "../types";
 import { describeEffect, FOOD_EMOJIS } from "./FoodCard";
+import { useLanguage } from "../lib/i18n";
+
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 function formatTime(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
@@ -50,11 +54,13 @@ type Props = {
   onClose: () => void;
   onUseFood: (food: PlayerFood) => void;
   context?: FoodContext;
+  coins?: number;
+  onInstantCook?: (foodId: string, coinCost: number) => void;
 };
 
 // NOT a Modal — renders as an absolutely-positioned Animated.View so it can
 // live inside ChampionDrawer's Modal without causing double-Modal touch issues.
-export default function FoodInventoryDrawer({ visible, inventory, onClose, onUseFood, context = "fighter" }: Props) {
+export default function FoodInventoryDrawer({ visible, inventory, onClose, onUseFood, context = "fighter", coins = 0, onInstantCook }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const panelWidth = screenWidth * 0.72;
   const translateX = useRef(new Animated.Value(panelWidth)).current;
@@ -172,6 +178,8 @@ export default function FoodInventoryDrawer({ visible, inventory, onClose, onUse
                 count={count}
                 context={context}
                 onReady={handleItemReady}
+                coins={coins}
+                onInstantCook={onInstantCook}
               />
             ))}
           </View>
@@ -207,6 +215,7 @@ function FoodItem({ food, count, context, onUse }: {
   context: FoodContext;
   onUse: (f: PlayerFood) => void;
 }) {
+  const { t } = useLanguage();
   const emoji    = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
   const enabled  = isCompatible(food.recipe.target, context);
 
@@ -245,12 +254,15 @@ function FoodItem({ food, count, context, onUse }: {
   );
 }
 
-function CookingItem({ food, count, context, onReady }: {
+function CookingItem({ food, count, context, onReady, coins = 0, onInstantCook }: {
   food: PlayerFood;
   count: number;
   context: FoodContext;
   onReady: (recipeId: string) => void;
+  coins?: number;
+  onInstantCook?: (foodId: string, coinCost: number) => void;
 }) {
+  const { t } = useLanguage();
   const emoji   = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
   const enabled = isCompatible(food.recipe.target, context);
   const readyAt   = food.cooking_ready_at_ms;
@@ -277,6 +289,8 @@ function CookingItem({ food, count, context, onReady }: {
   }, [readyAt, food.recipe_id]);
 
   const progress = totalMs > 0 ? Math.min(1 - msLeft / totalMs, 1) : 1;
+  const coinCost = Math.max(1, Math.ceil(msLeft / 60000));
+  const canAfford = coins >= coinCost;
 
   return (
     <View style={[styles.foodItem, styles.cookingItem, !enabled && styles.foodItemDisabled]}>
@@ -293,7 +307,7 @@ function CookingItem({ food, count, context, onReady }: {
       </Text>
       <View style={styles.effectChip}>
         <Text style={[styles.effectText, !enabled && styles.textDisabled]} numberOfLines={3}>
-          {describeEffect(food.recipe)}
+          {describeEffect(food.recipe, t)}
         </Text>
       </View>
       {!enabled && (
@@ -308,6 +322,20 @@ function CookingItem({ food, count, context, onReady }: {
         <Timer size={9} color="#9a7040" strokeWidth={2} />
         <Text style={styles.cookTimerText}>{formatTime(msLeft)}</Text>
       </View>
+      {onInstantCook && (
+        <TouchableOpacity
+          style={[styles.instantBtn, !canAfford && styles.instantBtnDisabled]}
+          activeOpacity={canAfford ? 0.8 : 1}
+          onPress={() => canAfford && onInstantCook(food.id, coinCost)}
+        >
+          <Zap size={9} color={canAfford ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={2.5} />
+          <Text style={styles.instantBtnText}>{t("instantCookBtn")}</Text>
+          <View style={styles.instantCostRow}>
+            <Image source={COIN_IMG} style={styles.instantCoinIcon} resizeMode="contain" />
+            <Text style={styles.instantCostText}>×{coinCost}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -544,4 +572,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#9a7040",
   },
+  instantBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    backgroundColor: "#7a5a9a",
+    borderWidth: 1,
+    borderColor: "#5a3a7a",
+    borderRadius: 7,
+    paddingVertical: 4,
+    paddingHorizontal: 5,
+    width: "100%",
+  },
+  instantBtnDisabled: { backgroundColor: "#9a8060", borderColor: "#7a6040" },
+  instantBtnText: { fontSize: 9, fontWeight: "900", color: "#fff" },
+  instantCostRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  instantCoinIcon: { width: 10, height: 10 },
+  instantCostText: { fontSize: 9, fontWeight: "800", color: "rgba(255,255,255,0.85)" },
 });

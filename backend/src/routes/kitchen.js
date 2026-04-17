@@ -3,6 +3,7 @@ const router  = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { incrementQuestProgress } = require('../quests');
+const { getChampionGearBonuses } = require('./gear');
 
 // ─── GET /api/kitchen/recipes ────────────────────────────────────────────────
 // Return all 11 recipes. Used by Kitchen screen.
@@ -207,7 +208,8 @@ router.post('/use/:foodId', authMiddleware, async (req, res) => {
       const boostCol =
         recipe.effect_type === 'boost_hp'      ? 'boost_hp' :
         recipe.effect_type === 'boost_defense' ? 'boost_defense' :
-        recipe.effect_type === 'boost_chance'  ? 'boost_chance' : null;
+        recipe.effect_type === 'boost_chance'  ? 'boost_chance' :
+        recipe.effect_type === 'boost_attack'  ? 'boost_attack' : null;
 
       if (boostCol) {
         // For boost_hp: also raise current_hp by the same amount (player gains the HP immediately)
@@ -220,7 +222,16 @@ router.post('/use/:foodId', authMiddleware, async (req, res) => {
            RETURNING *`,
           [recipe.effect_value, entity_id, playerId]
         );
-        updatedChampion = champRows[0] ?? null;
+        const champ = champRows[0] ?? null;
+        if (champ) {
+          const raw = await getChampionGearBonuses(champ.id);
+          updatedChampion = {
+            ...champ,
+            gear_attack:  Math.min(raw.attack,  Math.floor(champ.attack  * 0.5)),
+            gear_defense: Math.min(raw.defense, Math.floor(champ.defense * 0.5)),
+            gear_chance:  Math.min(raw.chance,  Math.floor(champ.chance  * 0.5)),
+          };
+        }
       }
     }
 
@@ -324,7 +335,8 @@ router.delete('/boosts/:boostId', authMiddleware, async (req, res) => {
       const boostCol =
         effectType === 'boost_hp'      ? 'boost_hp' :
         effectType === 'boost_defense' ? 'boost_defense' :
-        effectType === 'boost_chance'  ? 'boost_chance' : null;
+        effectType === 'boost_chance'  ? 'boost_chance' :
+        effectType === 'boost_attack'  ? 'boost_attack' : null;
 
       if (boostCol) {
         const champRows = await query(
@@ -333,7 +345,16 @@ router.delete('/boosts/:boostId', authMiddleware, async (req, res) => {
            RETURNING *`,
           [effectValue, boost.entity_id, playerId]
         );
-        updatedChampion = champRows[0] ?? null;
+        const champ = champRows[0] ?? null;
+        if (champ) {
+          const raw = await getChampionGearBonuses(champ.id);
+          updatedChampion = {
+            ...champ,
+            gear_attack:  Math.min(raw.attack,  Math.floor(champ.attack  * 0.5)),
+            gear_defense: Math.min(raw.defense, Math.floor(champ.defense * 0.5)),
+            gear_chance:  Math.min(raw.chance,  Math.floor(champ.chance  * 0.5)),
+          };
+        }
       }
     }
 
@@ -343,6 +364,48 @@ router.delete('/boosts/:boostId', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Remove boost failed' });
+  }
+});
+
+// ── POST /api/kitchen/instant/:foodId ────────────────────────────────────────
+// Instantly finishes a cooking item by spending coins.
+// Cost: 1 coin per minute remaining (minimum 1).
+router.post('/instant/:foodId', authMiddleware, async (req, res) => {
+  const playerId = req.player.id;
+  const { foodId } = req.params;
+
+  try {
+    const foodRows = await query(
+      `SELECT pf.* FROM player_food pf WHERE pf.id = $1 AND pf.player_id = $2`,
+      [foodId, playerId]
+    );
+    if (foodRows.length === 0) return res.status(404).json({ error: 'Food not found' });
+    const food = foodRows[0];
+
+    if (food.status !== 'cooking') return res.status(400).json({ error: 'Food is not cooking' });
+
+    const readyAtMs = new Date(food.cooking_ready_at).getTime();
+    const msLeft = Math.max(0, readyAtMs - Date.now());
+    const minsLeft = Math.ceil(msLeft / 60000);
+    const coinCost = Math.max(1, minsLeft);
+
+    const playerRows = await query('SELECT coins FROM players WHERE id = $1', [playerId]);
+    const coins = playerRows[0]?.coins ?? 0;
+    if (coins < coinCost) {
+      return res.status(400).json({ error: `Not enough coins (need ${coinCost}, have ${coins})` });
+    }
+
+    await query('UPDATE players SET coins = coins - $1 WHERE id = $2', [coinCost, playerId]);
+    await query(
+      "UPDATE player_food SET status = 'ready', cooking_ready_at = NOW() WHERE id = $1",
+      [foodId]
+    );
+
+    const [updatedPlayer] = await query('SELECT coins FROM players WHERE id = $1', [playerId]);
+    return res.json({ success: true, coinCost, coins: updatedPlayer.coins, foodId });
+  } catch (err) {
+    console.error('POST /kitchen/instant error:', err);
+    return res.status(500).json({ error: 'Failed to instant cook' });
   }
 });
 

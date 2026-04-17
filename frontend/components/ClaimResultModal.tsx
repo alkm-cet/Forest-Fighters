@@ -1,6 +1,6 @@
 import { Modal, View, Image, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { Text } from "./StyledText";
-import { RESOURCE_META } from "../constants/resources";
+import { RESOURCE_META, RARITY_META } from "../constants/resources";
 import type { ClaimResult } from "../types";
 
 type Props = {
@@ -46,6 +46,34 @@ export default function ClaimResultModal({ result, onClose }: Props) {
               </View>
             )}
           </View>
+
+          {/* Gear drop banners */}
+          {(result.gearDrops ?? []).map((drop) => {
+            const rarityMeta = RARITY_META[drop.rarity];
+            return (
+              <View key={drop.id} style={[styles.gearDropBanner, { backgroundColor: rarityMeta.color + '22', borderColor: rarityMeta.borderColor }]}>
+                <Text style={styles.gearDropTitle}>✨ Gear Drop!</Text>
+                <View style={styles.gearDropContent}>
+                  <Text style={styles.gearDropEmoji}>{drop.definition.emoji}</Text>
+                  <View style={styles.gearDropInfo}>
+                    <Text style={styles.gearDropName}>{drop.definition.name}</Text>
+                    <View style={styles.gearDropBadgeRow}>
+                      <View style={[styles.gearDropRarityBadge, { backgroundColor: rarityMeta.color }]}>
+                        <Text style={styles.gearDropRarityText}>{rarityMeta.label}</Text>
+                      </View>
+                      <Text style={styles.gearDropTier}>T{drop.definition.tier}</Text>
+                    </View>
+                    <View style={styles.gearDropStats}>
+                      {drop.attack_bonus > 0 && <Text style={styles.gearDropStat}>+{drop.attack_bonus} ⚔️</Text>}
+                      {drop.defense_bonus > 0 && <Text style={styles.gearDropStat}>+{drop.defense_bonus} 🛡️</Text>}
+                      {drop.chance_bonus > 0 && <Text style={styles.gearDropStat}>+{drop.chance_bonus} 🎯</Text>}
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.gearDropHint}>Added to inventory</Text>
+              </View>
+            );
+          })}
 
           <Text style={styles.logTitle}>Savaş Günlüğü</Text>
           <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false}>
@@ -151,4 +179,17 @@ const styles = StyleSheet.create({
   logDmgTextBlock: { color: "#fff" },
   btn: { backgroundColor: "#4a7c3f", borderRadius: 12, marginHorizontal: 20, marginTop: 12, paddingVertical: 14, alignItems: "center" },
   btnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
+  gearDropBanner: { marginHorizontal: 16, marginVertical: 8, borderRadius: 12, borderWidth: 2, padding: 12, gap: 4 },
+  gearDropTitle: { fontSize: 13, fontWeight: "800", color: "#3a2a10", textAlign: "center", letterSpacing: 0.5 },
+  gearDropContent: { flexDirection: "row", alignItems: "center", gap: 10 },
+  gearDropEmoji: { fontSize: 32, lineHeight: 38 },
+  gearDropInfo: { flex: 1, gap: 4 },
+  gearDropName: { fontSize: 15, fontWeight: "700", color: "#3a2a10" },
+  gearDropBadgeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  gearDropRarityBadge: { borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  gearDropRarityText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  gearDropTier: { fontSize: 11, fontWeight: "600", color: "#888" },
+  gearDropStats: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  gearDropStat: { fontSize: 12, fontWeight: "700", color: "#4a7c3f" },
+  gearDropHint: { fontSize: 10, color: "#888", textAlign: "center" },
 });

@@ -47,6 +47,7 @@ async function migrate() {
     // Add hp columns to existing champions table if not present
     await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS max_hp INT DEFAULT 100`);
     await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS current_hp INT DEFAULT 100`);
+    await query(`ALTER TABLE champions ADD COLUMN IF NOT EXISTS boost_attack INT DEFAULT 0`);
 
     await query(`
       CREATE TABLE IF NOT EXISTS farmers (
@@ -295,7 +296,7 @@ async function migrate() {
     // Extend dungeon_runs table
     await query(`ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS stars_earned INT DEFAULT NULL`);
 
-    // Reclassify existing 5 dungeons as adventure stages 1-5 (idempotent: only when stage_number is NULL)
+    // Force-correct stage numbers for the original 5 adventure dungeons (always runs — idempotent)
     await query(`
       UPDATE dungeons SET dungeon_type = 'adventure',
         stage_number = CASE name
@@ -307,7 +308,6 @@ async function migrate() {
         END,
         is_boss_stage = CASE name WHEN 'Dark Sanctum' THEN TRUE ELSE FALSE END
       WHERE name IN ('Whispering Woods','Mossy Ruins','Troll Bridge','Orcish Camp','Dark Sanctum')
-        AND stage_number IS NULL
     `);
 
     // New tables for dungeon v2
@@ -418,6 +418,9 @@ async function migrate() {
         WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
       `, [s.name, s.desc, s.enemy, s.atk, s.def, s.chc, s.hp, s.dur, s.stage, s.boss, s.coins, s.xp]);
     }
+
+    // Remove Test Chamber if it exists (was replaced by stage-1 100% drop)
+    await query(`DELETE FROM dungeons WHERE name = 'Test Chamber'`);
 
     // Seed event dungeon (idempotent)
     await query(`
@@ -638,6 +641,77 @@ async function migrate() {
         END
     `);
     console.log('Quest titles/descriptions cleaned up');
+
+    // ── Gear System ───────────────────────────────────────────────────────────
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS gear_definitions (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        gear_type VARCHAR(20) NOT NULL,
+        class_restriction VARCHAR(50),
+        tier INT DEFAULT 1,
+        base_attack INT DEFAULT 0,
+        base_defense INT DEFAULT 0,
+        base_chance INT DEFAULT 0,
+        atk_increment INT DEFAULT 0,
+        def_increment INT DEFAULT 0,
+        chance_increment INT DEFAULT 0,
+        emoji VARCHAR(10) DEFAULT '⚔️'
+      )
+    `);
+    console.log('Created table: gear_definitions');
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS player_gear (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+        definition_id VARCHAR(50) REFERENCES gear_definitions(id),
+        rarity VARCHAR(10) DEFAULT 'common',
+        level INT DEFAULT 1,
+        equipped_champion_id UUID REFERENCES champions(id) ON DELETE SET NULL,
+        equipped_slot VARCHAR(20),
+        acquired_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('Created table: player_gear');
+
+    // gear_upgrade_tier on recipes — which tier of gear a forge stone upgrades
+    await query(`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS gear_upgrade_tier INT`);
+    console.log('Ensured recipes.gear_upgrade_tier column');
+
+    // Update forge stone costs to require significantly more resources (balance)
+    await query(`UPDATE recipes SET ingredients = '{"pinecone": 30, "blueberry": 25}'::jsonb WHERE name = 'Forge Stone' AND effect_type = 'gear_upgrade'`);
+    await query(`UPDATE recipes SET ingredients = '{"pinecone": 40, "blueberry": 35, "egg": 20}'::jsonb WHERE name = 'Fine Forge Stone' AND effect_type = 'gear_upgrade'`);
+    await query(`UPDATE recipes SET ingredients = '{"pinecone": 50, "blueberry": 45, "egg": 30, "wool": 25}'::jsonb WHERE name = 'Master Forge Stone' AND effect_type = 'gear_upgrade'`);
+    console.log('Updated forge stone ingredient costs');
+
+    // ── Attack boost recipes ──────────────────────────────────────────────────
+    const attackRecipes = [
+      // T1 — one-shot (next battle)
+      { name: 'Wild Berry Tonic',      target: 'fighters', effect_type: 'boost_attack', effect_value: 5,  dur: null, cook: 4,  ingr: { strawberry: 4, blueberry: 3 },            tier: 1 },
+      // T1 — timed (30 min)
+      { name: 'Spiced Pinecone Brew',  target: 'fighters', effect_type: 'boost_attack', effect_value: 6,  dur: 30,   cook: 6,  ingr: { blueberry: 5, pinecone: 4 },             tier: 1 },
+      // T2 — one-shot (next battle)
+      { name: 'Battle Berry Stew',     target: 'fighters', effect_type: 'boost_attack', effect_value: 10, dur: null, cook: 10, ingr: { blueberry: 10, egg: 6, strawberry: 5 },   tier: 2 },
+      // T2 — timed (45 min)
+      { name: 'Ironbark Attack Broth', target: 'fighters', effect_type: 'boost_attack', effect_value: 8,  dur: 45,   cook: 15, ingr: { pinecone: 10, blueberry: 8, egg: 5 },     tier: 2 },
+      // T3 — one-shot (next battle)
+      { name: "Dragon's Wrath Elixir", target: 'fighters', effect_type: 'boost_attack', effect_value: 18, dur: null, cook: 20, ingr: { blueberry: 15, egg: 10, wool: 6 },        tier: 3 },
+      // T3 — timed (60 min)
+      { name: 'Ancient Forest Rage',   target: 'fighters', effect_type: 'boost_attack', effect_value: 12, dur: 60,   cook: 25, ingr: { pinecone: 20, blueberry: 12, egg: 8, wool: 4 }, tier: 3 },
+    ];
+    for (const r of attackRecipes) {
+      const existing = await query(`SELECT id FROM recipes WHERE name = $1`, [r.name]);
+      if (existing.length === 0) {
+        await query(
+          `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
+           VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::jsonb, $8::INT)`,
+          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+        );
+      }
+    }
+    console.log('Attack boost recipes ensured');
 
     console.log('Migration complete!');
   } catch (err) {

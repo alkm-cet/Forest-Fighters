@@ -181,6 +181,7 @@ export default function DungeonsScreen() {
       queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
       queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
       queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
     } catch (err: any) {
       Alert.alert(err.response?.data?.error || "Failed to claim reward");
     }

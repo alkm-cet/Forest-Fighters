@@ -2,6 +2,7 @@ const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { getIo } = require('../socket');
 const { incrementQuestProgress } = require('../quests');
+const { getChampionGearBonuses } = require('../routes/gear');
 
 const TROPHY_FLOOR    = 10;
 const RESULT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
@@ -196,16 +197,21 @@ async function attackPvp(req, res) {
 
     // ── Simulate combat ───────────────────────────────────────────────────────
     // champion.boost_hp/defense/chance already include food boosts (written by /use endpoint)
+    // Gear bonuses are capped at 50% of champion's base stat to prevent PvP imbalance
+    const [attRaw, defRaw] = await Promise.all([
+      getChampionGearBonuses(attChamp.id),
+      getChampionGearBonuses(defChamp.id),
+    ]);
     const attacker = {
-      attack:  attChamp.attack,
-      defense: attChamp.defense + (attChamp.boost_defense || 0),
-      chance:  attChamp.chance  + (attChamp.boost_chance  || 0),
+      attack:  attChamp.attack  + (attChamp.boost_attack || 0) + Math.min(attRaw.attack,  Math.floor(attChamp.attack  * 0.5)),
+      defense: attChamp.defense + (attChamp.boost_defense || 0) + Math.min(attRaw.defense, Math.floor(attChamp.defense * 0.5)),
+      chance:  attChamp.chance  + (attChamp.boost_chance  || 0) + Math.min(attRaw.chance,  Math.floor(attChamp.chance  * 0.5)),
       max_hp:  attChamp.max_hp  + (attChamp.boost_hp      || 0),
     };
     const defender = {
-      attack:  defChamp.attack,
-      defense: defChamp.defense + (defChamp.boost_defense || 0),
-      chance:  defChamp.chance  + (defChamp.boost_chance  || 0),
+      attack:  defChamp.attack  + (defChamp.boost_attack || 0) + Math.min(defRaw.attack,  Math.floor(defChamp.attack  * 0.5)),
+      defense: defChamp.defense + (defChamp.boost_defense || 0) + Math.min(defRaw.defense, Math.floor(defChamp.defense * 0.5)),
+      chance:  defChamp.chance  + (defChamp.boost_chance  || 0) + Math.min(defRaw.chance,  Math.floor(defChamp.chance  * 0.5)),
       max_hp:  defChamp.max_hp  + (defChamp.boost_hp      || 0),
     };
     const result = simulateCombat(attacker, defender);
@@ -439,6 +445,7 @@ async function getBattles(req, res) {
            boost_hp      = 0,
            boost_defense = 0,
            boost_chance  = 0,
+           boost_attack  = 0,
            current_hp    = LEAST(current_hp, max_hp)
          WHERE id = $1`,
         [b.attacker_champion_id]
@@ -456,6 +463,7 @@ async function getBattles(req, res) {
            boost_hp      = 0,
            boost_defense = 0,
            boost_chance  = 0,
+           boost_attack  = 0,
            current_hp    = LEAST(current_hp, max_hp)
          WHERE id = $1`,
         [b.defender_champion_id]

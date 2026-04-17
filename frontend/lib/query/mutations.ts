@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from './queryKeys';
 import { useUIStore } from '../store/useUIStore';
-import type { Farmer, Farm, Animal, Champion, DungeonRun, Resources, Player, PlayerQuest, QuestsResponse, ClaimQuestResult } from '../../types';
+import type { Farmer, Farm, Animal, Champion, DungeonRun, Resources, Player, PlayerQuest, QuestsResponse, ClaimQuestResult, PlayerGear } from '../../types';
 import { optimisticQuestProgress, optimisticQuestClaim } from './questOptimistic';
 
 // ─── Shared utility ───────────────────────────────────────────────────────────
@@ -780,6 +780,57 @@ export function useClaimQuestMutation() {
     onSettled: (_data, _err, questId) => {
       useUIStore.getState().setLock(questId, false);
       queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+    },
+  });
+}
+
+// ─── Gear mutations ───────────────────────────────────────────────────────────
+
+export function useEquipGearMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ gearId, champion_id, slot }: { gearId: string; champion_id: string; slot: 'weapon' | 'charm' }) =>
+      api.post(`/api/gear/${gearId}/equip`, { champion_id, slot }).then((r) => r.data),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+    },
+  });
+}
+
+export function useUnequipGearMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gearId: string) =>
+      api.post(`/api/gear/${gearId}/unequip`).then((r) => r.data),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+    },
+  });
+}
+
+export function useUpgradeGearMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ gearId, food_ids }: { gearId: string; food_ids: string[] }) =>
+      api.post<PlayerGear>(`/api/gear/${gearId}/upgrade`, { food_ids }).then((r) => r.data),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.kitchenInventory() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+    },
+  });
+}
+
+export function useDiscardGearMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gearId: string) =>
+      api.delete<{ success: boolean; coinsAwarded: number; coins: number }>(`/api/gear/${gearId}`).then((r) => r.data),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
       queryClient.invalidateQueries({ queryKey: queryKeys.player() });
     },
   });

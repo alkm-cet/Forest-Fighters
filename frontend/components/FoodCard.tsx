@@ -6,11 +6,21 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Text } from "./StyledText";
-import { Timer } from "lucide-react-native";
+import { Timer, Zap } from "lucide-react-native";
 import { Recipe, Resources } from "../types";
 import { RESOURCE_META } from "../constants/resources";
+import type { TranslationKeys } from "../lib/i18n";
+import { useLanguage } from "../lib/i18n";
+
+const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 const BOILER_IMG = require("../assets/boiler.webp");
+
+export const FORGE_STONE_IMGS: Record<string, any> = {
+  "Forge Stone":        require("../assets/firestone-t1.webp"),
+  "Fine Forge Stone":   require("../assets/firestone-t2.webp"),
+  "Master Forge Stone": require("../assets/firestone-t3.webp"),
+};
 
 const TIER_COLORS: Record<number, string> = {
   1: "#5a8a3c",
@@ -43,12 +53,31 @@ export const FOOD_EMOJIS: Record<string, string> = {
   "Forest Warrior Brew":      "🛡️",
   "Shield Bark Soup":         "⚔️",
   "Titanwood Feast":          "🪖",
+  // attack boost recipes
+  "Wild Berry Tonic":         "🍹",
+  "Spiced Pinecone Brew":     "🌶️",
+  "Battle Berry Stew":        "⚔️",
+  "Ironbark Attack Broth":    "🪵",
+  "Dragon's Wrath Elixir":    "🐉",
+  "Ancient Forest Rage":      "🌿",
+  // forge stones
+  "Forge Stone":              "🔨",
+  "Fine Forge Stone":         "⚒️",
+  "Master Forge Stone":       "🔥",
   // legacy names kept for backward compat
   "Strawberry Jam":           "🍓",
   "Great Forest Feast":       "🍽️",
 };
 
-export function describeEffect(recipe: Recipe): string {
+export function describeEffect(recipe: Recipe, t?: (key: TranslationKeys) => string): string {
+  // Forge stones have their own description
+  if (recipe.effect_type === "gear_upgrade") {
+    const gearTier = (recipe as any).gear_upgrade_tier as number | undefined;
+    if (gearTier === 3) return t ? t("forgeStoneAnyDesc") : "Upgrades any tier gear by 1 level";
+    if (gearTier === 2) return t ? t("forgeStoneT2Desc") : "Upgrades Tier 2 gear by 1 level";
+    return t ? t("forgeStoneT1Desc") : "Upgrades Tier 1 gear by 1 level";
+  }
+
   const target =
     recipe.target === "fighters"      ? "Fighters"
     : recipe.target === "farmers"     ? "Farmers"
@@ -58,11 +87,13 @@ export function describeEffect(recipe: Recipe): string {
 
   const dur = recipe.effect_duration_minutes
     ? ` for ${recipe.effect_duration_minutes} min`
-    : " (next battle only)";
+    : "";
 
   switch (recipe.effect_type) {
     case "boost_hp":
       return `${target} gain +${recipe.effect_value} max HP${dur}`;
+    case "boost_attack":
+      return `${target} gain +${recipe.effect_value} ATK${dur}`;
     case "boost_defense":
       return `${target} gain +${recipe.effect_value} DEF${dur}`;
     case "boost_chance":
@@ -91,9 +122,16 @@ type Props = {
   onCook: (recipe: Recipe) => void;
   /** Unix ms when this recipe finishes cooking. Null = not cooking. */
   cookingReadyAtMs?: number | null;
+  /** player_food.id of the currently cooking item (needed for instant cook) */
+  cookingFoodId?: string | null;
+  /** Coins the player currently has */
+  coins?: number;
+  /** Called when player taps "Hemen Pişir" — parent handles coin confirm + API call */
+  onInstantCook?: (foodId: string, coinCost: number) => void;
 };
 
-export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs }: Props) {
+export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, cookingFoodId, coins = 0, onInstantCook }: Props) {
+  const { t } = useLanguage();
   const tierColor  = TIER_COLORS[recipe.tier] ?? "#9a7040";
   const targetMeta = TARGET_META[recipe.target] ?? TARGET_META.all;
   const emoji = FOOD_EMOJIS[recipe.name] ?? "🍴";
@@ -133,15 +171,18 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs }
         </View>
       </View>
 
-      {/* Emoji */}
-      <Text style={styles.emoji}>{emoji}</Text>
+      {/* Emoji / item image */}
+      {FORGE_STONE_IMGS[recipe.name]
+        ? <Image source={FORGE_STONE_IMGS[recipe.name]} style={styles.itemImg} resizeMode="contain" />
+        : <Text style={styles.emoji}>{emoji}</Text>
+      }
 
       {/* Name */}
       <Text style={styles.name} numberOfLines={2}>{recipe.name}</Text>
 
       {/* Effect */}
       <View style={styles.effectChip}>
-        <Text style={styles.effectText} numberOfLines={2}>{describeEffect(recipe)}</Text>
+        <Text style={styles.effectText} numberOfLines={2}>{describeEffect(recipe, t)}</Text>
       </View>
 
       {/* Ingredients */}
@@ -162,15 +203,35 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs }
         })}
       </View>
 
-      {/* Cook progress bar */}
+      {/* Cook progress bar + instant cook button */}
       {isCooking && (
-        <View style={styles.cookBarTrack}>
-          <View style={[styles.cookBarFill, { width: `${progress * 100}%` as any }]} />
-          <View style={styles.cookBarLabel}>
-            <Timer size={10} color="#3a2a10" strokeWidth={2} />
-            <Text style={styles.cookBarText}>{formatTime(msLeft / 1000)}</Text>
+        <>
+          <View style={styles.cookBarTrack}>
+            <View style={[styles.cookBarFill, { width: `${progress * 100}%` as any }]} />
+            <View style={styles.cookBarLabel}>
+              <Timer size={10} color="#3a2a10" strokeWidth={2} />
+              <Text style={styles.cookBarText}>{formatTime(msLeft / 1000)}</Text>
+            </View>
           </View>
-        </View>
+          {cookingFoodId && onInstantCook && (() => {
+            const coinCost = Math.max(1, Math.ceil(msLeft / 60000));
+            const canAffordInstant = coins >= coinCost;
+            return (
+              <TouchableOpacity
+                style={[styles.instantBtn, !canAffordInstant && styles.instantBtnDisabled]}
+                activeOpacity={canAffordInstant ? 0.75 : 1}
+                onPress={() => canAffordInstant && onInstantCook(cookingFoodId, coinCost)}
+              >
+                <Zap size={11} color={canAffordInstant ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={2.5} />
+                <Text style={styles.instantBtnText}>{t("instantCookBtn")}</Text>
+                <View style={styles.instantCostRow}>
+                  <Image source={COIN_IMG} style={styles.instantCoinIcon} resizeMode="contain" />
+                  <Text style={styles.instantCostText}>×{coinCost}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })()}
+        </>
       )}
 
       {/* Cook button */}
@@ -236,6 +297,11 @@ const styles = StyleSheet.create({
     fontSize: 42,
     lineHeight: 52,
     textAlign: "center",
+  },
+  itemImg: {
+    width: 52,
+    height: 52,
+    alignSelf: "center",
   },
   name: {
     fontSize: 12,
@@ -314,4 +380,21 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   cookBarText: { fontSize: 10, fontWeight: "800", color: "#3a2a10" },
+  instantBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#7a5a9a",
+    borderWidth: 1.5,
+    borderColor: "#5a3a7a",
+    borderRadius: 9,
+    paddingVertical: 5,
+    alignSelf: "stretch",
+  },
+  instantBtnDisabled: { backgroundColor: "#9a8060", borderColor: "#7a6040" },
+  instantBtnText: { fontSize: 10, fontWeight: "900", color: "#fff" },
+  instantCostRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  instantCoinIcon: { width: 12, height: 12 },
+  instantCostText: { fontSize: 10, fontWeight: "800", color: "rgba(255,255,255,0.85)" },
 });

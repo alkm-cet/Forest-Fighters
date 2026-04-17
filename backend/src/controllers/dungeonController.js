@@ -1,6 +1,7 @@
 const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { incrementQuestProgress } = require('../quests');
+const { getChampionGearBonuses, rollGearDrop } = require('../routes/gear');
 
 const MAIN_RESOURCES = ['strawberry', 'pinecone', 'blueberry'];
 
@@ -189,7 +190,7 @@ async function claimRun(req, res) {
   try {
     const runRows = await query(
       `SELECT dr.*, c.attack, c.defense, c.chance, c.max_hp, c.current_hp, c.level, c.xp, c.xp_to_next_level,
-              c.boost_hp, c.boost_defense, c.boost_chance,
+              c.boost_hp, c.boost_defense, c.boost_chance, c.boost_attack,
               d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward,
               d.dungeon_type, d.coin_reward, d.reward_resource_2, d.reward_amount_2,
@@ -215,11 +216,18 @@ async function claimRun(req, res) {
     }
 
     // champion.boost_hp/defense/chance already include food boosts (written by /use endpoint)
+    // Gear bonuses are capped at 50% of champion's base stat to prevent PvP imbalance
+    const rawGear = await getChampionGearBonuses(run.champion_id);
+    const gearBonuses = {
+      attack:  Math.min(rawGear.attack,  Math.floor(run.attack  * 0.5)),
+      defense: Math.min(rawGear.defense, Math.floor(run.defense * 0.5)),
+      chance:  Math.min(rawGear.chance,  Math.floor(run.chance  * 0.5)),
+    };
     const attacker = {
-      attack: run.attack,
-      defense: run.defense + (run.boost_defense || 0),
-      chance: run.chance + (run.boost_chance || 0),
-      max_hp: run.max_hp + (run.boost_hp || 0),
+      attack:  run.attack  + (run.boost_attack  || 0) + gearBonuses.attack,
+      defense: run.defense + (run.boost_defense || 0) + gearBonuses.defense,
+      chance:  run.chance  + (run.boost_chance  || 0) + gearBonuses.chance,
+      max_hp:  run.max_hp  + (run.boost_hp      || 0),
       current_hp: run.current_hp + (run.boost_hp || 0),
     };
     const defender = { attack: run.enemy_attack, defense: run.enemy_defense, chance: run.enemy_chance, max_hp: run.enemy_hp };
@@ -281,7 +289,7 @@ async function claimRun(req, res) {
     // Update champion: HP + XP + level + stat points + clear legacy boost columns
     const finalHp = Math.min(result.attackerHpLeft, run.max_hp);
     await query(
-      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5, boost_hp = 0, boost_defense = 0, boost_chance = 0 WHERE id = $6',
+      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5, boost_hp = 0, boost_defense = 0, boost_chance = 0, boost_attack = 0 WHERE id = $6',
       [finalHp, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
     );
 
@@ -349,6 +357,12 @@ async function claimRun(req, res) {
       `, [playerId, run.dungeon_id, starsEarned, winner === 'champion' ? new Date() : null]);
     }
 
+    // ── Gear drop roll (adventure + event only, never harvest) ────────────────
+    let gearDrops = [];
+    if (winner === 'champion' && run.dungeon_type !== 'harvest') {
+      gearDrops = await rollGearDrop(run, playerId);
+    }
+
     res.json({
       winner,
       rewardResource,
@@ -361,6 +375,7 @@ async function claimRun(req, res) {
       xpGained,
       levelsGained,
       newLevel,
+      gearDrops,
     });
   } catch (err) {
     console.error(err);

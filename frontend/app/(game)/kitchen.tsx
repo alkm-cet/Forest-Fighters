@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../lib/query/queryKeys";
 import {
   View,
+  Image,
   StyleSheet,
   TouchableOpacity,
   FlatList,
@@ -11,14 +12,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "../../components/StyledText";
-import { ChevronLeft, ChefHat, Timer } from "lucide-react-native";
+import { ChevronLeft, ChefHat, Timer, Zap } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../lib/api";
 import { Recipe, Resources, PlayerFood } from "../../types";
 import FoodCard, { FOOD_EMOJIS, describeEffect } from "../../components/FoodCard";
+import { useCoinConfirm } from "../../lib/coin-confirm-context";
+import InGameCoinConfirmModal from "../../components/InGameCoinConfirmModal";
 
-type TargetTab = "fighters" | "farmers" | "animals";
+const COIN_IMG = require("../../assets/icons/icon-coin.webp");
+
+type TargetTab = "fighters" | "farmers" | "animals" | "forge";
 type ActiveTab = "all" | TargetTab | "cooking";
 
 // ─── Cooking item row ────────────────────────────────────────────────────────
@@ -30,7 +35,11 @@ function formatTime(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-function CookingRow({ food }: { food: PlayerFood }) {
+function CookingRow({ food, coins, onInstantCook }: {
+  food: PlayerFood;
+  coins: number;
+  onInstantCook: (foodId: string, coinCost: number) => void;
+}) {
   const readyAt   = food.cooking_ready_at_ms;
   const startedAt = food.cooking_started_at_ms;
   const totalMs   = Math.max(1, readyAt - startedAt);
@@ -46,6 +55,8 @@ function CookingRow({ food }: { food: PlayerFood }) {
 
   const progress = Math.min(1 - msLeft / totalMs, 1);
   const isDone   = msLeft <= 0;
+  const coinCost = Math.max(1, Math.ceil(msLeft / 60000));
+  const canAfford = coins >= coinCost;
 
   return (
     <View style={[styles.cookRow, isDone && styles.cookRowDone]}>
@@ -73,6 +84,7 @@ function CookingRow({ food }: { food: PlayerFood }) {
 
         {/* Combined progress bar + centered timer — same as FoodCard */}
         {!isDone && (
+          <>
           <View style={styles.cookBarTrack}>
             <View style={[styles.cookBarFill, { width: `${progress * 100}%` as any }]} />
             <View style={styles.cookBarLabel}>
@@ -80,6 +92,19 @@ function CookingRow({ food }: { food: PlayerFood }) {
               <Text style={styles.cookBarText}>{formatTime(msLeft)}</Text>
             </View>
           </View>
+          <TouchableOpacity
+            style={[styles.instantBtn, !canAfford && styles.instantBtnDisabled]}
+            activeOpacity={canAfford ? 0.75 : 1}
+            onPress={() => canAfford && onInstantCook(food.id, coinCost)}
+          >
+            <Zap size={10} color={canAfford ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={2.5} />
+            <Text style={styles.instantBtnText}>Hemen Pişir</Text>
+            <View style={styles.instantCostRow}>
+              <Image source={COIN_IMG} style={styles.instantCoinIcon} resizeMode="contain" />
+              <Text style={styles.instantCostText}>×{coinCost}</Text>
+            </View>
+          </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -91,7 +116,9 @@ function CookingRow({ food }: { food: PlayerFood }) {
 export default function KitchenScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { triggerCoinConfirm } = useCoinConfirm();
   const [recipes, setRecipes]         = useState<Recipe[]>([]);
+  const [coins, setCoins]             = useState(0);
   const [resources, setResources]     = useState<Resources>({
     strawberry: 0, pinecone: 0, blueberry: 0,
     strawberry_cap: 10, pinecone_cap: 10, blueberry_cap: 10,
@@ -100,6 +127,8 @@ export default function KitchenScreen() {
   });
   const [activeTab, setActiveTab]     = useState<ActiveTab>("all");
   const [cookingMap, setCookingMap]   = useState<Record<string, number>>({});
+  // recipe_id → player_food.id  (needed for instant cook)
+  const [cookingFoodIdMap, setCookingFoodIdMap] = useState<Record<string, string>>({});
   const [cookingItems, setCookingItems] = useState<PlayerFood[]>([]);
 
   // orange dot pulse
@@ -124,21 +153,28 @@ export default function KitchenScreen() {
 
   async function fetchData() {
     try {
-      const [recipesRes, resourcesRes, inventoryRes] = await Promise.all([
+      const [recipesRes, resourcesRes, inventoryRes, playerRes] = await Promise.all([
         api.get("/api/kitchen/recipes"),
         api.get("/api/resources"),
         api.get("/api/kitchen/inventory"),
+        api.get("/api/auth/me"),
       ]);
       setRecipes(recipesRes.data);
       setResources(resourcesRes.data);
+      setCoins(playerRes.data.coins ?? 0);
 
       const inventory: PlayerFood[] = inventoryRes.data;
       const cooking = inventory.filter((f) => f.status === "cooking");
       setCookingItems(cooking);
 
       const map: Record<string, number> = {};
-      cooking.forEach((f) => { map[f.recipe_id] = f.cooking_ready_at_ms; });
+      const foodIdMap: Record<string, string> = {};
+      cooking.forEach((f) => {
+        map[f.recipe_id] = f.cooking_ready_at_ms;
+        foodIdMap[f.recipe_id] = f.id;
+      });
       setCookingMap(map);
+      setCookingFoodIdMap(foodIdMap);
     } catch (err) {
       console.error("Kitchen fetch failed:", err);
     }
@@ -150,6 +186,7 @@ export default function KitchenScreen() {
       setResources(res.data.resources);
       const food: PlayerFood = res.data.food;
       setCookingMap((prev) => ({ ...prev, [recipe.id]: food.cooking_ready_at_ms }));
+      setCookingFoodIdMap((prev) => ({ ...prev, [recipe.id]: food.id }));
       setCookingItems((prev) => [...prev, food]);
       queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
@@ -157,14 +194,44 @@ export default function KitchenScreen() {
     }
   }
 
+  async function handleInstantCook(foodId: string, coinCost: number) {
+    triggerCoinConfirm({
+      transactionCost: coinCost,
+      transactionTitle: "Hemen Pişir",
+      transactionDesc: "Yemek anında hazır olsun mu?",
+      onConfirm: async () => {
+        try {
+          const res = await api.post(`/api/kitchen/instant/${foodId}`);
+          setCoins(res.data.coins);
+          // Remove the item from cooking list locally
+          setCookingItems((prev) => {
+            const removed = prev.find((f) => f.id === foodId);
+            if (removed) {
+              // Also clear cookingMap and cookingFoodIdMap for this recipe
+              setCookingMap((m) => { const n = { ...m }; delete n[removed.recipe_id]; return n; });
+              setCookingFoodIdMap((m) => { const n = { ...m }; delete n[removed.recipe_id]; return n; });
+            }
+            return prev.filter((f) => f.id !== foodId);
+          });
+          queryClient.invalidateQueries({ queryKey: queryKeys.kitchenInventory() });
+          queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+        } catch (err: any) {
+          alert(err.response?.data?.error ?? "Instant cook failed");
+        }
+      },
+    });
+  }
+
   const filteredRecipes =
     activeTab === "all" || activeTab === "cooking"
-      ? recipes
+      ? recipes.filter((r) => r.target !== "gear")
       : activeTab === "fighters"
         ? recipes.filter((r) => r.target === "fighters")
         : activeTab === "farmers"
           ? recipes.filter((r) => r.target === "farmers" || r.target === "farm_animals")
-          : recipes.filter((r) => r.target === "animals" || r.target === "farm_animals");
+          : activeTab === "forge"
+            ? recipes.filter((r) => r.target === "gear")
+            : recipes.filter((r) => r.target === "animals" || r.target === "farm_animals");
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -217,6 +284,17 @@ export default function KitchenScreen() {
           );
         })}
 
+        {/* Forge tab */}
+        <TouchableOpacity
+          style={[styles.tierBtn, activeTab === "forge" && styles.tierBtnActive]}
+          onPress={() => setActiveTab("forge")}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.tierBtnText, activeTab === "forge" && styles.tierBtnTextActive]}>
+            ⚒️ Forge
+          </Text>
+        </TouchableOpacity>
+
         {/* Cooking tab with optional orange dot */}
         <TouchableOpacity
           style={[styles.tierBtn, styles.cookingTabBtn, activeTab === "cooking" && styles.cookingTabBtnActive]}
@@ -248,7 +326,12 @@ export default function KitchenScreen() {
             showsVerticalScrollIndicator={false}
           >
             {cookingItems.map((f) => (
-              <CookingRow key={f.id} food={f} />
+              <CookingRow
+                key={f.id}
+                food={f}
+                coins={coins}
+                onInstantCook={handleInstantCook}
+              />
             ))}
           </ScrollView>
         )
@@ -267,11 +350,15 @@ export default function KitchenScreen() {
               resources={resources}
               onCook={handleCook}
               cookingReadyAtMs={cookingMap[item.id] ?? null}
+              cookingFoodId={cookingFoodIdMap[item.id] ?? null}
+              coins={coins}
+              onInstantCook={handleInstantCook}
             />
           )}
           ListEmptyComponent={<Text style={styles.emptyText}>No recipes found</Text>}
         />
       )}
+      <InGameCoinConfirmModal coins={coins} />
     </SafeAreaView>
   );
 }
@@ -444,6 +531,23 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   cookBarText: { fontSize: 10, fontWeight: "800", color: "#3a2a10" },
+  instantBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    backgroundColor: "#7a5a9a",
+    borderWidth: 1.5,
+    borderColor: "#5a3a7a",
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  instantBtnDisabled: { backgroundColor: "#9a8060", borderColor: "#7a6040" },
+  instantBtnText: { fontSize: 10, fontWeight: "900", color: "#fff" },
+  instantCostRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  instantCoinIcon: { width: 12, height: 12 },
+  instantCostText: { fontSize: 10, fontWeight: "800", color: "rgba(255,255,255,0.85)" },
 
   // ── Recipe grid ──
   grid: {

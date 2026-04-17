@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { getChampionGearBonuses } = require('./gear');
 
 const CHAMPION_FIELDS = 'id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed, stat_points, boost_hp, boost_defense, boost_chance';
 
@@ -30,7 +31,18 @@ router.get('/', authMiddleware, async (req, res) => {
       );
     }
 
-    return res.json(rows);
+    // Attach gear bonuses (capped at 50% of each base stat) to each champion
+    const withGear = await Promise.all(rows.map(async (champ) => {
+      const raw = await getChampionGearBonuses(champ.id);
+      return {
+        ...champ,
+        gear_attack:  Math.min(raw.attack,  Math.floor(champ.attack  * 0.5)),
+        gear_defense: Math.min(raw.defense, Math.floor(champ.defense * 0.5)),
+        gear_chance:  Math.min(raw.chance,  Math.floor(champ.chance  * 0.5)),
+      };
+    }));
+
+    return res.json(withGear);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to fetch champions' });

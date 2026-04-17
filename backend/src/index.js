@@ -17,6 +17,7 @@ const coinRoutes = require('./routes/coins');
 const playerRoutes = require('./routes/players');
 const kitchenRoutes = require('./routes/kitchen');
 const questRoutes   = require('./routes/quests');
+const { router: gearRoutes } = require('./routes/gear');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -48,6 +49,7 @@ app.use('/api/coins', coinRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/kitchen', kitchenRoutes);
 app.use('/api/quests',  questRoutes);
+app.use('/api/gear',   gearRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

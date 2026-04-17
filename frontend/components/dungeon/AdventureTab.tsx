@@ -605,6 +605,40 @@ export default function AdventureTab({
                 )}
               </View>
 
+              {/* Gear drop info */}
+              <View style={styles.gearDropInfo}>
+                <Text style={styles.gearDropInfoTitle}>⚔️ Gear Drops</Text>
+                {(() => {
+                  const isBoss = selectedDungeon.is_boss_stage;
+                  const stage = selectedDungeon.stage_number;
+                  const isFirstStage = stage === 1;
+                  const dropChance = isFirstStage ? '100%' : isBoss ? '28%' : '12%';
+                  const tierLabel =
+                    isFirstStage ? 'T1'
+                    : isBoss
+                      ? (stage ?? 0) <= 5 ? 'T1 or T2' : (stage ?? 0) <= 10 ? 'T2 or T3' : 'T3'
+                      : (stage ?? 0) <= 5 ? 'T1' : (stage ?? 0) <= 10 ? 'T2' : 'T3';
+                  const rarities = isFirstStage
+                    ? 'Weapon + Charm guaranteed'
+                    : isBoss
+                      ? 'Common 50% · Rare 35% · Epic 15%'
+                      : 'Common 80% · Rare 18% · Epic 2%';
+                  return (
+                    <>
+                      <View style={styles.gearDropRow}>
+                        <Text style={styles.gearDropLabel}>Drop chance</Text>
+                        <Text style={[styles.gearDropValue, isFirstStage && { color: '#4a7c3f' }]}>{dropChance}</Text>
+                      </View>
+                      <View style={styles.gearDropRow}>
+                        <Text style={styles.gearDropLabel}>Tier</Text>
+                        <Text style={styles.gearDropValue}>{tierLabel}</Text>
+                      </View>
+                      <Text style={styles.gearDropRarities}>{rarities}</Text>
+                    </>
+                  );
+                })()}
+              </View>
+
               {/* Action */}
               {(() => {
                 const activeRun = getRunForDungeon(selectedDungeon.id);
@@ -888,6 +922,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#3d2a10",
+  },
+  gearDropInfo: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c8a040',
+    padding: 10,
+    gap: 5,
+  },
+  gearDropInfoTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#c8a040',
+    letterSpacing: 0.5,
+  },
+  gearDropRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gearDropLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7a5a30',
+  },
+  gearDropValue: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#3d2a10',
+  },
+  gearDropRarities: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#9a7040',
   },
   onMissionBlock: {
     backgroundColor: "#30336b",

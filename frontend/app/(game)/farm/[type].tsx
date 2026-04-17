@@ -13,7 +13,14 @@ import { Text } from "../../../components/StyledText";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, ArrowUp, Info, Package, Plus, Timer } from "lucide-react-native";
+import {
+  ArrowLeft,
+  ArrowUp,
+  Info,
+  Package,
+  Plus,
+  Timer,
+} from "lucide-react-native";
 // ArrowUp used in farmUpgradeSection CustomButton icon
 import { useQueryClient } from "@tanstack/react-query";
 import api from "../../../lib/api";
@@ -29,13 +36,17 @@ const ANIMAL_MAX_LEVEL = 50;
 const MAX_FARM_SLOTS = 20;
 const FARM_UPGRADE_COST_PER_LEVEL = 10;
 
-function getMaxCapacity(level: number) { return 9 + level; }
-function getUpgradeCost(level: number) { return level * 2; }
+function getMaxCapacity(level: number) {
+  return 9 + level;
+}
+function getUpgradeCost(level: number) {
+  return level * 2;
+}
 
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
   chicken: ["strawberry", "pinecone"],
-  sheep:   ["pinecone",   "blueberry"],
-  cow:     ["blueberry",  "strawberry"],
+  sheep: ["pinecone", "blueberry"],
+  cow: ["blueberry", "strawberry"],
 };
 
 function formatTime(seconds: number): string {
@@ -53,7 +64,9 @@ function stampAnimals(animals: Animal[]): Animal[] {
 
 // Interpolate one animal forward from its snapshot to now
 function interpolateAnimal(a: Animal) {
-  const elapsedSec = a._fetched_at_ms ? (Date.now() - a._fetched_at_ms) / 1000 : 0;
+  const elapsedSec = a._fetched_at_ms
+    ? (Date.now() - a._fetched_at_ms) / 1000
+    : 0;
   const cycleSec = a.interval_minutes * 60;
   const maxCap = getMaxCapacity(a.level);
   const fuelSec = Math.max(0, a.fuel_remaining_minutes * 60 - elapsedSec);
@@ -125,7 +138,9 @@ export default function FarmScreen() {
         if (currentFarm) {
           const updated = {
             ...currentFarm,
-            animals: currentFarm.animals.map((a) => (a.id === animalId ? fresh : a)),
+            animals: currentFarm.animals.map((a) =>
+              a.id === animalId ? fresh : a,
+            ),
           };
           syncFarm(updated);
           setFarm(updated);
@@ -134,11 +149,19 @@ export default function FarmScreen() {
         const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
         setLiveMap((prev) => ({
           ...prev,
-          [animalId]: { id: animalId, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+          [animalId]: {
+            id: animalId,
+            fuelSec,
+            progressSec,
+            pending,
+            initialFuelSec: fuelSec,
+          },
         }));
         queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
       })
-      .catch(() => { feedBufferRef.current = 0; })
+      .catch(() => {
+        feedBufferRef.current = 0;
+      })
       .finally(() => {
         feedInFlightRef.current = false;
         if (feedBufferRef.current > 0) flushFeedBufferRef.current?.(animalId);
@@ -172,7 +195,13 @@ export default function FarmScreen() {
     const map: Record<string, AnimalLive> = {};
     for (const a of animals) {
       const { fuelSec, progressSec, pending } = interpolateAnimal(a);
-      map[a.id] = { id: a.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec };
+      map[a.id] = {
+        id: a.id,
+        fuelSec,
+        progressSec,
+        pending,
+        initialFuelSec: fuelSec,
+      };
     }
     liveMapRef.current = map;
     setLiveMap({ ...map });
@@ -211,7 +240,12 @@ export default function FarmScreen() {
             newPending = Math.min(newPending + 1, maxCap);
             newProgressSec = 0;
           }
-          next[animal.id] = { ...live, fuelSec: newFuelSec, progressSec: newProgressSec, pending: newPending };
+          next[animal.id] = {
+            ...live,
+            fuelSec: newFuelSec,
+            progressSec: newProgressSec,
+            pending: newPending,
+          };
         }
         if (!changed) return prev;
         liveMapRef.current = next;
@@ -224,23 +258,36 @@ export default function FarmScreen() {
   // Re-interpolate when farm refreshes
   useEffect(() => {
     if (farm) initLiveMap(farm.animals);
-  }, [farm?.animals.map((a) => `${a.id}:${a.fuel_remaining_minutes}:${a.pending}`).join(",")]);
+  }, [
+    farm?.animals
+      .map((a) => `${a.id}:${a.fuel_remaining_minutes}:${a.pending}`)
+      .join(","),
+  ]);
 
   // Must be declared before any early return to satisfy Rules of Hooks
   const feedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   if (!farm) {
-    const meta = FARM_META[farmType] ?? { farmLabel: "Farm", color: "#888", image: null };
+    const meta = FARM_META[farmType] ?? {
+      farmLabel: "Farm",
+      color: "#888",
+      image: null,
+    };
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
             <ArrowLeft size={20} color="#7a5230" strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{meta.farmLabel}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+        >
           <Text style={{ color: "#9a7040" }}>Loading…</Text>
         </View>
       </SafeAreaView>
@@ -251,32 +298,58 @@ export default function FarmScreen() {
   const produceMeta = RESOURCE_META[farm.produce_resource];
   const consumeMeta = RESOURCE_META[farm.consume_resource];
 
-  const totalMaxCapacity = farm.animals.reduce((sum, a) => sum + a.max_capacity, 0);
-  const totalPending = Object.values(liveMap).reduce((s, l) => s + (l?.pending ?? 0), 0);
+  const totalMaxCapacity = farm.animals.reduce(
+    (sum, a) => sum + a.max_capacity,
+    0,
+  );
+  const totalPending = Object.values(liveMap).reduce(
+    (s, l) => s + (l?.pending ?? 0),
+    0,
+  );
 
   const pineconesMeta = RESOURCE_META["pinecone"];
 
-  const selectedAnimal = farm.animals.find((a) => a.id === selectedAnimalId) ?? farm.animals[0] ?? null;
+  const selectedAnimal =
+    farm.animals.find((a) => a.id === selectedAnimalId) ??
+    farm.animals[0] ??
+    null;
   const selectedLive = selectedAnimal ? liveMap[selectedAnimal.id] : null;
 
   // Feed UI for selected animal
-  const liveFeedUnits = selectedAnimal && selectedAnimal.minutes_per_feed > 0
-    ? Math.min(Math.ceil((selectedLive?.fuelSec ?? 0) / 60 / selectedAnimal.minutes_per_feed), selectedAnimal.max_feed)
-    : 0;
+  const liveFeedUnits =
+    selectedAnimal && selectedAnimal.minutes_per_feed > 0
+      ? Math.min(
+          Math.ceil(
+            (selectedLive?.fuelSec ?? 0) / 60 / selectedAnimal.minutes_per_feed,
+          ),
+          selectedAnimal.max_feed,
+        )
+      : 0;
   const availableFeed = selectedAnimal
-    ? ((resources?.[selectedAnimal.consume_resource as keyof Resources] as number) ?? 0)
+    ? ((resources?.[
+        selectedAnimal.consume_resource as keyof Resources
+      ] as number) ?? 0)
     : 0;
-  const feedNeededForMax = selectedAnimal ? Math.max(0, selectedAnimal.max_feed - liveFeedUnits) : 0;
-  const canFeedOne = availableFeed >= 1 && selectedAnimal ? liveFeedUnits < selectedAnimal.max_feed : false;
+  const feedNeededForMax = selectedAnimal
+    ? Math.max(0, selectedAnimal.max_feed - liveFeedUnits)
+    : 0;
+  const canFeedOne =
+    availableFeed >= 1 && selectedAnimal
+      ? liveFeedUnits < selectedAnimal.max_feed
+      : false;
   const canFeedMax = feedNeededForMax > 0 && availableFeed >= feedNeededForMax;
-  const feedPct = selectedAnimal && selectedAnimal.max_feed > 0
-    ? Math.min(liveFeedUnits / selectedAnimal.max_feed, 1)
-    : 0;
+  const feedPct =
+    selectedAnimal && selectedAnimal.max_feed > 0
+      ? Math.min(liveFeedUnits / selectedAnimal.max_feed, 1)
+      : 0;
 
   // Selected animal upgrade affordability
-  const [selRes1, selRes2] = selectedAnimal ? (UPGRADE_RESOURCES[selectedAnimal.animal_type] ?? ["?", "?"]) : ["?", "?"];
+  const [selRes1, selRes2] = selectedAnimal
+    ? (UPGRADE_RESOURCES[selectedAnimal.animal_type] ?? ["?", "?"])
+    : ["?", "?"];
   const selUpgCost = selectedAnimal ? getUpgradeCost(selectedAnimal.level) : 0;
-  const canUpgradeSelected = !!selectedAnimal &&
+  const canUpgradeSelected =
+    !!selectedAnimal &&
     selectedAnimal.level < ANIMAL_MAX_LEVEL &&
     ((resources?.[selRes1 as keyof Resources] as number) ?? 0) >= selUpgCost &&
     ((resources?.[selRes2 as keyof Resources] as number) ?? 0) >= selUpgCost;
@@ -312,14 +385,23 @@ export default function FarmScreen() {
       const fresh = { ...apiRes.data.animal, _fetched_at_ms: Date.now() };
       setResources(apiRes.data.resources);
       if (farm) {
-        const updated = { ...farm, animals: farm.animals.map((a) => (a.id === animal.id ? fresh : a)) };
+        const updated = {
+          ...farm,
+          animals: farm.animals.map((a) => (a.id === animal.id ? fresh : a)),
+        };
         syncFarm(updated);
         setFarm(updated);
       }
       const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
       setLiveMap((prev) => ({
         ...prev,
-        [animal.id]: { id: animal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+        [animal.id]: {
+          id: animal.id,
+          fuelSec,
+          progressSec,
+          pending,
+          initialFuelSec: fuelSec,
+        },
       }));
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Upgrade failed");
@@ -329,7 +411,9 @@ export default function FarmScreen() {
   async function handleCollectAnimal(animal: Animal) {
     if (!farm) return;
     try {
-      const res = await api.post(`/api/farms/${farm.farm_type}/animals/${animal.id}/collect`);
+      const res = await api.post(
+        `/api/farms/${farm.farm_type}/animals/${animal.id}/collect`,
+      );
       const updated: Farm = res.data.farm;
       updated.animals = stampAnimals(updated.animals);
       setFarm(updated);
@@ -346,28 +430,55 @@ export default function FarmScreen() {
 
     // Optimistic update — set pending to maxCap immediately
     const maxCap = getMaxCapacity(selectedAnimal.level);
-    const optimisticAnimal = { ...selectedAnimal, pending: maxCap, _fetched_at_ms: Date.now() };
-    const optimisticFarm = { ...farm, animals: farm.animals.map((a) => (a.id === selectedAnimal.id ? optimisticAnimal : a)) };
+    const optimisticAnimal = {
+      ...selectedAnimal,
+      pending: maxCap,
+      _fetched_at_ms: Date.now(),
+    };
+    const optimisticFarm = {
+      ...farm,
+      animals: farm.animals.map((a) =>
+        a.id === selectedAnimal.id ? optimisticAnimal : a,
+      ),
+    };
     const prevFarm = farm;
     syncFarm(optimisticFarm);
     setFarm(optimisticFarm);
-    const { fuelSec, progressSec, pending } = interpolateAnimal(optimisticAnimal);
+    const { fuelSec, progressSec, pending } =
+      interpolateAnimal(optimisticAnimal);
     setLiveMap((prev) => ({
       ...prev,
-      [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+      [selectedAnimal.id]: {
+        id: selectedAnimal.id,
+        fuelSec,
+        progressSec,
+        pending,
+        initialFuelSec: fuelSec,
+      },
     }));
 
     try {
-      const res = await api.post("/api/coins/fill-animal-storage", { animal_id: selectedAnimal.id });
+      const res = await api.post("/api/coins/fill-animal-storage", {
+        animal_id: selectedAnimal.id,
+      });
       setCoins(res.data.coins);
       const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-      const confirmedFarm = { ...farm, animals: farm.animals.map((a) => (a.id === selectedAnimal.id ? fresh : a)) };
+      const confirmedFarm = {
+        ...farm,
+        animals: farm.animals.map((a) =>
+          a.id === selectedAnimal.id ? fresh : a,
+        ),
+      };
       syncFarm(confirmedFarm);
       setFarm(confirmedFarm);
       const interp = interpolateAnimal(fresh);
       setLiveMap((prev) => ({
         ...prev,
-        [selectedAnimal.id]: { id: selectedAnimal.id, ...interp, initialFuelSec: interp.fuelSec },
+        [selectedAnimal.id]: {
+          id: selectedAnimal.id,
+          ...interp,
+          initialFuelSec: interp.fuelSec,
+        },
       }));
     } catch (err: any) {
       // Rollback
@@ -376,7 +487,11 @@ export default function FarmScreen() {
       const interp = interpolateAnimal(selectedAnimal);
       setLiveMap((prev) => ({
         ...prev,
-        [selectedAnimal.id]: { id: selectedAnimal.id, ...interp, initialFuelSec: interp.fuelSec },
+        [selectedAnimal.id]: {
+          id: selectedAnimal.id,
+          ...interp,
+          initialFuelSec: interp.fuelSec,
+        },
       }));
       alert(err.response?.data?.error ?? "Depo doldurulamadı");
     }
@@ -402,7 +517,11 @@ export default function FarmScreen() {
             {/* Pending pill */}
             <View style={[styles.pendingPill, { backgroundColor: meta.color }]}>
               {produceMeta?.image && (
-                <Image source={produceMeta.image} style={styles.pillIcon} resizeMode="contain" />
+                <Image
+                  source={produceMeta.image}
+                  style={styles.pillIcon}
+                  resizeMode="contain"
+                />
               )}
               <Text style={styles.pillText}>
                 {totalPending} / {totalMaxCapacity}
@@ -436,19 +555,28 @@ export default function FarmScreen() {
           const cycleSec = animal.interval_minutes * 60;
           const isStopped = (live?.fuelSec ?? 0) <= 0;
           const isFull = (live?.pending ?? 0) >= maxCap;
-          const progressFrac = isFull || isStopped || cycleSec <= 0
-            ? (isStopped ? (live?.progressSec ?? 0) / cycleSec : 0)
-            : Math.min((live?.progressSec ?? 0) / cycleSec, 1);
+          const progressFrac =
+            isFull || isStopped || cycleSec <= 0
+              ? isStopped
+                ? (live?.progressSec ?? 0) / cycleSec
+                : 0
+              : Math.min((live?.progressSec ?? 0) / cycleSec, 1);
           const countdown = Math.max(0, cycleSec - (live?.progressSec ?? 0));
-          const isSelected = selectedAnimalId === animal.id || (!selectedAnimalId && animal.id === farm.animals[0]?.id);
+          const isSelected =
+            selectedAnimalId === animal.id ||
+            (!selectedAnimalId && animal.id === farm.animals[0]?.id);
 
           const animalConsumeMeta = RESOURCE_META[animal.consume_resource];
           const initialFuelSec = live?.initialFuelSec ?? 0;
-          const fuelFrac = initialFuelSec > 0 ? Math.min((live?.fuelSec ?? 0), initialFuelSec) / initialFuelSec : 0;
+          const fuelFrac =
+            initialFuelSec > 0
+              ? Math.min(live?.fuelSec ?? 0, initialFuelSec) / initialFuelSec
+              : 0;
 
           const [r1, r2] = UPGRADE_RESOURCES[animal.animal_type] ?? ["?", "?"];
           const upgCost = getUpgradeCost(animal.level);
-          const canUpgradeAnimal = animal.level < ANIMAL_MAX_LEVEL &&
+          const canUpgradeAnimal =
+            animal.level < ANIMAL_MAX_LEVEL &&
             ((resources?.[r1 as keyof Resources] as number) ?? 0) >= upgCost &&
             ((resources?.[r2 as keyof Resources] as number) ?? 0) >= upgCost;
 
@@ -467,22 +595,35 @@ export default function FarmScreen() {
                     ]}
                     activeOpacity={0.8}
                     onPress={() => {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      LayoutAnimation.configureNext(
+                        LayoutAnimation.Presets.easeInEaseOut,
+                      );
                       setSelectedAnimalId(animal.id);
                     }}
                   >
                     {/* Selected: left color bar */}
                     {isSelected && (
-                      <View style={[styles.selectedBar, { backgroundColor: meta.color }]} />
+                      <View
+                        style={[
+                          styles.selectedBar,
+                          { backgroundColor: meta.color },
+                        ]}
+                      />
                     )}
 
                     {/* Animal image + LV badge overlay */}
                     <View style={styles.animalImageWrap}>
                       {meta.image && (
-                        <Image source={meta.image} style={styles.animalRowImage} resizeMode="contain" />
+                        <Image
+                          source={meta.image}
+                          style={styles.animalRowImage}
+                          resizeMode="contain"
+                        />
                       )}
                       <View style={styles.animalLvBadge}>
-                        <Text style={styles.animalLvBadgeText}>LV{animal.level}</Text>
+                        <Text style={styles.animalLvBadgeText}>
+                          LV{animal.level}
+                        </Text>
                       </View>
                     </View>
 
@@ -490,37 +631,80 @@ export default function FarmScreen() {
                     <View style={styles.animalMid}>
                       <View style={styles.timerRow}>
                         {!isFull && (
-                          <View style={[styles.timerFill, {
-                            width: `${progressFrac * 100}%` as any,
-                            backgroundColor: isStopped ? "#b0a080" : meta.color,
-                            opacity: isStopped ? 0.5 : 1,
-                          }]} />
+                          <View
+                            style={[
+                              styles.timerFill,
+                              {
+                                width: `${progressFrac * 100}%` as any,
+                                backgroundColor: isStopped
+                                  ? "#b0a080"
+                                  : meta.color,
+                                opacity: isStopped ? 0.5 : 1,
+                              },
+                            ]}
+                          />
                         )}
-                        <Timer size={11} color={isFull ? "#c0392b" : isStopped ? "#6a3a0a" : "#2a1a00"} strokeWidth={2} />
-                        <Text style={[styles.timerLabel, isFull && styles.timerLabelFull]} numberOfLines={1}>
-                          {isFull ? "Depo dolu" : isStopped ? "Durakladı — Üretim için besle!" : "Sonraki"}
+                        <Timer
+                          size={11}
+                          color={
+                            isFull
+                              ? "#c0392b"
+                              : isStopped
+                                ? "#6a3a0a"
+                                : "#2a1a00"
+                          }
+                          strokeWidth={2}
+                        />
+                        <Text
+                          style={[
+                            styles.timerLabel,
+                            isFull && styles.timerLabelFull,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {isFull
+                            ? "Depo dolu"
+                            : isStopped
+                              ? "Durakladı — Üretim için besle!"
+                              : "Sonraki"}
                         </Text>
                         {!isFull && !isStopped && (
-                          <Text style={styles.timerCountdown}>{formatTime(countdown)}</Text>
+                          <Text style={styles.timerCountdown}>
+                            {formatTime(countdown)}
+                          </Text>
                         )}
                       </View>
                       <View style={styles.capacityRow}>
-                        <View style={[
-                          styles.capacityBadge,
-                          {
-                            backgroundColor: isFull
-                              ? "#c0392b"
-                              : (live?.pending ?? 0) > 0
-                                ? meta.color
-                                : "#d4b896",
-                          },
-                        ]}>
+                        <View
+                          style={[
+                            styles.capacityBadge,
+                            {
+                              backgroundColor: isFull
+                                ? "#c0392b"
+                                : (live?.pending ?? 0) > 0
+                                  ? meta.color
+                                  : "#d4b896",
+                            },
+                          ]}
+                        >
                           {produceMeta?.image && (live?.pending ?? 0) > 0 && (
-                            <Image source={produceMeta.image} style={styles.capacityIcon} resizeMode="contain" />
+                            <Image
+                              source={produceMeta.image}
+                              style={styles.capacityIcon}
+                              resizeMode="contain"
+                            />
                           )}
-                          <Text style={[styles.capacityText, {
-                            color: (live?.pending ?? 0) > 0 || isFull ? "#fff" : "#3a1e00",
-                          }]}>
+                          <Text
+                            style={[
+                              styles.capacityText,
+                              {
+                                color:
+                                  (live?.pending ?? 0) > 0 || isFull
+                                    ? "#fff"
+                                    : "#3a1e00",
+                              },
+                            ]}
+                          >
                             {live?.pending ?? 0}/{maxCap}
                           </Text>
                         </View>
@@ -529,25 +713,42 @@ export default function FarmScreen() {
 
                     {/* Production rate */}
                     <View style={styles.animalRateBlock}>
-                      <Text style={styles.animalRateValue}>{Number(animal.interval_minutes).toFixed(1)}</Text>
+                      <Text style={styles.animalRateValue}>
+                        {Number(animal.interval_minutes).toFixed(1)}
+                      </Text>
                       <Text style={styles.animalRateUnit}>dk/ürt</Text>
                     </View>
                   </TouchableOpacity>
 
                   {/* Fuel dropdown */}
                   {isSelected && !isStopped && !isFull && (
-                    <View style={[styles.fuelDropdown, { borderColor: meta.color }]}>
-                      <View style={[styles.fuelFill, {
-                        width: `${fuelFrac * 100}%` as any,
-                        backgroundColor: animalConsumeMeta?.color ?? "#c8781a",
-                      }]} />
+                    <View
+                      style={[styles.fuelDropdown, { borderColor: meta.color }]}
+                    >
+                      <View
+                        style={[
+                          styles.fuelFill,
+                          {
+                            width: `${fuelFrac * 100}%` as any,
+                            backgroundColor:
+                              animalConsumeMeta?.color ?? "#c8781a",
+                          },
+                        ]}
+                      />
                       {animalConsumeMeta?.image && (
-                        <Image source={animalConsumeMeta.image} style={styles.fuelRowIcon} resizeMode="contain" />
+                        <Image
+                          source={animalConsumeMeta.image}
+                          style={styles.fuelRowIcon}
+                          resizeMode="contain"
+                        />
                       )}
                       <Text style={styles.fuelRowLabel} numberOfLines={1}>
-                        {animalConsumeMeta?.label ?? animal.consume_resource} tükeniyor
+                        {animalConsumeMeta?.label ?? animal.consume_resource}{" "}
+                        tükeniyor
                       </Text>
-                      <Text style={styles.fuelRowCountdown}>{formatTime(live?.fuelSec ?? 0)}</Text>
+                      <Text style={styles.fuelRowCountdown}>
+                        {formatTime(live?.fuelSec ?? 0)}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -555,7 +756,10 @@ export default function FarmScreen() {
                 {/* Right side: upgrade button only */}
                 <View style={styles.animalSideBtns}>
                   <TouchableOpacity
-                    style={[styles.animalUpgradeBtn, !canUpgradeAnimal && styles.animalUpgradeBtnDisabled]}
+                    style={[
+                      styles.animalUpgradeBtn,
+                      !canUpgradeAnimal && styles.animalUpgradeBtnDisabled,
+                    ]}
                     activeOpacity={0.75}
                     onPress={() => {
                       setUpgradeTarget(animal);
@@ -572,7 +776,12 @@ export default function FarmScreen() {
 
         {/* Empty slot rows */}
         {Array.from({ length: emptySlots }).map((_, i) => (
-          <TouchableOpacity key={`empty-${i}`} style={styles.emptySlotRow} activeOpacity={0.7} onPress={handleAddAnimal}>
+          <TouchableOpacity
+            key={`empty-${i}`}
+            style={styles.emptySlotRow}
+            activeOpacity={0.7}
+            onPress={handleAddAnimal}
+          >
             <View style={styles.emptySlotIcon}>
               <Plus size={20} color="#9a7040" strokeWidth={2.5} />
             </View>
@@ -580,7 +789,6 @@ export default function FarmScreen() {
             <Text style={styles.emptySlotHint}>Slot dolu değil</Text>
           </TouchableOpacity>
         ))}
-
       </ScrollView>
 
       {/* ── Bottom feed section ── */}
@@ -589,8 +797,16 @@ export default function FarmScreen() {
           <View style={styles.feedHeader}>
             <Package size={12} color="#9a7040" strokeWidth={2} />
             <Text style={styles.feedHeaderText}>FEED</Text>
+            {consumeMeta?.image && (
+              <Image
+                source={consumeMeta.image}
+                style={styles.feedBarIcon}
+                resizeMode="contain"
+              />
+            )}
             <Text style={styles.feedAvailableText}>
-              {availableFeed} {consumeMeta?.label ?? selectedAnimal.consume_resource} available
+              {availableFeed}{" "}
+              {consumeMeta?.label ?? selectedAnimal.consume_resource} available
             </Text>
           </View>
 
@@ -598,14 +814,21 @@ export default function FarmScreen() {
           <View style={styles.feedInfoRow}>
             <Info size={11} color="#9a7040" strokeWidth={2} />
             <Text style={styles.feedInfoText}>
-              Her bir {consumeMeta?.label ?? selectedAnimal.consume_resource}, {meta.label.toLowerCase()}lara +{Number(selectedAnimal.minutes_per_feed).toFixed(0)} dk üretim süresi verir.
+              Her bir {consumeMeta?.label ?? selectedAnimal.consume_resource},{" "}
+              {meta.label.toLowerCase()}lara +
+              {Number(selectedAnimal.minutes_per_feed).toFixed(0)} dk üretim
+              süresi verir.
             </Text>
           </View>
 
           {/* Feed bar */}
           <View style={styles.feedBarRow}>
             {consumeMeta?.image && (
-              <Image source={consumeMeta.image} style={styles.feedBarIcon} resizeMode="contain" />
+              <Image
+                source={consumeMeta.image}
+                style={styles.feedBarIcon}
+                resizeMode="contain"
+              />
             )}
             <View style={styles.feedBarTrack}>
               <View
@@ -618,7 +841,9 @@ export default function FarmScreen() {
                 ]}
               />
             </View>
-            <Text style={styles.feedBarText}>{liveFeedUnits} / {selectedAnimal.max_feed}</Text>
+            <Text style={styles.feedBarText}>
+              {liveFeedUnits} / {selectedAnimal.max_feed}
+            </Text>
           </View>
 
           {/* Feed buttons */}
@@ -628,25 +853,60 @@ export default function FarmScreen() {
               activeOpacity={0.7}
               onPress={() => {
                 if (!canFeedOne) return;
-                optimisticQuestProgress(queryClient, 'animal_feed', { animalType: selectedAnimal.animal_type });
+                optimisticQuestProgress(queryClient, "animal_feed", {
+                  animalType: selectedAnimal.animal_type,
+                });
                 feedBufferRef.current += 1;
                 flushFeedBufferRef.current?.(selectedAnimal.id);
               }}
             >
-              <Text style={[styles.feedBtnLabel, !canFeedOne && styles.feedBtnTextDisabled]}>Yemle</Text>
-              <Text style={[styles.feedBtnText, !canFeedOne && styles.feedBtnTextDisabled]}>+1</Text>
+              <Text
+                style={[
+                  styles.feedBtnLabel,
+                  !canFeedOne && styles.feedBtnTextDisabled,
+                ]}
+              >
+                Yemle
+              </Text>
+              <Text
+                style={[
+                  styles.feedBtnText,
+                  !canFeedOne && styles.feedBtnTextDisabled,
+                ]}
+              >
+                +1
+              </Text>
               {consumeMeta?.image && (
-                <Image source={consumeMeta.image} style={styles.feedBtnIcon} resizeMode="contain" />
+                <Image
+                  source={consumeMeta.image}
+                  style={styles.feedBtnIcon}
+                  resizeMode="contain"
+                />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.feedMaxBtn, !feedNeededForMax && styles.feedBtnDisabled]}
+              style={[
+                styles.feedMaxBtn,
+                !feedNeededForMax && styles.feedBtnDisabled,
+              ]}
               activeOpacity={0.7}
               onPress={() => setShowMaxFeedConfirm(true)}
             >
-              <Text style={[styles.feedBtnLabel, !feedNeededForMax && styles.feedBtnTextDisabled]}>Yemle</Text>
-              <Text style={[styles.feedMaxBtnText, !feedNeededForMax && styles.feedBtnTextDisabled]}>
+              <Text
+                style={[
+                  styles.feedBtnLabel,
+                  !feedNeededForMax && styles.feedBtnTextDisabled,
+                ]}
+              >
+                Yemle
+              </Text>
+              <Text
+                style={[
+                  styles.feedMaxBtnText,
+                  !feedNeededForMax && styles.feedBtnTextDisabled,
+                ]}
+              >
                 Max {feedNeededForMax > 0 ? `(${feedNeededForMax})` : ""}
               </Text>
             </TouchableOpacity>
@@ -654,56 +914,85 @@ export default function FarmScreen() {
 
           {/* Collect + Fill storage row */}
           <View style={styles.bottomActionRow}>
-          {(selectedLive?.pending ?? 0) > 0 && (
-            <CustomButton
-              btnIcon={produceMeta?.image
-                ? <Image source={produceMeta.image} style={{ width: 28, height: 28 }} resizeMode="contain" />
-                : undefined}
-              text="Topla"
-              subContent={
-                <Text style={styles.upgradeCostText}>
-                  {selectedLive?.pending ?? 0} / {getMaxCapacity(selectedAnimal.level)}
-                </Text>
-              }
-              onClick={() => handleCollectAnimal(selectedAnimal)}
-              bgColor={meta.color}
-              borderColor={meta.color}
-              style={{ flex: 1 }}
-            />
-          )}
-          <View style={{ flex: (selectedLive?.pending ?? 0) > 0 ? 1.4 : 1 }}>
-          {/* Fill storage coin button */}
-          {(() => {
-            const maxCap = getMaxCapacity(selectedAnimal.level);
-            const currentPending = selectedLive?.pending ?? 0;
-            const fillCost = Math.max(0, maxCap - currentPending);
-            const isFull = fillCost === 0;
-            const canAfford = coins >= fillCost && !isFull;
-            return (
+            {(selectedLive?.pending ?? 0) > 0 && (
               <CustomButton
-                btnIcon={<Image source={COIN_IMG} style={{ width: 20, height: 20 }} resizeMode="contain" />}
-                text={isFull ? "Depo Dolu" : `Depoyu Doldur`}
-                subContent={
-                  !isFull ? (
-                    <View style={styles.upgradeCostRow}>
-                      <Image source={COIN_IMG} style={styles.upgradeCostIcon} resizeMode="contain" />
-                      <Text style={[styles.upgradeCostText, !canAfford && { color: "#ffaaaa" }]}>
-                        ×{fillCost}
-                      </Text>
-                      <Text style={[styles.upgradeCostText, { color: canAfford ? "#e8c87a" : "#ffaaaa" }]}>
-                        ({coins} mevcut)
-                      </Text>
-                    </View>
+                btnIcon={
+                  produceMeta?.image ? (
+                    <Image
+                      source={produceMeta.image}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                    />
                   ) : undefined
                 }
-                onClick={() => { if (canAfford) setShowFillStorageConfirm(true); }}
-                bgColor={canAfford ? "#c87820" : "#9a7040"}
-                borderColor={canAfford ? "#a05f10" : "#7a5030"}
-                disabled={!canAfford}
+                text="Topla"
+                subContent={
+                  <Text style={styles.upgradeCostText}>
+                    {selectedLive?.pending ?? 0} /{" "}
+                    {getMaxCapacity(selectedAnimal.level)}
+                  </Text>
+                }
+                onClick={() => handleCollectAnimal(selectedAnimal)}
+                bgColor={meta.color}
+                borderColor={meta.color}
+                style={{ flex: 1 }}
               />
-            );
-          })()}
-          </View>
+            )}
+            <View style={{ flex: (selectedLive?.pending ?? 0) > 0 ? 1.4 : 1 }}>
+              {/* Fill storage coin button */}
+              {(() => {
+                const maxCap = getMaxCapacity(selectedAnimal.level);
+                const currentPending = selectedLive?.pending ?? 0;
+                const fillCost = Math.max(0, maxCap - currentPending);
+                const isFull = fillCost === 0;
+                const canAfford = coins >= fillCost && !isFull;
+                return (
+                  <CustomButton
+                    btnIcon={
+                      <Image
+                        source={COIN_IMG}
+                        style={{ width: 20, height: 20 }}
+                        resizeMode="contain"
+                      />
+                    }
+                    text={isFull ? "Depo Dolu" : `Depoyu Doldur`}
+                    subContent={
+                      !isFull ? (
+                        <View style={styles.upgradeCostRow}>
+                          <Image
+                            source={COIN_IMG}
+                            style={styles.upgradeCostIcon}
+                            resizeMode="contain"
+                          />
+                          <Text
+                            style={[
+                              styles.upgradeCostText,
+                              !canAfford && { color: "#ffaaaa" },
+                            ]}
+                          >
+                            ×{fillCost}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.upgradeCostText,
+                              { color: canAfford ? "#e8c87a" : "#ffaaaa" },
+                            ]}
+                          >
+                            ({coins} mevcut)
+                          </Text>
+                        </View>
+                      ) : undefined
+                    }
+                    onClick={() => {
+                      if (canAfford) setShowFillStorageConfirm(true);
+                    }}
+                    bgColor={canAfford ? "#c87820" : "#9a7040"}
+                    borderColor={canAfford ? "#a05f10" : "#7a5030"}
+                    disabled={!canAfford}
+                  />
+                );
+              })()}
+            </View>
           </View>
         </View>
       )}
@@ -711,7 +1000,10 @@ export default function FarmScreen() {
       {/* Animal upgrade confirmation modal */}
       <CustomModal
         visible={showUpgradeModal}
-        onClose={() => { setShowUpgradeModal(false); setUpgradeTarget(null); }}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setUpgradeTarget(null);
+        }}
         onConfirm={() => {
           setShowUpgradeModal(false);
           if (upgradeTarget) handleAnimalUpgrade(upgradeTarget);
@@ -721,25 +1013,41 @@ export default function FarmScreen() {
         confirmText="Upgrade"
         confirmDisabled={!canUpgradeSelected}
       >
-        {upgradeTarget && (() => {
-          const [ur1, ur2] = UPGRADE_RESOURCES[upgradeTarget.animal_type] ?? ["?", "?"];
-          const cost = getUpgradeCost(upgradeTarget.level);
-          const r1Meta = RESOURCE_META[ur1];
-          const r2Meta = RESOURCE_META[ur2];
-          return (
-            <View style={styles.upgradeModalBody}>
-              <Text style={styles.upgradeModalText}>
-                Level {upgradeTarget.level} → {upgradeTarget.level + 1}
-              </Text>
-              <View style={styles.upgradeModalCostRow}>
-                {r1Meta?.image && <Image source={r1Meta.image} style={styles.modalCostIcon} resizeMode="contain" />}
-                <Text style={styles.upgradeModalCostText}>×{cost}</Text>
-                {r2Meta?.image && <Image source={r2Meta.image} style={styles.modalCostIcon} resizeMode="contain" />}
-                <Text style={styles.upgradeModalCostText}>×{cost}</Text>
+        {upgradeTarget &&
+          (() => {
+            const [ur1, ur2] = UPGRADE_RESOURCES[upgradeTarget.animal_type] ?? [
+              "?",
+              "?",
+            ];
+            const cost = getUpgradeCost(upgradeTarget.level);
+            const r1Meta = RESOURCE_META[ur1];
+            const r2Meta = RESOURCE_META[ur2];
+            return (
+              <View style={styles.upgradeModalBody}>
+                <Text style={styles.upgradeModalText}>
+                  Level {upgradeTarget.level} → {upgradeTarget.level + 1}
+                </Text>
+                <View style={styles.upgradeModalCostRow}>
+                  {r1Meta?.image && (
+                    <Image
+                      source={r1Meta.image}
+                      style={styles.modalCostIcon}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <Text style={styles.upgradeModalCostText}>×{cost}</Text>
+                  {r2Meta?.image && (
+                    <Image
+                      source={r2Meta.image}
+                      style={styles.modalCostIcon}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <Text style={styles.upgradeModalCostText}>×{cost}</Text>
+                </View>
               </View>
-            </View>
-          );
-        })()}
+            );
+          })()}
       </CustomModal>
 
       {/* Feed max confirmation modal */}
@@ -753,23 +1061,42 @@ export default function FarmScreen() {
             feedBufferRef.current += feedNeededForMax;
             return;
           }
-          optimisticQuestProgress(queryClient, 'animal_feed', { animalType: selectedAnimal.animal_type });
-          api.post(`/api/animals/${selectedAnimal.id}/feed-max`, { requestedUnits: feedNeededForMax })
+          optimisticQuestProgress(queryClient, "animal_feed", {
+            animalType: selectedAnimal.animal_type,
+          });
+          api
+            .post(`/api/animals/${selectedAnimal.id}/feed-max`, {
+              requestedUnits: feedNeededForMax,
+            })
             .then((res) => {
               const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
               if (res.data.resources) setResources(res.data.resources);
               setFarm((prev) => {
                 if (!prev) return prev;
-                return { ...prev, animals: prev.animals.map((a) => (a.id === selectedAnimal.id ? fresh : a)) };
+                return {
+                  ...prev,
+                  animals: prev.animals.map((a) =>
+                    a.id === selectedAnimal.id ? fresh : a,
+                  ),
+                };
               });
-              const { fuelSec, progressSec, pending } = interpolateAnimal(fresh);
+              const { fuelSec, progressSec, pending } =
+                interpolateAnimal(fresh);
               setLiveMap((prev) => ({
                 ...prev,
-                [selectedAnimal.id]: { id: selectedAnimal.id, fuelSec, progressSec, pending, initialFuelSec: fuelSec },
+                [selectedAnimal.id]: {
+                  id: selectedAnimal.id,
+                  fuelSec,
+                  progressSec,
+                  pending,
+                  initialFuelSec: fuelSec,
+                },
               }));
               queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
             })
-            .catch((err: any) => alert(err.response?.data?.error ?? "Feed max failed"));
+            .catch((err: any) =>
+              alert(err.response?.data?.error ?? "Feed max failed"),
+            );
         }}
         title={`Feed ${meta.label}?`}
         confirmText="Confirm"
@@ -778,13 +1105,15 @@ export default function FarmScreen() {
         <Text style={styles.modalBody}>
           This will use{" "}
           <Text style={styles.modalCost}>
-            {feedNeededForMax} {consumeMeta?.label ?? selectedAnimal?.consume_resource}
+            {feedNeededForMax}{" "}
+            {consumeMeta?.label ?? selectedAnimal?.consume_resource}
           </Text>
           {"\n"}to fill feed storage.
         </Text>
         {!canFeedMax && (
           <Text style={styles.modalWarning}>
-            Not enough {consumeMeta?.label} (have {availableFeed}, need {feedNeededForMax})
+            Not enough {consumeMeta?.label} (have {availableFeed}, need{" "}
+            {feedNeededForMax})
           </Text>
         )}
       </CustomModal>
@@ -801,21 +1130,28 @@ export default function FarmScreen() {
         confirmText="Doldur"
         confirmDisabled={!selectedAnimal}
       >
-        {selectedAnimal && (() => {
-          const maxCap = getMaxCapacity(selectedAnimal.level);
-          const fillCost = Math.max(0, maxCap - (selectedLive?.pending ?? 0));
-          return (
-            <View style={styles.upgradeModalBody}>
-              <Text style={styles.upgradeModalText}>
-                Seçili hayvanın üretim deposu anında doldurulacak.
-              </Text>
-              <View style={styles.upgradeModalCostRow}>
-                <Image source={COIN_IMG} style={styles.modalCostIcon} resizeMode="contain" />
-                <Text style={styles.upgradeModalCostText}>×{fillCost} coin harcanacak</Text>
+        {selectedAnimal &&
+          (() => {
+            const maxCap = getMaxCapacity(selectedAnimal.level);
+            const fillCost = Math.max(0, maxCap - (selectedLive?.pending ?? 0));
+            return (
+              <View style={styles.upgradeModalBody}>
+                <Text style={styles.upgradeModalText}>
+                  Seçili hayvanın üretim deposu anında doldurulacak.
+                </Text>
+                <View style={styles.upgradeModalCostRow}>
+                  <Image
+                    source={COIN_IMG}
+                    style={styles.modalCostIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.upgradeModalCostText}>
+                    ×{fillCost} coin harcanacak
+                  </Text>
+                </View>
               </View>
-            </View>
-          );
-        })()}
+            );
+          })()}
       </CustomModal>
     </SafeAreaView>
   );
@@ -971,7 +1307,12 @@ const styles = StyleSheet.create({
   },
   timerLabel: { fontSize: 11, fontWeight: "700", color: "#2a1a00", flex: 1 },
   timerLabelFull: { color: "#c0392b" },
-  timerCountdown: { fontSize: 12, fontWeight: "800", color: "#4a2e0a", letterSpacing: 0.5 },
+  timerCountdown: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#4a2e0a",
+    letterSpacing: 0.5,
+  },
 
   // Capacity row
   capacityRow: {
@@ -1044,7 +1385,11 @@ const styles = StyleSheet.create({
   },
   collectSideBtnIcon: { width: 20, height: 20 },
   collectSideBtnNum: { fontSize: 11, fontWeight: "900", color: "#fff" },
-  collectSideBtnLabel: { fontSize: 10, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
+  collectSideBtnLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
+  },
 
   // Empty slot
   emptySlotRow: {
@@ -1076,7 +1421,11 @@ const styles = StyleSheet.create({
   },
   upgradeCostRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   upgradeCostIcon: { width: 16, height: 16 },
-  upgradeCostText: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
+  upgradeCostText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.85)",
+  },
 
   // Bottom feed section
   feedSection: {
@@ -1119,7 +1468,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   feedBarFill: { height: "100%", borderRadius: 5 },
-  feedBarText: { fontSize: 12, fontWeight: "700", color: "#3a1e00", minWidth: 50, textAlign: "right" },
+  feedBarText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#3a1e00",
+    minWidth: 50,
+    textAlign: "right",
+  },
   feedBtnsRow: { flexDirection: "row", gap: 12 },
   feedBtn: {
     flex: 1,
@@ -1148,7 +1503,11 @@ const styles = StyleSheet.create({
   feedBtnDisabled: { opacity: 0.4 },
   feedBtnText: { fontSize: 16, fontWeight: "900", color: "#fff" },
   feedMaxBtnText: { fontSize: 14, fontWeight: "900", color: "#fff" },
-  feedBtnLabel: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.8)" },
+  feedBtnLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.8)",
+  },
   feedBtnTextDisabled: { color: "#fff" },
   feedBtnIcon: { width: 18, height: 18 },
   feedInfoRow: {
@@ -1195,7 +1554,12 @@ const styles = StyleSheet.create({
   },
   fuelRowIcon: { width: 11, height: 11 },
   fuelRowLabel: { fontSize: 10, fontWeight: "600", color: "#5a3a10", flex: 1 },
-  fuelRowCountdown: { fontSize: 10, fontWeight: "800", color: "#4a2e0a", letterSpacing: 0.3 },
+  fuelRowCountdown: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#4a2e0a",
+    letterSpacing: 0.3,
+  },
 
   // Modals
   upgradeModalBody: { gap: 8 },
@@ -1203,7 +1567,17 @@ const styles = StyleSheet.create({
   upgradeModalCostRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   modalCostIcon: { width: 20, height: 20 },
   upgradeModalCostText: { fontSize: 14, fontWeight: "800", color: "#3a1e00" },
-  modalBody: { fontSize: 14, fontWeight: "600", color: "#5a3a10", lineHeight: 22 },
+  modalBody: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#5a3a10",
+    lineHeight: 22,
+  },
   modalCost: { fontWeight: "900", color: "#3a1e00" },
-  modalWarning: { fontSize: 12, fontWeight: "700", color: "#c0392b", marginTop: 8 },
+  modalWarning: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#c0392b",
+    marginTop: 8,
+  },
 });

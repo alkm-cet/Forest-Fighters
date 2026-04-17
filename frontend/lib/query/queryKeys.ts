@@ -12,6 +12,7 @@ export const queryKeys = {
   kitchenRecipes:   () => ['kitchen', 'recipes']   as const,
   kitchenInventory: () => ['kitchen', 'inventory'] as const,
   quests:           () => ['quests']               as const,
+  gearInventory:    () => ['gear', 'inventory']    as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;

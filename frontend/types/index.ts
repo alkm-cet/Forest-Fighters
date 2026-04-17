@@ -67,7 +67,12 @@ export type Champion = {
   boost_hp: number;
   boost_defense: number;
   boost_chance: number;
+  boost_attack: number;
   last_defender: boolean;
+  // Gear bonuses (capped at 50% of base stat, summed from equipped gear)
+  gear_attack: number;
+  gear_defense: number;
+  gear_chance: number;
 };
 
 export type Farmer = {
@@ -170,6 +175,39 @@ export type AdventureMilestone = {
   claimed: boolean;
 };
 
+export type GearRarity = 'common' | 'rare' | 'epic';
+
+export type GearDefinition = {
+  id: string;
+  name: string;
+  gear_type: 'weapon' | 'charm';
+  class_restriction: string | null;
+  tier: 1 | 2 | 3;
+  base_attack: number;
+  base_defense: number;
+  base_chance: number;
+  atk_increment: number;
+  def_increment: number;
+  chance_increment: number;
+  emoji: string;
+};
+
+export type PlayerGear = {
+  id: string;
+  player_id: string;
+  definition_id: string;
+  definition: GearDefinition;
+  rarity: GearRarity;
+  level: number;
+  equipped_champion_id: string | null;
+  equipped_slot: 'weapon' | 'charm' | null;
+  acquired_at: string;
+  // Computed by backend (rarity multiplier + level applied):
+  attack_bonus: number;
+  defense_bonus: number;
+  chance_bonus: number;
+};
+
 export type ClaimResult = {
   winner: "champion" | "enemy";
   rewardResource: string;
@@ -182,6 +220,7 @@ export type ClaimResult = {
   xpGained: number;
   levelsGained: number;
   newLevel: number;
+  gearDrops?: PlayerGear[];
 };
 
 export type PvpStatus = {
@@ -200,13 +239,14 @@ export type PvpStatus = {
 export type Recipe = {
   id: string;
   name: string;
-  target: 'fighters' | 'farmers' | 'animals' | 'farm_animals' | 'all';
+  target: 'fighters' | 'farmers' | 'animals' | 'farm_animals' | 'all' | 'gear';
   effect_type: string;
   effect_value: number;
   effect_duration_minutes: number | null;
   cook_duration_minutes: number;
   ingredients: Partial<Record<ResourceKey | AdvancedResourceKey, number>>;
   tier: 1 | 2 | 3;
+  gear_upgrade_tier?: number | null;
 };
 
 export type PlayerFood = {

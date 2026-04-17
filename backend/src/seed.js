@@ -181,6 +181,53 @@ async function seed() {
       console.log('Quest definitions already seeded. Skipping.');
     }
 
+    // ── Gear definitions (idempotent) ─────────────────────────────────────────
+    const gearDefs = [
+      // Warrior weapons
+      { id: 'iron_sword',    name: 'Iron Sword',    gear_type: 'weapon', class_restriction: 'Warrior', tier: 1, base_attack: 5,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 0, chance_increment: 0, emoji: '⚔️' },
+      { id: 'steel_axe',     name: 'Steel Axe',     gear_type: 'weapon', class_restriction: 'Warrior', tier: 2, base_attack: 8,  atk_increment: 3, base_defense: 2, def_increment: 1, base_chance: 0, chance_increment: 0, emoji: '🪓' },
+      { id: 'battle_blade',  name: 'Battle Blade',  gear_type: 'weapon', class_restriction: 'Warrior', tier: 3, base_attack: 12, atk_increment: 5, base_defense: 4, def_increment: 2, base_chance: 0, chance_increment: 0, emoji: '🗡️' },
+      // Mage weapons
+      { id: 'oak_staff',     name: 'Oak Staff',     gear_type: 'weapon', class_restriction: 'Mage',    tier: 1, base_attack: 5,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 3, chance_increment: 1, emoji: '🪄' },
+      { id: 'crystal_staff', name: 'Crystal Staff', gear_type: 'weapon', class_restriction: 'Mage',    tier: 2, base_attack: 8,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 5, chance_increment: 2, emoji: '🔮' },
+      { id: 'arcane_orb',    name: 'Arcane Orb',    gear_type: 'weapon', class_restriction: 'Mage',    tier: 3, base_attack: 12, atk_increment: 5, base_defense: 0, def_increment: 0, base_chance: 8, chance_increment: 3, emoji: '🌟' },
+      // Archer weapons
+      { id: 'pine_bow',      name: 'Pine Bow',      gear_type: 'weapon', class_restriction: 'Archer',  tier: 1, base_attack: 5,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 3, chance_increment: 1, emoji: '🏹' },
+      { id: 'hunter_bow',    name: 'Hunter Bow',    gear_type: 'weapon', class_restriction: 'Archer',  tier: 2, base_attack: 8,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 5, chance_increment: 2, emoji: '🎯' },
+      { id: 'shadow_bow',    name: 'Shadow Bow',    gear_type: 'weapon', class_restriction: 'Archer',  tier: 3, base_attack: 12, atk_increment: 5, base_defense: 0, def_increment: 0, base_chance: 8, chance_increment: 3, emoji: '🌙' },
+      // Universal charms
+      { id: 'forest_charm',  name: 'Forest Charm',  gear_type: 'charm',  class_restriction: null,      tier: 1, base_attack: 0,  atk_increment: 0, base_defense: 4, def_increment: 2, base_chance: 0, chance_increment: 0, emoji: '🍀' },
+      { id: 'silver_charm',  name: 'Silver Charm',  gear_type: 'charm',  class_restriction: null,      tier: 2, base_attack: 0,  atk_increment: 0, base_defense: 7, def_increment: 3, base_chance: 3, chance_increment: 1, emoji: '🪙' },
+      { id: 'dragon_charm',  name: 'Dragon Charm',  gear_type: 'charm',  class_restriction: null,      tier: 3, base_attack: 0,  atk_increment: 0, base_defense: 10, def_increment: 4, base_chance: 6, chance_increment: 2, emoji: '🐉' },
+    ];
+    for (const g of gearDefs) {
+      await query(
+        `INSERT INTO gear_definitions (id, name, gear_type, class_restriction, tier, base_attack, base_defense, base_chance, atk_increment, def_increment, chance_increment, emoji)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (id) DO NOTHING`,
+        [g.id, g.name, g.gear_type, g.class_restriction, g.tier, g.base_attack, g.base_defense, g.base_chance, g.atk_increment, g.def_increment, g.chance_increment, g.emoji]
+      );
+    }
+    console.log('Seeded gear definitions');
+
+    // ── Forge stone recipes (idempotent) ──────────────────────────────────────
+    const forgeStones = [
+      { name: 'Forge Stone',        tier: 1, cook: 5,  ingr: { pinecone: 5,  blueberry: 3 },                                  gear_upgrade_tier: 1 },
+      { name: 'Fine Forge Stone',   tier: 2, cook: 15, ingr: { pinecone: 10, blueberry: 8, egg: 2 },                          gear_upgrade_tier: 2 },
+      { name: 'Master Forge Stone', tier: 3, cook: 30, ingr: { pinecone: 20, blueberry: 15, egg: 5, wool: 3 },                gear_upgrade_tier: 3 },
+    ];
+    for (const s of forgeStones) {
+      const existing = await query(`SELECT id FROM recipes WHERE name = $1`, [s.name]);
+      if (existing.length === 0) {
+        await query(
+          `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier, gear_upgrade_tier)
+           VALUES ($1, 'gear', 'gear_upgrade', 1, NULL, $2, $3::jsonb, $4, $5)`,
+          [s.name, s.cook, JSON.stringify(s.ingr), s.tier, s.gear_upgrade_tier]
+        );
+      }
+    }
+    console.log('Seeded forge stone recipes');
+
     console.log('\nSeed complete! Login with test@test.com / password123');
   } catch (err) {
     console.error('Seed failed:', err);

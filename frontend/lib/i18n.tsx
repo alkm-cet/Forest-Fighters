@@ -215,6 +215,39 @@ const translations = {
     foodLockedOnMission: "On Mission",
     foodLockedInBattle: "In Battle",
     addFood: "Add Food",
+
+    // Gear system
+    gearEquipment: "Equipment",
+    gearEquipmentDrawerTitle: "Equipment",
+    gearEquippedSection: "Equipped",
+    gearWeaponSlot: "⚔️ Weapon",
+    gearCharmSlot: "🍀 Charm",
+    gearNoWeapon: "No weapon equipped",
+    gearNoCharm: "No charm equipped",
+    gearInventorySection: "Inventory",
+    gearEquipBtn: "Equip",
+    gearUnequipBtn: "Unequip",
+    gearUpgradeBtn: "Upgrade",
+    gearNoStonesBtn: "No stones",
+    gearConfirmUpgrade: "Confirm",
+    gearUpgradeStonesWillUse: "stones will be used",
+    gearEmptyTitle: "No gear yet",
+    gearEmptyHint: "Win adventure dungeons to find equipment!",
+    gearForgeStones: "Forge Stones",
+    gearErrorEquip: "Could not equip gear",
+    gearErrorUnequip: "Could not unequip gear",
+    gearErrorUpgrade: "Upgrade failed",
+    gearErrorTitle: "Error",
+
+    // Instant cook
+    instantCookBtn: "Cook Now",
+    instantCookTitle: "Cook Now",
+    instantCookDesc: "Should this food be finished instantly?",
+
+    // Forge stone descriptions
+    forgeStoneT1Desc: "Upgrades Tier 1 gear by 1 level",
+    forgeStoneT2Desc: "Upgrades Tier 2 gear by 1 level",
+    forgeStoneAnyDesc: "Upgrades any tier gear by 1 level",
   },
   tr: {
     // App name
@@ -425,6 +458,39 @@ const translations = {
     foodLockedOnMission: "Görevde",
     foodLockedInBattle: "Savaşta",
     addFood: "Yemek Ekle",
+
+    // Gear system
+    gearEquipment: "Ekipman",
+    gearEquipmentDrawerTitle: "Ekipman",
+    gearEquippedSection: "Kuşanılan Eşyalar",
+    gearWeaponSlot: "⚔️ Silah",
+    gearCharmSlot: "🍀 Tılsım",
+    gearNoWeapon: "Silah takılı değil",
+    gearNoCharm: "Tılsım takılı değil",
+    gearInventorySection: "Envanter",
+    gearEquipBtn: "Kuşan",
+    gearUnequipBtn: "Çıkar",
+    gearUpgradeBtn: "Güçlendir",
+    gearNoStonesBtn: "Taş yok",
+    gearConfirmUpgrade: "Onayla",
+    gearUpgradeStonesWillUse: "adet taş kullanılacak",
+    gearEmptyTitle: "Henüz eşya yok",
+    gearEmptyHint: "Macera dungeonlarını kazan, eşyalar düşebilir!",
+    gearForgeStones: "Forge Taşları",
+    gearErrorEquip: "Eşya takılamadı",
+    gearErrorUnequip: "Eşya çıkarılamadı",
+    gearErrorUpgrade: "Güçlendirme başarısız",
+    gearErrorTitle: "Hata",
+
+    // Instant cook
+    instantCookBtn: "Hemen Pişir",
+    instantCookTitle: "Hemen Pişir",
+    instantCookDesc: "Yemek anında hazır olsun mu?",
+
+    // Forge stone descriptions
+    forgeStoneT1Desc: "Tier 1 eşyaları 1 seviye yükseltir",
+    forgeStoneT2Desc: "Tier 2 eşyaları 1 seviye yükseltir",
+    forgeStoneAnyDesc: "Tüm tier eşyaları 1 seviye yükseltir",
   },
 } as const;
 
