@@ -2,7 +2,7 @@ const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { getIo } = require('../socket');
 const { incrementQuestProgress } = require('../quests');
-const { getChampionGearBonuses } = require('../routes/gear');
+const { getChampionGearBonuses, getChampionEquippedGearSnapshot } = require('../routes/gear');
 
 const TROPHY_FLOOR    = 10;
 const RESULT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
@@ -156,7 +156,19 @@ async function attackPvp(req, res) {
     );
     if (!champRows.length) return res.status(404).json({ error: 'Champion not found' });
     const attChamp = champRows[0];
-    if (attChamp.is_deployed)     return res.status(400).json({ error: 'Champion is currently busy' });
+    if (attChamp.is_deployed) {
+      // Auto-fix: if deployed but no pending battle or active dungeon run, clear the stuck state
+      const [pendingBattle, activeRun] = await Promise.all([
+        query(`SELECT id FROM pvp_battles WHERE attacker_champion_id = $1 AND status = 'pending'`, [attChamp.id]),
+        query(`SELECT id FROM dungeon_runs WHERE champion_id = $1 AND status = 'active'`, [attChamp.id]),
+      ]);
+      if (pendingBattle.length === 0 && activeRun.length === 0) {
+        await query('UPDATE champions SET is_deployed = FALSE WHERE id = $1', [attChamp.id]);
+        attChamp.is_deployed = false;
+      } else {
+        return res.status(400).json({ error: 'Champion is currently busy' });
+      }
+    }
     if (attChamp.current_hp <= 0) return res.status(400).json({ error: 'Champion is dead' });
     if (attChamp.level < 3)       return res.status(400).json({ error: 'Champion must be level 3 to enter PvP' });
 
@@ -202,6 +214,18 @@ async function attackPvp(req, res) {
       getChampionGearBonuses(attChamp.id),
       getChampionGearBonuses(defChamp.id),
     ]);
+
+    // Gear snapshot is optional display data — never block the battle if it fails
+    let gearSnapshot = null;
+    try {
+      const [attGearSnap, defGearSnap] = await Promise.all([
+        getChampionEquippedGearSnapshot(attChamp.id),
+        getChampionEquippedGearSnapshot(defChamp.id),
+      ]);
+      gearSnapshot = { attacker: attGearSnap, defender: defGearSnap };
+    } catch (snapErr) {
+      console.warn('gear snapshot failed (non-fatal):', snapErr?.message);
+    }
     const attacker = {
       attack:  attChamp.attack  + (attChamp.boost_attack || 0) + Math.min(attRaw.attack,  Math.floor(attChamp.attack  * 0.5)),
       defense: attChamp.defense + (attChamp.boost_defense || 0) + Math.min(attRaw.defense, Math.floor(attChamp.defense * 0.5)),
@@ -262,13 +286,15 @@ async function attackPvp(req, res) {
          (attacker_id, defender_id, attacker_champion_id, defender_champion_id, winner_id,
           battle_log, combat_log, status, result_available_at,
           attacker_trophies_delta, defender_trophies_delta,
-          transferred_strawberry, transferred_pinecone, transferred_blueberry)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13)
+          transferred_strawberry, transferred_pinecone, transferred_blueberry,
+          gear_snapshot)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [playerId, opponent.id, champion_id, defChamp.id, winnerId,
        JSON.stringify(result.log), JSON.stringify(result.log),
        resultAvailableAt, attDelta, defDelta,
-       transfers.strawberry, transfers.pinecone, transfers.blueberry]
+       transfers.strawberry, transfers.pinecone, transfers.blueberry,
+       JSON.stringify(gearSnapshot)]
     );
 
     // ── Quest progress ────────────────────────────────────────────────────────

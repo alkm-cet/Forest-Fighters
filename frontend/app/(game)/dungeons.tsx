@@ -43,6 +43,7 @@ import DungeonCard from "../../components/DungeonCard";
 import AdventureTab from "../../components/dungeon/AdventureTab";
 import { CLASS_META, RESOURCE_META } from "../../constants/resources";
 import CustomModal from "../../components/CustomModal";
+import BattleHistoryDrawer from "../../components/BattleHistoryDrawer";
 import CountdownTimer from "../../components/CountdownTimer";
 
 const DUNGEON_BG = require("../../assets/dungeon/dungeon-screen-bg.webp");
@@ -97,6 +98,7 @@ export default function DungeonsScreen() {
   const [milestones, setMilestones] = useState<AdventureMilestone[]>([]);
   const [totalStars, setTotalStars] = useState(0);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
+  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -174,6 +176,7 @@ export default function DungeonsScreen() {
   }
 
   async function handleClaim(run: DungeonRun) {
+    setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior" });
     try {
       const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
       await loadData();
@@ -496,207 +499,14 @@ export default function DungeonsScreen() {
 
         <InGameCoinConfirmModal coins={coins} />
 
-        {/* Claim result modal */}
-        <CustomModal
+        <BattleHistoryDrawer
           visible={claimResult !== null}
-          onClose={() => setClaimResult(null)}
-          onConfirm={() => setClaimResult(null)}
-          title={
-            claimResult?.winner === "champion" ? t("victory") : t("defeat")
-          }
-          confirmText="OK"
-          cancelText={t("cancelBtn")}
-        >
-          <View style={styles.resultBody}>
-            {/* Stars (adventure only) */}
-            {claimResult?.starsEarned != null && (
-              <View style={styles.starsRow}>
-                {[0, 1, 2].map((i) => (
-                  <Star
-                    key={i}
-                    size={28}
-                    color="#f9ca24"
-                    strokeWidth={2}
-                    fill={
-                      i < (claimResult?.starsEarned ?? 0)
-                        ? "#f9ca24"
-                        : "transparent"
-                    }
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* Primary reward */}
-            {(claimResult?.rewardAmount ?? 0) > 0 ? (
-              <View style={styles.resultRewardRow}>
-                {claimResult!.rewardResource && RESOURCE_META[claimResult!.rewardResource]?.image ? (
-                  <Image
-                    source={RESOURCE_META[claimResult!.rewardResource].image}
-                    style={{ width: 22, height: 22 }}
-                    resizeMode="contain"
-                  />
-                ) : null}
-                <Text style={styles.resultReward}>
-                  +{claimResult!.rewardAmount}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.resultNoReward}>{t("noRewardThisTime")}</Text>
-            )}
-
-            {/* Secondary reward */}
-            {(claimResult?.rewardAmount2 ?? 0) > 0 &&
-              claimResult?.rewardResource2 && (
-                <View style={styles.resultRewardRow}>
-                  {RESOURCE_META[claimResult.rewardResource2] && (
-                    <Image
-                      source={RESOURCE_META[claimResult.rewardResource2].image}
-                      style={{ width: 22, height: 22 }}
-                      resizeMode="contain"
-                    />
-                  )}
-                  <Text style={styles.resultReward}>
-                    +{claimResult.rewardAmount2}
-                  </Text>
-                </View>
-              )}
-
-            {/* Coin reward */}
-            {(claimResult?.coinReward ?? 0) > 0 && (
-              <View style={styles.resultRewardRow}>
-                <View style={styles.resultCoinRow}>
-                  <Image source={COIN_IMG} style={styles.resultCoinImg} resizeMode="contain" />
-                  <Text style={styles.resultCoin}>
-                    +{claimResult!.coinReward} {t("coinRewardLabel")}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* XP */}
-            {(claimResult?.xpGained ?? 0) > 0 && (
-              <Text style={styles.resultXp}>
-                +{claimResult!.xpGained} XP
-              </Text>
-            )}
-            {(claimResult?.levelsGained ?? 0) > 0 && (
-              <Text style={styles.resultLevelUp}>
-                ⬆️ {t("levelUpLabel")} LV {claimResult!.newLevel}
-              </Text>
-            )}
-
-            {/* Battle log */}
-            {(claimResult?.log?.length ?? 0) > 0 && (
-              <ScrollView
-                style={styles.logScroll}
-                showsVerticalScrollIndicator={false}
-              >
-                {claimResult!.log.map((entry: any, i: number) => {
-                  const isChamp = entry.actor === "attacker";
-                  const atkHp = isChamp
-                    ? entry.attackerHpAfter
-                    : entry.defenderHpAfter;
-                  const defHp = isChamp
-                    ? entry.defenderHpAfter
-                    : entry.attackerHpAfter;
-                  const blocked = entry.damage === 0;
-                  const newRound =
-                    i === 0 ||
-                    claimResult!.log[i - 1]?.round !== entry.round;
-                  return (
-                    <View key={i} style={styles.logEntryWrapper}>
-                      {newRound && (
-                        <View style={styles.roundBadge}>
-                          <Text style={styles.roundBadgeText}>
-                            {t("roundLabel")} {entry.round + 1}
-                          </Text>
-                        </View>
-                      )}
-                      <View
-                        style={[
-                          styles.logLine,
-                          isChamp ? styles.logLineChamp : styles.logLineEnemy,
-                        ]}
-                      >
-                        {/* Attacker side */}
-                        <View style={styles.logSide}>
-                          <Text
-                            style={[
-                              styles.logSideName,
-                              isChamp ? styles.logActorChamp : styles.logActorEnemy,
-                            ]}
-                          >
-                            {isChamp ? "⚔️" : "👹"}{" "}
-                            {isChamp ? t("championLabel") : t("enemyLabel")}
-                          </Text>
-                          <Text style={styles.logSideHp}>{atkHp} HP</Text>
-                          <View style={styles.logSideStatRow}>
-                            <Text style={styles.logAtkVal}>
-                              ATK {entry.attackValue}
-                            </Text>
-                            {entry.atkBoosted && (
-                              <Text style={styles.logCritBadge}>KRİT</Text>
-                            )}
-                          </View>
-                        </View>
-
-                        {/* Center */}
-                        <View style={styles.logCenter}>
-                          <Text style={styles.logArrow}>→</Text>
-                          <View
-                            style={[
-                              styles.logDmgPill,
-                              blocked ? styles.logDmgPillBlock : styles.logDmgPillHit,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.logDmgText,
-                                blocked ? styles.logDmgTextBlock : styles.logDmgTextHit,
-                              ]}
-                            >
-                              {blocked ? "BLOK" : `−${entry.damage}`}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Defender side */}
-                        <View style={[styles.logSide, styles.logSideRight]}>
-                          <Text
-                            style={[
-                              styles.logSideName,
-                              isChamp ? styles.logActorEnemy : styles.logActorChamp,
-                            ]}
-                          >
-                            {isChamp ? "👹" : "⚔️"}{" "}
-                            {isChamp ? t("enemyLabel") : t("championLabel")}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.logSideHp,
-                              !blocked && styles.logSideHpDamaged,
-                            ]}
-                          >
-                            {defHp} HP
-                          </Text>
-                          <View style={[styles.logSideStatRow, styles.logSideStatRight]}>
-                            {entry.defBoosted && (
-                              <Text style={styles.logBlockBadge}>BLOK</Text>
-                            )}
-                            <Text style={styles.logDefVal}>
-                              DEF {entry.defenseValue}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
-        </CustomModal>
+          onClose={() => { setClaimResult(null); setClaimingRun(null); }}
+          mode="pve"
+          result={claimResult!}
+          championName={claimingRun?.name ?? ""}
+          championClass={claimingRun?.class ?? "Warrior"}
+        />
       </SafeAreaView>
     </ImageBackground>
   );

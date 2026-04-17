@@ -207,6 +207,7 @@ async function migrate() {
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS seen_by_defender BOOLEAN DEFAULT FALSE`);
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS combat_log JSONB`);
     await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS revenge_used BOOLEAN DEFAULT FALSE`);
+    await query(`ALTER TABLE pvp_battles ADD COLUMN IF NOT EXISTS gear_snapshot JSONB`);
 
     // pvp_storage — loot pool for PvP (separate from spendable resources)
     await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_storage_strawberry INT DEFAULT 0`);

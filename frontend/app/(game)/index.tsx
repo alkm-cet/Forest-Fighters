@@ -78,8 +78,7 @@ import ResourceCollectAnimation from "../../components/ResourceCollectAnimation"
 import { RESOURCE_META } from "../../constants/resources";
 import CapUpgradeModal from "../../components/CapUpgradeModal";
 import AdvancedCapUpgradeModal from "../../components/AdvancedCapUpgradeModal";
-import ClaimResultModal from "../../components/ClaimResultModal";
-import PvpResultModal from "../../components/PvpResultModal";
+import BattleHistoryDrawer from "../../components/BattleHistoryDrawer";
 
 const TAB_BACKGROUNDS = {
   champions: require("../../assets/fighters-bg.webp"),
@@ -164,6 +163,7 @@ export default function MainScreen() {
     emoji: string;
   } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
+  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string } | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
@@ -814,6 +814,7 @@ export default function MainScreen() {
       <ChampionDrawer
         champion={selectedChampion}
         resources={resources}
+        myPlayerId={player?.id ?? ""}
         onClose={() => setSelectedChampion(null)}
         onPvp={(champion) => {
           setSelectedChampion(null);
@@ -985,6 +986,7 @@ export default function MainScreen() {
         }}
         onClaim={async (run) => {
           setSelectedChampion(null);
+          setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior" });
           setExpiredRunChampions((prev) => {
             const next = new Set(prev);
             next.delete(run.champion_id);
@@ -1259,12 +1261,22 @@ export default function MainScreen() {
         onConfirm={upgradeAnimalStorageMut.mutateAsync}
       />
 
-      <ClaimResultModal
-        result={claimResult}
-        onClose={() => setClaimResult(null)}
+      <BattleHistoryDrawer
+        visible={claimResult !== null}
+        onClose={() => { setClaimResult(null); setClaimingRun(null); }}
+        mode="pve"
+        result={claimResult!}
+        championName={claimingRun?.name ?? ""}
+        championClass={claimingRun?.class ?? "Warrior"}
       />
 
-      <PvpResultModal result={pvpResult} onClose={() => setPvpResult(null)} />
+      <BattleHistoryDrawer
+        visible={pvpResult !== null}
+        onClose={() => setPvpResult(null)}
+        mode="pvp"
+        battle={pvpResult!}
+        myPlayerId={player?.id ?? ""}
+      />
 
       {/* Particle collect animations — full-screen overlay so particles can fly from cards → HUD */}
       {collectAnim && (

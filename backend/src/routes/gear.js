@@ -21,6 +21,31 @@ function computeGearStats(def, rarity, level) {
 }
 
 /**
+ * Returns the full equipped gear snapshot for a champion: { weapon, charm }.
+ * Each slot is a full PlayerGear-like object (with definition + computed bonuses),
+ * or null if nothing is equipped in that slot.
+ * Used to snapshot gear at battle creation time for display in battle history.
+ */
+async function getChampionEquippedGearSnapshot(championId) {
+  const rows = await query(
+    `SELECT pg.*, row_to_json(gd.*) AS definition
+     FROM player_gear pg
+     JOIN gear_definitions gd ON pg.definition_id = gd.id
+     WHERE pg.equipped_champion_id = $1`,
+    [championId]
+  );
+  const result = { weapon: null, charm: null };
+  for (const row of rows) {
+    const def = typeof row.definition === 'string' ? JSON.parse(row.definition) : row.definition;
+    const stats = computeGearStats(def, row.rarity, row.level);
+    const gear = { ...row, definition: def, ...stats };
+    if (gear.equipped_slot === 'weapon') result.weapon = gear;
+    else if (gear.equipped_slot === 'charm') result.charm = gear;
+  }
+  return result;
+}
+
+/**
  * Returns { attack, defense, chance } gear bonuses for an equipped champion.
  * Each value is BEFORE the 50% cap — callers apply the cap themselves.
  */
@@ -399,4 +424,4 @@ router.post('/:gearId/upgrade', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = { router, getChampionGearBonuses, rollGearDrop };
+module.exports = { router, getChampionGearBonuses, getChampionEquippedGearSnapshot, rollGearDrop };

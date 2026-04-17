@@ -5,10 +5,10 @@ import type { DailyBonus } from "../types";
 
 const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
-const RESOURCE_EMOJI: Record<string, string> = {
-  egg:  "🥚",
-  wool: "🧶",
-  milk: "🥛",
+const RESOURCE_IMAGES: Record<string, any> = {
+  egg: require("../assets/resource-images/egg.png"),
+  wool: require("../assets/resource-images/wool.png"),
+  milk: require("../assets/resource-images/milk.png"),
 };
 
 type Props = {
@@ -16,11 +16,14 @@ type Props = {
 };
 
 export default function QuestBonusBar({ bonus }: Props) {
-  const { claimed_count, total, bonus_coins, bonus_amount, already_claimed } = bonus;
+  const { claimed_count, total, bonus_coins, bonus_amount, already_claimed } =
+    bonus;
   const allClaimed = claimed_count >= total;
 
   return (
-    <View style={[styles.container, already_claimed && styles.containerClaimed]}>
+    <View
+      style={[styles.container, already_claimed && styles.containerClaimed]}
+    >
       {/* Left: progress dots */}
       <View style={styles.left}>
         <View style={styles.dotsRow}>
@@ -35,8 +38,8 @@ export default function QuestBonusBar({ bonus }: Props) {
           {already_claimed
             ? "Daily bonus claimed!"
             : allClaimed
-            ? "Claim all to earn bonus!"
-            : `${claimed_count}/${total} daily quests claimed`}
+              ? "Claim all to earn bonus!"
+              : `${claimed_count}/${total} daily quests claimed`}
         </Text>
       </View>
 
@@ -45,14 +48,38 @@ export default function QuestBonusBar({ bonus }: Props) {
         {already_claimed ? (
           <CheckCircle2 size={18} color="#4caf50" strokeWidth={2.5} />
         ) : (
-          <Gift size={16} color={allClaimed ? "#c87820" : "#b0a090"} strokeWidth={2} />
+          <Gift
+            size={16}
+            color={allClaimed ? "#c87820" : "#b0a090"}
+            strokeWidth={2}
+          />
         )}
         <Image source={COIN_IMG} style={styles.coinIcon} resizeMode="contain" />
-        <Text style={[styles.rewardText, already_claimed && styles.rewardTextClaimed]}>
+        <Text
+          style={[
+            styles.rewardText,
+            already_claimed && styles.rewardTextClaimed,
+          ]}
+        >
           +{bonus_coins}
         </Text>
-        <Text style={[styles.resourceText, already_claimed && styles.rewardTextClaimed]}>
-          {RESOURCE_EMOJI["egg"]}/{RESOURCE_EMOJI["wool"]}/{RESOURCE_EMOJI["milk"]} +{bonus_amount}
+
+        {Object.entries(RESOURCE_IMAGES).map(([key, source]) => (
+          <Image
+            key={key}
+            style={styles.resourceImage}
+            source={source}
+            resizeMode="contain"
+          />
+        ))}
+
+        <Text
+          style={[
+            styles.resourceText,
+            already_claimed && styles.rewardTextClaimed,
+          ]}
+        >
+          +{bonus_amount}
         </Text>
       </View>
     </View>
@@ -70,6 +97,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderWidth: 1,
     borderColor: "#e8c87a",
+    marginBottom: 8,
   },
   containerClaimed: {
     backgroundColor: "#f0f8f0",
@@ -109,6 +137,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#c87820",
+  },
+  resourceImage: {
+    width: 16,
+    height: 16,
   },
   resourceText: {
     fontSize: 12,

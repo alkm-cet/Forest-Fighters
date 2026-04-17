@@ -1,7 +1,7 @@
 const { query } = require('../db');
 const { simulateCombat } = require('../combat');
 const { incrementQuestProgress } = require('../quests');
-const { getChampionGearBonuses, rollGearDrop } = require('../routes/gear');
+const { getChampionGearBonuses, getChampionEquippedGearSnapshot, rollGearDrop } = require('../routes/gear');
 
 const MAIN_RESOURCES = ['strawberry', 'pinecone', 'blueberry'];
 
@@ -48,7 +48,17 @@ async function enterDungeon(req, res) {
     }
     const champion = champRows[0];
     if (champion.is_deployed) {
-      return res.status(400).json({ error: 'Champion is already deployed' });
+      // Auto-fix: if deployed but no active run or pending PvP battle, clear the stuck state
+      const [activeRun, pendingBattle] = await Promise.all([
+        query(`SELECT id FROM dungeon_runs WHERE champion_id = $1 AND status = 'active'`, [champion_id]),
+        query(`SELECT id FROM pvp_battles WHERE attacker_champion_id = $1 AND status = 'pending'`, [champion_id]),
+      ]);
+      if (activeRun.length === 0 && pendingBattle.length === 0) {
+        await query('UPDATE champions SET is_deployed = FALSE WHERE id = $1', [champion_id]);
+        champion.is_deployed = false;
+      } else {
+        return res.status(400).json({ error: 'Champion is already deployed' });
+      }
     }
 
     // Validate dungeon exists
@@ -166,7 +176,7 @@ async function getActiveRuns(req, res) {
 
   try {
     const runs = await query(
-      `SELECT dr.*, c.name AS champion_name, c.attack, c.defense, c.chance, c.max_hp,
+      `SELECT dr.*, c.name AS champion_name, c.class AS champion_class, c.attack, c.defense, c.chance, c.max_hp,
               d.name AS dungeon_name, d.enemy_name, d.enemy_attack, d.enemy_defense,
               d.enemy_chance, d.enemy_hp, d.reward_resource, d.reward_amount,
               d.dungeon_type, d.reward_resource_2, d.reward_amount_2
@@ -363,6 +373,9 @@ async function claimRun(req, res) {
       gearDrops = await rollGearDrop(run, playerId);
     }
 
+    // ── Champion gear snapshot (for battle history display) ───────────────────
+    const championGear = await getChampionEquippedGearSnapshot(run.champion_id);
+
     res.json({
       winner,
       rewardResource,
@@ -376,6 +389,7 @@ async function claimRun(req, res) {
       levelsGained,
       newLevel,
       gearDrops,
+      championGear,
     });
   } catch (err) {
     console.error(err);

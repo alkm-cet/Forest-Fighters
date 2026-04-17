@@ -1,5 +1,6 @@
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRef } from "react";
+import type { ElementRef } from "react";
 import { Text } from "./StyledText";
 import { CheckCircle2 } from "lucide-react-native";
 import type { PlayerQuest } from "../types";
@@ -44,7 +45,7 @@ type Props = {
 };
 
 export default function QuestCard({ quest, onClaim, isClaiming }: Props) {
-  const claimBtnRef = useRef<TouchableOpacity>(null);
+  const claimBtnRef = useRef<ElementRef<typeof TouchableOpacity>>(null);
   const { emoji, color } = CATEGORY_META[quest.category] ?? { emoji: "📋", color: "#7f8c8d" };
   const progress   = Math.min(quest.progress, quest.target_count);
   const fillPct    = quest.target_count > 0 ? (progress / quest.target_count) * 100 : 0;
@@ -54,7 +55,7 @@ export default function QuestCard({ quest, onClaim, isClaiming }: Props) {
 
   function handleClaimPress() {
     if (!canClaim) return;
-    claimBtnRef.current?.measureInWindow((x, y, w, h) => {
+    claimBtnRef.current?.measureInWindow((x: number, y: number, w: number, h: number) => {
       onClaim(quest.id, { x: x + w / 2, y: y + h / 2 });
     });
   }

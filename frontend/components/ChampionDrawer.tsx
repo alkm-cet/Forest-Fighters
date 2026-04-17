@@ -38,6 +38,7 @@ import {
 } from "../types";
 import { CLASS_META, RESOURCE_META } from "../constants/resources";
 import CustomModal from "./CustomModal";
+import BattleHistoryDrawer from "./BattleHistoryDrawer";
 import api from "../lib/api";
 import FoodInventoryDrawer from "./FoodInventoryDrawer";
 import { FOOD_EMOJIS, describeEffect } from "./FoodCard";
@@ -104,6 +105,8 @@ type Props = {
   onSkipPvp?: () => void;
   /** Called after a food boost is applied; receives the updated champion from server */
   onFoodUsed?: (updatedChampion: Champion) => void;
+  /** Player's own ID — used to determine perspective in PvP history display */
+  myPlayerId?: string;
 };
 
 const STAT_MAX = 100;
@@ -190,6 +193,7 @@ export default function ChampionDrawer({
   onSkipPvp,
   onFoodUsed,
   playerHasPendingBattle,
+  myPlayerId,
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
@@ -1361,138 +1365,15 @@ export default function ChampionDrawer({
         </Animated.View>
 
         {/* Battle log modal */}
-        <CustomModal
-          visible={selectedBattle !== null}
-          onClose={() => setSelectedBattle(null)}
-          onConfirm={() => setSelectedBattle(null)}
-          title={
-            selectedBattle
-              ? selectedBattle.winner_id === selectedBattle.attacker_id
-                ? "⚔️ Zafer!"
-                : "💀 Yenilgi"
-              : ""
-          }
-          confirmText="Kapat"
-          hideCancel
-        >
-          {selectedBattle &&
-            (() => {
-              const won =
-                selectedBattle.winner_id === selectedBattle.attacker_id;
-              const tDelta = selectedBattle.attacker_trophies_delta;
-              return (
-                <>
-                  {/* Summary header */}
-                  <View style={styles.logSummary}>
-                    <Text style={styles.logSummaryVs}>
-                      <Text style={styles.logSummaryAtk}>
-                        {selectedBattle.attacker_name}
-                      </Text>
-                      {"  vs  "}
-                      <Text style={styles.logSummaryDef}>
-                        {selectedBattle.defender_name}
-                      </Text>
-                    </Text>
-                    <View style={styles.logSummaryRow}>
-                      <Trophy
-                        size={11}
-                        color={tDelta >= 0 ? "#d4a017" : "#c0392b"}
-                        strokeWidth={2}
-                      />
-                      <Text
-                        style={[
-                          styles.logSummaryVal,
-                          { color: tDelta >= 0 ? "#4a7c3f" : "#c0392b" },
-                        ]}
-                      >
-                        {tDelta >= 0 ? "+" : ""}
-                        {tDelta} kupa
-                      </Text>
-                      {(["strawberry", "pinecone", "blueberry"] as const).map(
-                        (r) => {
-                          const amt =
-                            (selectedBattle as any)[`transferred_${r}`] ?? 0;
-                          if (amt === 0) return null;
-                          return (
-                            <View key={r} style={styles.logSummaryRes}>
-                              <Image
-                                source={RESOURCE_META[r].image}
-                                style={styles.logSummaryResIcon}
-                                resizeMode="contain"
-                              />
-                              <Text
-                                style={[
-                                  styles.logSummaryVal,
-                                  { color: won ? "#4a7c3f" : "#c0392b" },
-                                ]}
-                              >
-                                {won ? "+" : "-"}
-                                {amt}
-                              </Text>
-                            </View>
-                          );
-                        },
-                      )}
-                    </View>
-                  </View>
-
-                  {/* Log entries */}
-                  <ScrollView
-                    style={styles.logScroll}
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled
-                  >
-                    {(selectedBattle.combat_log?.length ?? 0) === 0 ? (
-                      <Text style={styles.historyEmpty}>
-                        Savaş günlüğü bulunamadı.
-                      </Text>
-                    ) : (
-                      selectedBattle.combat_log.map((entry: any, i: number) => {
-                        const isAtk = entry.actor === "attacker";
-                        const newRound =
-                          i === 0 ||
-                          selectedBattle.combat_log[i - 1]?.round !==
-                            entry.round;
-                        return (
-                          <View key={i}>
-                            {newRound && (
-                              <Text style={styles.logRound}>
-                                — Tur {entry.round + 1} —
-                              </Text>
-                            )}
-                            <View style={styles.logRow}>
-                              <Text
-                                style={[
-                                  styles.logActor,
-                                  isAtk ? styles.logChamp : styles.logEnemy,
-                                ]}
-                              >
-                                {isAtk
-                                  ? `⚔️ ${selectedBattle.attacker_name}`
-                                  : `🛡️ ${selectedBattle.defender_name}`}
-                              </Text>
-                              <Text style={styles.logDmg}>
-                                {entry.damage === 0
-                                  ? "BLOK"
-                                  : `−${entry.damage}`}
-                                {entry.isCrit ? " 💥" : ""}
-                              </Text>
-                              <Text style={styles.logHp}>
-                                {isAtk
-                                  ? entry.defenderHpAfter
-                                  : entry.attackerHpAfter}{" "}
-                                HP
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      })
-                    )}
-                  </ScrollView>
-                </>
-              );
-            })()}
-        </CustomModal>
+        {selectedBattle && (
+          <BattleHistoryDrawer
+            visible={selectedBattle !== null}
+            onClose={() => setSelectedBattle(null)}
+            mode="pvp"
+            battle={selectedBattle}
+            myPlayerId={myPlayerId ?? ""}
+          />
+        )}
 
         {/* Food inventory panel — inside this Modal, no second Modal needed */}
         <FoodInventoryDrawer

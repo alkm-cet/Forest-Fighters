@@ -27,7 +27,9 @@ const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 
 function getNextDailyResetMs(): number {
   const now = new Date();
-  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+  const next = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
   return next.getTime();
 }
 
@@ -35,7 +37,13 @@ function getNextWeeklyResetMs(): number {
   const now = new Date();
   const day = now.getUTCDay(); // 0=Sun, 1=Mon...
   const daysUntil = day === 1 ? 7 : (8 - day) % 7 || 7;
-  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntil));
+  const next = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + daysUntil,
+    ),
+  );
   return next.getTime();
 }
 
@@ -48,9 +56,14 @@ function formatCountdown(ms: number): string {
 }
 
 function useCountdown(targetMs: number) {
-  const [msLeft, setMsLeft] = useState(() => Math.max(0, targetMs - Date.now()));
+  const [msLeft, setMsLeft] = useState(() =>
+    Math.max(0, targetMs - Date.now()),
+  );
   useEffect(() => {
-    const iv = setInterval(() => setMsLeft(Math.max(0, targetMs - Date.now())), 1000);
+    const iv = setInterval(
+      () => setMsLeft(Math.max(0, targetMs - Date.now())),
+      1000,
+    );
     return () => clearInterval(iv);
   }, [targetMs]);
   return msLeft;
@@ -59,9 +72,11 @@ function useCountdown(targetMs: number) {
 // ─── Countdown banner ─────────────────────────────────────────────────────────
 
 function ResetCountdown({ type }: { type: "daily" | "weekly" }) {
-  const targetMs = type === "daily" ? getNextDailyResetMs() : getNextWeeklyResetMs();
+  const targetMs =
+    type === "daily" ? getNextDailyResetMs() : getNextWeeklyResetMs();
   const msLeft = useCountdown(targetMs);
-  const label = type === "daily" ? "Daily quests reset in" : "Weekly quests reset in";
+  const label =
+    type === "daily" ? "Daily quests reset in" : "Weekly quests reset in";
 
   return (
     <View style={styles.countdownBanner}>
@@ -98,8 +113,10 @@ export default function QuestsScreen() {
   const dailyBonus = data?.dailyBonus;
   const coins = player?.coins ?? 0;
 
-  const allDailyClaimed = daily.length > 0 && daily.every((q) => q.status === "claimed");
-  const allWeeklyClaimed = weekly.length > 0 && weekly.every((q) => q.status === "claimed");
+  const allDailyClaimed =
+    daily.length > 0 && daily.every((q) => q.status === "claimed");
+  const allWeeklyClaimed =
+    weekly.length > 0 && weekly.every((q) => q.status === "claimed");
 
   function handleClaim(questId: string, startPos: Position) {
     if (claimingId) return;
@@ -108,7 +125,9 @@ export default function QuestsScreen() {
     claimMutation.mutate(questId, {
       onSuccess: (data) => {
         coinIconRef.current?.measureInWindow((x, y, w, h) => {
-          const totalCoins = data.coins_awarded + (data.bonus?.awarded ? (data.bonus.coins ?? 0) : 0);
+          const totalCoins =
+            data.coins_awarded +
+            (data.bonus?.awarded ? (data.bonus.coins ?? 0) : 0);
           setCoinAnim({
             coins: totalCoins,
             startPos,
@@ -128,7 +147,11 @@ export default function QuestsScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+        >
           <ChevronLeft size={22} color="#7a5a30" strokeWidth={2.5} />
         </TouchableOpacity>
 
@@ -138,12 +161,12 @@ export default function QuestsScreen() {
         </View>
 
         {/* Coin counter — animation target */}
-        <View
-          ref={coinIconRef}
-          style={styles.coinBadge}
-          collapsable={false}
-        >
-          <Image source={COIN_IMG} style={styles.coinImg} resizeMode="contain" />
+        <View ref={coinIconRef} style={styles.coinBadge} collapsable={false}>
+          <Image
+            source={COIN_IMG}
+            style={styles.coinImg}
+            resizeMode="contain"
+          />
           <Text style={styles.coinText}>{coins}</Text>
         </View>
       </View>
@@ -155,7 +178,12 @@ export default function QuestsScreen() {
           onPress={() => setActiveTab("daily")}
           activeOpacity={0.75}
         >
-          <Text style={[styles.tabText, activeTab === "daily" && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "daily" && styles.tabTextActive,
+            ]}
+          >
             Daily
           </Text>
         </TouchableOpacity>
@@ -164,7 +192,12 @@ export default function QuestsScreen() {
           onPress={() => setActiveTab("weekly")}
           activeOpacity={0.75}
         >
-          <Text style={[styles.tabText, activeTab === "weekly" && styles.tabTextActive]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "weekly" && styles.tabTextActive,
+            ]}
+          >
             Weekly
           </Text>
         </TouchableOpacity>
@@ -180,6 +213,12 @@ export default function QuestsScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {allClaimed && <ResetCountdown type={activeTab} />}
+
+          {activeTab === "daily" && daily.length > 0 && dailyBonus && (
+            <QuestBonusBar bonus={dailyBonus} />
+          )}
+
           {quests.length === 0 ? (
             <Text style={styles.emptyText}>No quests available.</Text>
           ) : (
@@ -191,14 +230,6 @@ export default function QuestsScreen() {
                 isClaiming={claimingId === quest.id}
               />
             ))
-          )}
-
-          {activeTab === "daily" && daily.length > 0 && dailyBonus && (
-            <QuestBonusBar bonus={dailyBonus} />
-          )}
-
-          {allClaimed && (
-            <ResetCountdown type={activeTab} />
           )}
 
           <View style={styles.bottomPad} />
@@ -337,6 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginTop: 8,
+    marginBottom: 8,
   },
   countdownText: {
     fontSize: 12,

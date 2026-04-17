@@ -135,6 +135,7 @@ export type DungeonRun = {
   id: string;
   champion_id: string;
   champion_name: string;
+  champion_class?: string;
   dungeon_id: string;
   dungeon_name: string;
   started_at: string;
@@ -176,6 +177,11 @@ export type AdventureMilestone = {
 };
 
 export type GearRarity = 'common' | 'rare' | 'epic';
+
+export type GearSnapshot = {
+  weapon: PlayerGear | null;
+  charm: PlayerGear | null;
+};
 
 export type GearDefinition = {
   id: string;
@@ -221,6 +227,7 @@ export type ClaimResult = {
   levelsGained: number;
   newLevel: number;
   gearDrops?: PlayerGear[];
+  championGear?: GearSnapshot;
 };
 
 export type PvpStatus = {
@@ -349,4 +356,8 @@ export type PvpBattle = {
   transferred_pinecone: number;
   transferred_blueberry: number;
   revenge_used: boolean;
+  gear_snapshot?: {
+    attacker: GearSnapshot;
+    defender: GearSnapshot;
+  };
 };
