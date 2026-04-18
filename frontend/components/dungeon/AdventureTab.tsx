@@ -263,8 +263,14 @@ export default function AdventureTab({
             >
               <Text style={styles.milestoneClaimText}>CLAIM</Text>
               <View style={styles.milestoneCoinsRow}>
-                <Image source={COIN_IMG} style={styles.milestoneCoinImg} resizeMode="contain" />
-                <Text style={styles.milestoneCoins}>+{nextClaimable.reward_coins}</Text>
+                <Image
+                  source={COIN_IMG}
+                  style={styles.milestoneCoinImg}
+                  resizeMode="contain"
+                />
+                <Text style={styles.milestoneCoins}>
+                  +{nextClaimable.reward_coins}
+                </Text>
               </View>
             </TouchableOpacity>
           )}
@@ -575,35 +581,88 @@ export default function AdventureTab({
               })()}
 
               {/* Rewards */}
-              <View style={styles.sheetRewardRow}>
-                {(selectedDungeon.coin_reward ?? 0) > 0 && (
-                  <View style={styles.rewardPill}>
-                    <Image source={COIN_IMG} style={{ width: 16, height: 16 }} resizeMode="contain" />
-                    <Text style={styles.rewardPillText}>{selectedDungeon.coin_reward}</Text>
+              {(() => {
+                const isCleared =
+                  (getProgress(selectedDungeon.id)?.best_stars ?? 0) > 0 &&
+                  !selectedDungeon.name.startsWith("[TEST]");
+                return (
+                  <View>
+                    {isCleared && (
+                      <View style={styles.alreadyClearedBadge}>
+                        <Text style={styles.alreadyClearedText}>
+                          ✓ Zaten Kazanıldı — Tekrar ödüller azaltıldı
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.sheetRewardRow}>
+                      {(selectedDungeon.coin_reward ?? 0) > 0 && !isCleared && (
+                        <View style={styles.rewardPill}>
+                          <Image
+                            source={COIN_IMG}
+                            style={{ width: 16, height: 16 }}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.rewardPillText}>
+                            {selectedDungeon.coin_reward}
+                          </Text>
+                        </View>
+                      )}
+                      {selectedDungeon.xp_reward > 0 && (
+                        <View style={styles.rewardPill}>
+                          {isCleared ? (
+                            <View style={styles.rewardReducedRow}>
+                              <Text
+                                style={[
+                                  styles.rewardPillText,
+                                  styles.rewardStrikethrough,
+                                ]}
+                              >
+                                ⭐ +{selectedDungeon.xp_reward} XP
+                              </Text>
+                              <Text style={styles.rewardReducedVal}>
+                                → 1 XP
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.rewardPillText}>
+                              ⭐ +{selectedDungeon.xp_reward} XP
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                      {RESOURCE_META[selectedDungeon.reward_resource] && (
+                        <View style={styles.rewardPill}>
+                          <Image
+                            source={
+                              RESOURCE_META[selectedDungeon.reward_resource]
+                                .image
+                            }
+                            style={{ width: 16, height: 16 }}
+                            resizeMode="contain"
+                          />
+                          {isCleared ? (
+                            <View style={styles.rewardReducedRow}>
+                              <Text
+                                style={[
+                                  styles.rewardPillText,
+                                  styles.rewardStrikethrough,
+                                ]}
+                              >
+                                ×{selectedDungeon.reward_amount}
+                              </Text>
+                              <Text style={styles.rewardReducedVal}>→ 1</Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.rewardPillText}>
+                              ×{selectedDungeon.reward_amount}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                )}
-                {selectedDungeon.xp_reward > 0 && (
-                  <View style={styles.rewardPill}>
-                    <Text style={styles.rewardPillText}>
-                      ⭐ +{selectedDungeon.xp_reward} XP
-                    </Text>
-                  </View>
-                )}
-                {RESOURCE_META[selectedDungeon.reward_resource] && (
-                  <View style={styles.rewardPill}>
-                    <Image
-                      source={
-                        RESOURCE_META[selectedDungeon.reward_resource].image
-                      }
-                      style={{ width: 16, height: 16 }}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.rewardPillText}>
-                      ×{selectedDungeon.reward_amount}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                );
+              })()}
 
               {/* Gear drop info */}
               <View style={styles.gearDropInfo}>
@@ -612,22 +671,41 @@ export default function AdventureTab({
                   const isBoss = selectedDungeon.is_boss_stage;
                   const stage = selectedDungeon.stage_number;
                   const isFirstStage = stage === 1;
-                  const dropChance = isFirstStage ? '100%' : isBoss ? '28%' : '12%';
-                  const tierLabel =
-                    isFirstStage ? 'T1'
+                  const dropChance = isFirstStage
+                    ? "100%"
                     : isBoss
-                      ? (stage ?? 0) <= 5 ? 'T1 or T2' : (stage ?? 0) <= 10 ? 'T2 or T3' : 'T3'
-                      : (stage ?? 0) <= 5 ? 'T1' : (stage ?? 0) <= 10 ? 'T2' : 'T3';
+                      ? "28%"
+                      : "12%";
+                  const tierLabel = isFirstStage
+                    ? "T1"
+                    : isBoss
+                      ? (stage ?? 0) <= 5
+                        ? "T1 or T2"
+                        : (stage ?? 0) <= 10
+                          ? "T2 or T3"
+                          : "T3"
+                      : (stage ?? 0) <= 5
+                        ? "T1"
+                        : (stage ?? 0) <= 10
+                          ? "T2"
+                          : "T3";
                   const rarities = isFirstStage
-                    ? 'Weapon + Charm guaranteed'
+                    ? "Weapon + Charm guaranteed"
                     : isBoss
-                      ? 'Common 50% · Rare 35% · Epic 15%'
-                      : 'Common 80% · Rare 18% · Epic 2%';
+                      ? "Common 50% · Rare 35% · Epic 15%"
+                      : "Common 80% · Rare 18% · Epic 2%";
                   return (
                     <>
                       <View style={styles.gearDropRow}>
                         <Text style={styles.gearDropLabel}>Drop chance</Text>
-                        <Text style={[styles.gearDropValue, isFirstStage && { color: '#4a7c3f' }]}>{dropChance}</Text>
+                        <Text
+                          style={[
+                            styles.gearDropValue,
+                            isFirstStage && { color: "#4a7c3f" },
+                          ]}
+                        >
+                          {dropChance}
+                        </Text>
                       </View>
                       <View style={styles.gearDropRow}>
                         <Text style={styles.gearDropLabel}>Tier</Text>
@@ -923,39 +1001,68 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#3d2a10",
   },
+  alreadyClearedBadge: {
+    backgroundColor: "#e8f5e9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#81c784",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 6,
+    alignSelf: "flex-start",
+  },
+  alreadyClearedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#2e7d32",
+  },
+  rewardReducedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  rewardStrikethrough: {
+    textDecorationLine: "line-through",
+    color: "#aaa",
+  },
+  rewardReducedVal: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#c87820",
+  },
   gearDropInfo: {
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: "rgba(0,0,0,0.06)",
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#c8a040',
+    borderColor: "#c8a040",
     padding: 10,
     gap: 5,
   },
   gearDropInfoTitle: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#c8a040',
+    fontWeight: "800",
+    color: "#c8a040",
     letterSpacing: 0.5,
   },
   gearDropRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   gearDropLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#7a5a30',
+    fontWeight: "600",
+    color: "#7a5a30",
   },
   gearDropValue: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#3d2a10',
+    fontWeight: "800",
+    color: "#3d2a10",
   },
   gearDropRarities: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#9a7040',
+    fontWeight: "600",
+    color: "#9a7040",
   },
   onMissionBlock: {
     backgroundColor: "#30336b",

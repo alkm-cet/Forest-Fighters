@@ -65,6 +65,12 @@ export default function PvpScreen() {
     championAttack,
     championDefense,
     championChance,
+    championBoostAttack,
+    championBoostDefense,
+    championBoostChance,
+    championGearAttack,
+    championGearDefense,
+    championGearChance,
     championMaxHp,
     championCurrentHp,
     myTrophies,
@@ -76,6 +82,12 @@ export default function PvpScreen() {
     championAttack: string;
     championDefense: string;
     championChance: string;
+    championBoostAttack: string;
+    championBoostDefense: string;
+    championBoostChance: string;
+    championGearAttack: string;
+    championGearDefense: string;
+    championGearChance: string;
     championMaxHp: string;
     championCurrentHp: string;
     championLevel: string;
@@ -175,9 +187,9 @@ export default function PvpScreen() {
     });
   }
 
-  const atk = parseInt(championAttack ?? "0");
-  const def = parseInt(championDefense ?? "0");
-  const chc = parseInt(championChance ?? "0");
+  const atk = parseInt(championAttack ?? "0") + parseInt(championBoostAttack ?? "0") + parseInt(championGearAttack ?? "0");
+  const def = parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0") + parseInt(championGearDefense ?? "0");
+  const chc = parseInt(championChance ?? "0") + parseInt(championBoostChance ?? "0") + parseInt(championGearChance ?? "0");
   const hp = parseInt(championCurrentHp ?? "0");
   const maxHp = parseInt(championMaxHp ?? "0");
   const hpPct = maxHp > 0 ? hp / maxHp : 0;

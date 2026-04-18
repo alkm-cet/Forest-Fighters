@@ -88,8 +88,8 @@ router.post('/:id/revive', authMiddleware, async (req, res) => {
 router.post('/:id/heal', authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const championId = req.params.id;
-  const MILK_COST = 2;
-  const EGG_COST = 2;
+  const MILK_COST = 5;
+  const EGG_COST = 5;
   const HEAL_AMOUNT = 20;
 
   try {

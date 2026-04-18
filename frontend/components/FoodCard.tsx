@@ -70,7 +70,6 @@ export const FOOD_EMOJIS: Record<string, string> = {
 };
 
 export function describeEffect(recipe: Recipe, t?: (key: TranslationKeys) => string): string {
-  // Forge stones have their own description
   if (recipe.effect_type === "gear_upgrade") {
     const gearTier = (recipe as any).gear_upgrade_tier as number | undefined;
     if (gearTier === 3) return t ? t("forgeStoneAnyDesc") : "Upgrades any tier gear by 1 level";
@@ -79,33 +78,26 @@ export function describeEffect(recipe: Recipe, t?: (key: TranslationKeys) => str
   }
 
   const target =
-    recipe.target === "fighters"      ? "Fighters"
-    : recipe.target === "farmers"     ? "Farmers"
-    : recipe.target === "animals"     ? "Animals"
-    : recipe.target === "farm_animals"? "Farmers & Animals"
-    : "All units";
+    recipe.target === "fighters"       ? (t ? t("targetFighters")    : "Fighters")
+    : recipe.target === "farmers"      ? (t ? t("targetFarmers")     : "Farmers")
+    : recipe.target === "animals"      ? (t ? t("targetAnimals")     : "Animals")
+    : recipe.target === "farm_animals" ? (t ? t("targetFarmAnimals") : "Farmers & Animals")
+    : (t ? t("targetAll") : "All units");
 
+  const minLabel = t ? t("minuteAbbr") : "min";
   const dur = recipe.effect_duration_minutes
-    ? ` for ${recipe.effect_duration_minutes} min`
+    ? ` (${recipe.effect_duration_minutes} ${minLabel})`
     : "";
 
   switch (recipe.effect_type) {
-    case "boost_hp":
-      return `${target} gain +${recipe.effect_value} max HP${dur}`;
-    case "boost_attack":
-      return `${target} gain +${recipe.effect_value} ATK${dur}`;
-    case "boost_defense":
-      return `${target} gain +${recipe.effect_value} DEF${dur}`;
-    case "boost_chance":
-      return `${target} gain +${recipe.effect_value} CRIT${dur}`;
-    case "boost_production":
-      return `${target} produce ${recipe.effect_value}% faster${dur}`;
-    case "boost_all":
-      return `${target} get ${recipe.effect_value}x production + combat boost${dur}`;
-    case "boost_capacity":
-      return `${target} storage +${recipe.effect_value} capacity${dur}`;
-    default:
-      return `${target} +${recipe.effect_value} ${recipe.effect_type.replace("boost_", "")}${dur}`;
+    case "boost_hp":       return `${target} +${recipe.effect_value} HP${dur}`;
+    case "boost_attack":   return `${target} +${recipe.effect_value} ATK${dur}`;
+    case "boost_defense":  return `${target} +${recipe.effect_value} DEF${dur}`;
+    case "boost_chance":   return `${target} +${recipe.effect_value} CRIT${dur}`;
+    case "boost_production": return `${target} +${recipe.effect_value}% üretim${dur}`;
+    case "boost_all":      return `${target} ×${recipe.effect_value} boost${dur}`;
+    case "boost_capacity": return `${target} +${recipe.effect_value} kapasite${dur}`;
+    default:               return `${target} +${recipe.effect_value} ${recipe.effect_type.replace("boost_", "")}${dur}`;
   }
 }
 
@@ -234,6 +226,9 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
         </>
       )}
 
+      {/* Spacer — pushes cook button to the bottom of the card */}
+      <View style={styles.spacer} />
+
       {/* Cook button */}
       {!isCooking && (
         <TouchableOpacity
@@ -243,7 +238,7 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
         >
           <Image source={BOILER_IMG} style={styles.boilerIcon} resizeMode="contain" />
           <Text style={styles.cookBtnText}>
-            {canAfford ? "Cook" : "Not enough"}
+            {canAfford ? t("cookBtn") : t("notEnoughIngredients")}
           </Text>
         </TouchableOpacity>
       )}
@@ -357,6 +352,7 @@ const styles = StyleSheet.create({
   cookBtnDisabled: { backgroundColor: "#9a7040", borderColor: "#7a5030" },
   boilerIcon: { width: 18, height: 18 },
   cookBtnText: { fontSize: 11, fontWeight: "900", color: "#fff" },
+  spacer: { flex: 1 },
   cookBarTrack: {
     height: 22,
     backgroundColor: "#ede0c4",

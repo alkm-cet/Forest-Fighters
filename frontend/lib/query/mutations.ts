@@ -462,7 +462,7 @@ export function useHealChampionMutation() {
       const prevChampions = queryClient.getQueryData<Champion[]>(queryKeys.champions());
       const prevResources = queryClient.getQueryData<Resources>(queryKeys.resources());
 
-      // Optimistic: +20 HP (capped at max_hp + boost_hp), deduct 2 milk + 2 egg
+      // Optimistic: +20 HP (capped at max_hp + boost_hp), deduct 5 milk + 5 egg
       const champion = prevChampions?.find((c) => c.id === championId);
       if (champion) {
         const effectiveMaxHp = champion.max_hp + (champion.boost_hp ?? 0);
@@ -474,8 +474,8 @@ export function useHealChampionMutation() {
       if (prevResources) {
         queryClient.setQueryData<Resources>(queryKeys.resources(), {
           ...prevResources,
-          milk: Math.max(0, prevResources.milk - 2),
-          egg: Math.max(0, prevResources.egg - 2),
+          milk: Math.max(0, prevResources.milk - 5),
+          egg: Math.max(0, prevResources.egg - 5),
         });
       }
 

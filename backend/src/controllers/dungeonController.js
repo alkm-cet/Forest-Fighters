@@ -77,6 +77,14 @@ async function enterDungeon(req, res) {
       return res.status(400).json({ error: 'Champion already on a dungeon run' });
     }
 
+    // Champion level requirement check
+    if (dungeon.min_champion_level && champion.level < dungeon.min_champion_level) {
+      return res.status(400).json({
+        error: `Bu zindana girmek için şampiyon seviyesi ${dungeon.min_champion_level} olmalı.`,
+        required_level: dungeon.min_champion_level,
+      });
+    }
+
     // ── Type-specific guards ──────────────────────────────────────────────────
 
     // Harvest: cooldown + daily limit check
@@ -201,10 +209,11 @@ async function claimRun(req, res) {
     const runRows = await query(
       `SELECT dr.*, c.attack, c.defense, c.chance, c.max_hp, c.current_hp, c.level, c.xp, c.xp_to_next_level,
               c.boost_hp, c.boost_defense, c.boost_chance, c.boost_attack,
-              d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
+              d.name AS dungeon_name, d.enemy_name, d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward,
               d.dungeon_type, d.coin_reward, d.reward_resource_2, d.reward_amount_2,
-              d.reward_multiplier, d.stage_number, d.is_boss_stage
+              d.reward_multiplier, d.stage_number, d.is_boss_stage,
+              d.extra_rewards, d.min_champion_level
        FROM dungeon_runs dr
        JOIN champions c ON c.id = dr.champion_id
        JOIN dungeons d ON d.id = dr.dungeon_id
@@ -244,11 +253,27 @@ async function claimRun(req, res) {
     const result = simulateCombat(attacker, defender);
 
     const winner = result.winner === 'attacker' ? 'champion' : 'enemy';
+
+    // Check if this adventure dungeon was already cleared before (for reward reduction)
+    let alreadyCleared = false;
+    if (run.dungeon_type === 'adventure' && !(run.dungeon_name || '').startsWith('[TEST]')) {
+      const prevProgress = await query(
+        `SELECT best_stars FROM adventure_progress WHERE player_id = $1 AND dungeon_id = $2 AND best_stars > 0`,
+        [playerId, run.dungeon_id]
+      );
+      alreadyCleared = prevProgress.length > 0;
+    }
+
     const multiplier = run.reward_multiplier || 1.0;
     const rewardResource = run.reward_resource;
-    const effectiveAmount = winner === 'champion' ? Math.floor(run.reward_amount * multiplier) : 0;
-    const effectiveAmount2 = winner === 'champion' ? Math.floor((run.reward_amount_2 || 0) * multiplier) : 0;
-    const coinReward = winner === 'champion' && run.dungeon_type === 'adventure' ? (run.coin_reward || 0) : 0;
+    // Already-cleared adventure dungeons give minimal rewards to discourage farming
+    const effectiveAmount = winner !== 'champion' ? 0
+      : alreadyCleared ? 1
+      : Math.floor(run.reward_amount * multiplier);
+    const effectiveAmount2 = winner !== 'champion' ? 0
+      : alreadyCleared ? (run.reward_resource_2 ? 1 : 0)
+      : Math.floor((run.reward_amount_2 || 0) * multiplier);
+    const coinReward = winner === 'champion' && run.dungeon_type === 'adventure' && !alreadyCleared ? (run.coin_reward || 0) : 0;
 
     // Calculate stars (adventure only)
     let starsEarned = null;
@@ -286,7 +311,7 @@ async function claimRun(req, res) {
     let newXpToNext = run.xp_to_next_level;
 
     if (winner === 'champion' && run.xp_reward > 0) {
-      xpGained = run.xp_reward;
+      xpGained = alreadyCleared ? 1 : run.xp_reward;
       newXp += xpGained;
       while (newXp >= newXpToNext) {
         newXp -= newXpToNext;
@@ -347,6 +372,19 @@ async function claimRun(req, res) {
       }
     }
 
+    // Award extra_rewards (multi-resource harvest dungeons)
+    const extraRewards = run.extra_rewards || [];
+    for (const r of extraRewards) {
+      if (winner === 'champion' && r.resource && r.amount > 0) {
+        const capCol = `${r.resource}_cap`;
+        const effectiveExtra = alreadyCleared ? 1 : r.amount;
+        await query(
+          `UPDATE player_resources SET ${r.resource} = LEAST(${r.resource} + $1, ${capCol}) WHERE player_id = $2`,
+          [effectiveExtra, playerId]
+        );
+      }
+    }
+
     // Award coins for adventure dungeons
     if (coinReward > 0) {
       await query('UPDATE players SET coins = coins + $1 WHERE id = $2', [coinReward, playerId]);
@@ -378,6 +416,7 @@ async function claimRun(req, res) {
 
     res.json({
       winner,
+      enemyName: run.enemy_name || null,
       rewardResource,
       rewardAmount: effectiveAmount,
       rewardResource2: run.reward_resource_2 || null,
@@ -390,6 +429,7 @@ async function claimRun(req, res) {
       newLevel,
       gearDrops,
       championGear,
+      extraRewards: extraRewards.length > 0 ? extraRewards : undefined,
     });
   } catch (err) {
     console.error(err);
@@ -418,8 +458,9 @@ async function getHarvestCooldowns(req, res) {
   const playerId = req.player.id;
   try {
     const rows = await query(
-      `SELECT hc.dungeon_id, hc.last_run_at, hc.runs_today, hc.day_reset_at,
-              d.cooldown_minutes, d.daily_run_limit
+      `SELECT hc.dungeon_id, hc.last_run_at,
+              CASE WHEN hc.day_reset_at < CURRENT_DATE THEN 0 ELSE hc.runs_today END AS runs_today,
+              hc.day_reset_at, d.cooldown_minutes, d.daily_run_limit
        FROM harvest_cooldowns hc
        JOIN dungeons d ON d.id = hc.dungeon_id
        WHERE hc.player_id = $1`,

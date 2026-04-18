@@ -293,6 +293,8 @@ async function migrate() {
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS event_starts_at TIMESTAMPTZ DEFAULT NULL`);
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS event_ends_at TIMESTAMPTZ DEFAULT NULL`);
     await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS reward_multiplier FLOAT DEFAULT 1.0`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS min_champion_level INT DEFAULT NULL`);
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS extra_rewards JSONB DEFAULT '[]'`);
 
     // Extend dungeon_runs table
     await query(`ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS stars_earned INT DEFAULT NULL`);
@@ -367,34 +369,61 @@ async function migrate() {
     // ON CONFLICT DO UPDATE ensures the DB always matches these definitions.
     // duration_seconds is explicitly kept NULL for harvest dungeons.
     const harvestDungeons = [
-      { name: 'Berry Cave',    desc: 'A cozy cave filled with wild berries.', enemy: 'Chipmunk', atk: 6,  def: 3,  chc: 10, hp: 50, dur: 15, res: 'strawberry', amt: 6, res2: 'pinecone', amt2: 4, cooldown: 30,  limit: null },
-      { name: 'Chicken Nest',  desc: 'A fox guards a hidden nest of eggs.',   enemy: 'Fox',      atk: 10, def: 6,  chc: 15, hp: 65, dur: 20, res: 'egg',        amt: 8, res2: null,       amt2: 0, cooldown: 60,  limit: 3    },
-      { name: 'Sheep Meadow',  desc: 'A peaceful meadow where wolves prowl.', enemy: 'Wolf',     atk: 14, def: 8,  chc: 12, hp: 80, dur: 25, res: 'wool',       amt: 8, res2: null,       amt2: 0, cooldown: 60,  limit: 3    },
-      { name: 'Golden Farm',   desc: 'A prosperous farm guarded by bandits.', enemy: 'Bandit',   atk: 20, def: 14, chc: 20, hp: 90, dur: 30, res: 'milk',       amt: 5, res2: 'egg',      amt2: 5, cooldown: 120, limit: 2    },
+      // ── Tier 1 — Easy (no level requirement) ─────────────────────────────────
+      { name: 'Berry Cave',         desc: 'A cozy cave filled with wild berries.',          enemy: 'Chipmunk',    atk: 6,  def: 3,  chc: 10, hp: 50,  dur: 15, res: 'strawberry', amt: 6,  res2: 'pinecone',    amt2: 4,  cooldown: 30,  limit: null, minLv: null, extra: [] },
+      { name: 'Pine Grove',         desc: 'Squirrels hoard pinecones in this quiet grove.',  enemy: 'Squirrel',    atk: 8,  def: 4,  chc: 10, hp: 55,  dur: 15, res: 'pinecone',   amt: 10, res2: null,          amt2: 0,  cooldown: 30,  limit: null, minLv: null, extra: [] },
+      { name: 'Blueberry Fields',   desc: 'Rolling fields thick with blueberry bushes.',     enemy: 'Rabbit',      atk: 7,  def: 3,  chc: 12, hp: 50,  dur: 15, res: 'blueberry',  amt: 8,  res2: null,          amt2: 0,  cooldown: 30,  limit: null, minLv: null, extra: [] },
+      { name: 'Strawberry Garden',  desc: 'A hidden garden overflowing with strawberries.',  enemy: 'Chipmunk',    atk: 9,  def: 5,  chc: 10, hp: 60,  dur: 20, res: 'strawberry', amt: 14, res2: null,          amt2: 0,  cooldown: 45,  limit: 4,    minLv: null, extra: [] },
+      // ── Tier 2 — Medium (no level requirement) ───────────────────────────────
+      { name: 'Chicken Nest',       desc: 'A fox guards a hidden nest of eggs.',             enemy: 'Fox',         atk: 10, def: 6,  chc: 15, hp: 65,  dur: 20, res: 'egg',        amt: 8,  res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
+      { name: 'Egg Ranch',          desc: 'A busy fox-guarded ranch full of egg-layers.',    enemy: 'Fox',         atk: 13, def: 8,  chc: 15, hp: 75,  dur: 20, res: 'egg',        amt: 14, res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
+      { name: 'Sheep Meadow',       desc: 'A peaceful meadow where wolves prowl.',           enemy: 'Wolf',        atk: 14, def: 8,  chc: 12, hp: 80,  dur: 25, res: 'wool',       amt: 8,  res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
+      { name: 'Wool Valley',        desc: 'A valley of wandering sheep watched by wolves.',  enemy: 'Wolf',        atk: 16, def: 10, chc: 12, hp: 85,  dur: 25, res: 'wool',       amt: 14, res2: null,          amt2: 0,  cooldown: 75,  limit: 3,    minLv: null, extra: [] },
+      { name: 'Milk Meadow',        desc: 'A lush meadow patrolled by a hungry bear.',       enemy: 'Bear',        atk: 18, def: 12, chc: 14, hp: 90,  dur: 25, res: 'milk',       amt: 10, res2: null,          amt2: 0,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
+      { name: 'Berry Twin',         desc: 'Two berry patches guarded by a cunning fox.',     enemy: 'Fox',         atk: 14, def: 9,  chc: 15, hp: 80,  dur: 25, res: 'strawberry', amt: 10, res2: 'blueberry',   amt2: 8,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
+      { name: 'Forest Bounty',      desc: 'Deep forest brimming with mixed harvests.',       enemy: 'Wolf',        atk: 20, def: 13, chc: 18, hp: 95,  dur: 30, res: 'pinecone',   amt: 12, res2: 'strawberry',  amt2: 8,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
+      { name: 'Cozy Ranch',         desc: 'A cozy ranch guarded by a bear.',                 enemy: 'Bear',        atk: 22, def: 14, chc: 16, hp: 100, dur: 30, res: 'milk',       amt: 8,  res2: 'wool',        amt2: 8,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
+      { name: 'Golden Farm',        desc: 'A prosperous farm guarded by bandits.',           enemy: 'Bandit',      atk: 20, def: 14, chc: 20, hp: 90,  dur: 30, res: 'milk',       amt: 5,  res2: 'egg',         amt2: 5,  cooldown: 120, limit: 2,    minLv: null, extra: [] },
+      // ── Tier 3 — Hard (min_champion_level 5-8) ───────────────────────────────
+      { name: 'Ancient Orchard',    desc: 'An orchard guarded by a terrible troll.',         enemy: 'Troll',       atk: 26, def: 16, chc: 20, hp: 115, dur: 30, res: 'egg',        amt: 22, res2: null,          amt2: 0,  cooldown: 120, limit: 2,    minLv: 5,    extra: [] },
+      { name: 'Cursed Barn',        desc: 'A barn haunted by restless skeletons.',           enemy: 'Skeleton',    atk: 24, def: 15, chc: 22, hp: 105, dur: 30, res: 'wool',       amt: 20, res2: null,          amt2: 0,  cooldown: 120, limit: 2,    minLv: 5,    extra: [] },
+      { name: 'Shadow Pasture',     desc: 'A pasture shrouded in dark magic.',               enemy: 'Dark Mage',   atk: 28, def: 12, chc: 30, hp: 105, dur: 35, res: 'blueberry',  amt: 16, res2: 'wool',        amt2: 10, cooldown: 120, limit: 2,    minLv: 6,    extra: [] },
+      { name: 'Dragon Dairy',       desc: 'An orc clan has seized this dairy farm.',         enemy: 'Orc',         atk: 30, def: 18, chc: 22, hp: 125, dur: 35, res: 'milk',       amt: 14, res2: 'egg',         amt2: 10, cooldown: 150, limit: 1,    minLv: 7,    extra: [] },
+      { name: 'Haunted Vineyard',   desc: 'A skeleton-infested vineyard of rare berries.',   enemy: 'Skeleton',    atk: 32, def: 16, chc: 25, hp: 120, dur: 35, res: 'strawberry', amt: 18, res2: 'blueberry',   amt2: 14, cooldown: 150, limit: 1,    minLv: 8,    extra: [] },
+      // ── Tier 4 — Very Hard (min_champion_level 9-12) ─────────────────────────
+      { name: 'Crystal Cave',       desc: 'A crystal-lined cave hoarded by orcs.',           enemy: 'Orc',         atk: 34, def: 20, chc: 25, hp: 140, dur: 40, res: 'pinecone',   amt: 22, res2: 'blueberry',   amt2: 12, cooldown: 180, limit: 1,    minLv: 9,    extra: [] },
+      { name: "Giant's Farm",       desc: 'A giant troll rules this massive farm.',          enemy: 'Troll',       atk: 36, def: 22, chc: 18, hp: 155, dur: 40, res: 'milk',       amt: 22, res2: null,          amt2: 0,  cooldown: 180, limit: 1,    minLv: 9,    extra: [] },
+      { name: 'Rainbow Harvest',    desc: 'A rainbow bounty guarded by orc warlords.',       enemy: 'Orc',         atk: 32, def: 19, chc: 24, hp: 135, dur: 40, res: 'egg',        amt: 10, res2: 'wool',        amt2: 10, cooldown: 180, limit: 1,    minLv: 10,   extra: [{resource:'blueberry',amount:8},{resource:'milk',amount:8}] },
+      { name: "Elder's Grove",      desc: 'An ancient grove guarded by a dark mage.',        enemy: 'Dark Mage',   atk: 38, def: 20, chc: 35, hp: 145, dur: 45, res: 'strawberry', amt: 14, res2: 'pinecone',    amt2: 14, cooldown: 200, limit: 1,    minLv: 12,   extra: [] },
+      // ── Tier 5 — Legendary (min_champion_level 15) ───────────────────────────
+      { name: 'Bountiful Lands',    desc: 'Legendary lands teeming with every resource.',    enemy: 'Bandit Chief', atk: 44, def: 26, chc: 28, hp: 170, dur: 45, res: 'strawberry', amt: 6,  res2: 'pinecone',   amt2: 6,  cooldown: 240, limit: 1,    minLv: 15,   extra: [{resource:'blueberry',amount:6},{resource:'egg',amount:6},{resource:'wool',amount:6},{resource:'milk',amount:6}] },
     ];
     for (const d of harvestDungeons) {
       await query(`
         INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
           duration_minutes, duration_seconds, reward_resource, reward_amount, reward_resource_2, reward_amount_2,
-          dungeon_type, cooldown_minutes, daily_run_limit, xp_reward)
+          dungeon_type, cooldown_minutes, daily_run_limit, xp_reward, min_champion_level, extra_rewards)
         VALUES ($1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
-                $8::INT, NULL, $9::VARCHAR, $10::INT, $11::VARCHAR, $12::INT, 'harvest', $13::INT, $14::INT, 0)
+                $8::INT, NULL, $9::VARCHAR, $10::INT, $11::VARCHAR, $12::INT, 'harvest', $13::INT, $14::INT, 0,
+                $15::INT, $16::jsonb)
         ON CONFLICT (name) DO UPDATE SET
-          description      = EXCLUDED.description,
-          enemy_name       = EXCLUDED.enemy_name,
-          enemy_attack     = EXCLUDED.enemy_attack,
-          enemy_defense    = EXCLUDED.enemy_defense,
-          enemy_chance     = EXCLUDED.enemy_chance,
-          enemy_hp         = EXCLUDED.enemy_hp,
-          duration_minutes = EXCLUDED.duration_minutes,
-          duration_seconds = NULL,
-          reward_resource  = EXCLUDED.reward_resource,
-          reward_amount    = EXCLUDED.reward_amount,
+          description       = EXCLUDED.description,
+          enemy_name        = EXCLUDED.enemy_name,
+          enemy_attack      = EXCLUDED.enemy_attack,
+          enemy_defense     = EXCLUDED.enemy_defense,
+          enemy_chance      = EXCLUDED.enemy_chance,
+          enemy_hp          = EXCLUDED.enemy_hp,
+          duration_minutes  = EXCLUDED.duration_minutes,
+          duration_seconds  = NULL,
+          reward_resource   = EXCLUDED.reward_resource,
+          reward_amount     = EXCLUDED.reward_amount,
           reward_resource_2 = EXCLUDED.reward_resource_2,
-          reward_amount_2  = EXCLUDED.reward_amount_2,
-          cooldown_minutes = EXCLUDED.cooldown_minutes,
-          daily_run_limit  = EXCLUDED.daily_run_limit
-      `, [d.name, d.desc, d.enemy, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null]);
+          reward_amount_2   = EXCLUDED.reward_amount_2,
+          cooldown_minutes  = EXCLUDED.cooldown_minutes,
+          daily_run_limit   = EXCLUDED.daily_run_limit,
+          min_champion_level = EXCLUDED.min_champion_level,
+          extra_rewards     = EXCLUDED.extra_rewards
+      `, [d.name, d.desc, d.enemy, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null, d.minLv ?? null, JSON.stringify(d.extra ?? [])]);
     }
 
     // Seed adventure stages 6-15 (idempotent)
@@ -713,6 +742,13 @@ async function migrate() {
       }
     }
     console.log('Attack boost recipes ensured');
+
+    // ── Weekly quest reward_coins rebalance (April 2026) ─────────────────────
+    // weekly_easy: 15→8, weekly_medium: 20→12, weekly_hard: 25→15
+    await query(`UPDATE quest_definitions SET reward_coins = 8  WHERE quest_type = 'weekly' AND difficulty = 'weekly_easy'  AND reward_coins = 15`);
+    await query(`UPDATE quest_definitions SET reward_coins = 12 WHERE quest_type = 'weekly' AND difficulty = 'weekly_medium' AND reward_coins = 20`);
+    await query(`UPDATE quest_definitions SET reward_coins = 15 WHERE quest_type = 'weekly' AND difficulty = 'weekly_hard'   AND reward_coins = 25`);
+    console.log('Weekly quest rewards rebalanced');
 
     console.log('Migration complete!');
   } catch (err) {

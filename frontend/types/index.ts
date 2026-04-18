@@ -119,6 +119,8 @@ export type Dungeon = {
   // Harvest
   cooldown_minutes?: number | null;
   daily_run_limit?: number | null;
+  min_champion_level?: number | null;
+  extra_rewards?: Array<{ resource: string; amount: number }>;
   // Adventure
   stage_number?: number | null;
   is_boss_stage?: boolean;
@@ -216,6 +218,7 @@ export type PlayerGear = {
 
 export type ClaimResult = {
   winner: "champion" | "enemy";
+  enemyName?: string | null;
   rewardResource: string;
   rewardAmount: number;
   rewardResource2: string | null;
@@ -228,6 +231,7 @@ export type ClaimResult = {
   newLevel: number;
   gearDrops?: PlayerGear[];
   championGear?: GearSnapshot;
+  extraRewards?: Array<{ resource: string; amount: number }>;
 };
 
 export type PvpStatus = {

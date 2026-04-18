@@ -61,8 +61,8 @@ import { useGearInventoryQuery } from "../lib/query/queries";
 const REVIVE_MILK_COST = 4;
 const REVIVE_WOOL_COST = 4;
 const COIN_REVIVE_COST = 15;
-const HEAL_MILK_COST = 2;
-const HEAL_EGG_COST = 2;
+const HEAL_MILK_COST = 5;
+const HEAL_EGG_COST = 5;
 const COIN_HEAL_PER_20HP = 4;
 
 const MILK_IMG = require("../assets/resource-images/milk.png");

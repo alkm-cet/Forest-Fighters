@@ -47,7 +47,6 @@ import BattleHistoryDrawer from "../../components/BattleHistoryDrawer";
 import CountdownTimer from "../../components/CountdownTimer";
 
 const DUNGEON_BG = require("../../assets/dungeon/dungeon-screen-bg.webp");
-const CHAMP_CARD_BG = require("../../assets/dungeon/dungeon-champion-card-bg.webp");
 const DUNGEON_TAB_IMG = require("../../assets/icons/icon-dungeon.webp");
 const COIN_IMG = require("../../assets/icons/icon-coin.webp");
 
@@ -64,11 +63,16 @@ export default function DungeonsScreen() {
     championAttack,
     championDefense,
     championChance,
+    championBoostAttack,
     championBoostDefense,
     championBoostChance,
+    championGearAttack,
+    championGearDefense,
+    championGearChance,
     championCurrentHp,
     championMaxHp,
     championBoostHp,
+    championLevel,
   } = useLocalSearchParams<{
     championId: string;
     championName: string;
@@ -76,11 +80,16 @@ export default function DungeonsScreen() {
     championAttack: string;
     championDefense: string;
     championChance: string;
+    championBoostAttack: string;
     championBoostDefense: string;
     championBoostChance: string;
+    championGearAttack: string;
+    championGearDefense: string;
+    championGearChance: string;
     championCurrentHp: string;
     championMaxHp: string;
     championBoostHp: string;
+    championLevel: string;
   }>();
 
   const { data: runs = [] } = useDungeonRunsQuery();
@@ -107,34 +116,29 @@ export default function DungeonsScreen() {
   );
 
   async function loadData() {
-    try {
-      const [dungeonsRes, progressRes, cooldownRes, milestoneRes] =
-        await Promise.all([
-          api.get("/api/dungeons"),
-          api.get("/api/dungeons/adventure/progress"),
-          api.get("/api/dungeons/harvest/cooldowns"),
-          api.get("/api/dungeons/milestones"),
-        ]);
+    const [dungeonsRes, progressRes, cooldownRes, milestoneRes] =
+      await Promise.allSettled([
+        api.get("/api/dungeons"),
+        api.get("/api/dungeons/adventure/progress"),
+        api.get("/api/dungeons/harvest/cooldowns"),
+        api.get("/api/dungeons/milestones"),
+      ]);
 
-      const all: Dungeon[] = dungeonsRes.data;
-      setHarvestDungeons(
-        all.filter((d) => d.dungeon_type === "harvest") as HarvestDungeon[]
-      );
+    if (dungeonsRes.status === "fulfilled") {
+      const all: Dungeon[] = dungeonsRes.value.data;
+      setHarvestDungeons(all.filter((d) => d.dungeon_type === "harvest") as HarvestDungeon[]);
       setAdventureDungeons(
         (all.filter((d) => d.dungeon_type === "adventure") as AdventureDungeon[]).sort(
           (a, b) => (a.stage_number ?? 0) - (b.stage_number ?? 0)
         )
       );
-      setEventDungeons(
-        all.filter((d) => d.dungeon_type === "event") as EventDungeon[]
-      );
-
-      setAdventureProgress(progressRes.data);
-      setHarvestCooldowns(cooldownRes.data);
-      setMilestones(milestoneRes.data.milestones ?? []);
-      setTotalStars(milestoneRes.data.total_stars ?? 0);
-    } catch {
-      // silent
+      setEventDungeons(all.filter((d) => d.dungeon_type === "event") as EventDungeon[]);
+    }
+    if (progressRes.status === "fulfilled") setAdventureProgress(progressRes.value.data);
+    if (cooldownRes.status === "fulfilled") setHarvestCooldowns(cooldownRes.value.data);
+    if (milestoneRes.status === "fulfilled") {
+      setMilestones(milestoneRes.value.data.milestones ?? []);
+      setTotalStars(milestoneRes.value.data.total_stars ?? 0);
     }
   }
 
@@ -227,13 +231,20 @@ export default function DungeonsScreen() {
   );
 
   const classMeta = CLASS_META[championClass ?? ""] ?? { image: null, color: "#888" };
-  const atk = parseInt(championAttack ?? "0");
+  const atk =
+    parseInt(championAttack ?? "0") +
+    parseInt(championBoostAttack ?? "0") +
+    parseInt(championGearAttack ?? "0");
   const def =
-    parseInt(championDefense ?? "0") + parseInt(championBoostDefense ?? "0");
+    parseInt(championDefense ?? "0") +
+    parseInt(championBoostDefense ?? "0") +
+    parseInt(championGearDefense ?? "0");
   const chc =
-    parseInt(championChance ?? "0") + parseInt(championBoostChance ?? "0");
-  const boostDef = parseInt(championBoostDefense ?? "0");
-  const boostChc = parseInt(championBoostChance ?? "0");
+    parseInt(championChance ?? "0") +
+    parseInt(championBoostChance ?? "0") +
+    parseInt(championGearChance ?? "0");
+  const boostDef = parseInt(championBoostDefense ?? "0") + parseInt(championGearDefense ?? "0");
+  const boostChc = parseInt(championBoostChance ?? "0") + parseInt(championGearChance ?? "0");
   const currentHp = parseInt(championCurrentHp ?? "0");
   const maxHp = parseInt(championMaxHp ?? "0");
   const boostHp = parseInt(championBoostHp ?? "0");
@@ -248,6 +259,8 @@ export default function DungeonsScreen() {
     let isOnCooldown = false;
     let remainingCooldownSeconds: number | undefined;
     let runsToday: number | undefined;
+    let isDailyLimitReached = false;
+    let remainingDailyResetSeconds: number | undefined;
 
     if (cooldown) {
       if (dungeon.cooldown_minutes) {
@@ -258,15 +271,17 @@ export default function DungeonsScreen() {
           remainingCooldownSeconds = Math.ceil((cooldownMs - elapsed) / 1000);
         }
       }
-      const today = new Date().toISOString().slice(0, 10);
-      const rowDate = String(cooldown.day_reset_at).slice(0, 10);
-      if (rowDate === today) {
-        runsToday = cooldown.runs_today;
-      } else {
-        runsToday = 0;
+      // Backend already returns 0 if day_reset_at < CURRENT_DATE, so no frontend date math needed
+      runsToday = cooldown.runs_today;
+      if (dungeon.daily_run_limit && cooldown.runs_today >= dungeon.daily_run_limit) {
+        isDailyLimitReached = true;
+        const midnight = new Date();
+        midnight.setDate(midnight.getDate() + 1);
+        midnight.setHours(0, 0, 0, 0);
+        remainingDailyResetSeconds = Math.ceil((midnight.getTime() - Date.now()) / 1000);
       }
     }
-    return { isOnCooldown, remainingCooldownSeconds, runsToday };
+    return { isOnCooldown, remainingCooldownSeconds, runsToday, isDailyLimitReached, remainingDailyResetSeconds };
   }
 
   return (
@@ -285,82 +300,58 @@ export default function DungeonsScreen() {
           <View style={styles.backBtn} />
         </View>
 
-        {/* Sticky champion strip */}
+        {/* Sticky champion card (PvP style) */}
         {championName ? (
-          <ImageBackground
-            source={CHAMP_CARD_BG}
-            style={styles.champCardBg}
-            resizeMode="stretch"
-          >
-            <View style={styles.champCardContent}>
-              {classMeta.image && (
-                <Image
-                  source={classMeta.image}
-                  style={styles.champImage}
-                  resizeMode="contain"
-                />
-              )}
+          <View style={[styles.champCard, { borderColor: "rgba(46,125,50,0.45)" }]}>
+            {/* Identity tag */}
+            <View style={styles.champIdentityTag}>
+              <Text style={styles.champIdentityText}>🛡️ SEÇİLİ ŞAMPİYON</Text>
+            </View>
+            <View style={styles.champBody}>
+              {/* Image */}
+              <View style={[styles.champImageWrap, { backgroundColor: classMeta.color + "18" }]}>
+                {classMeta.image && (
+                  <Image source={classMeta.image} style={styles.champImage} resizeMode="contain" />
+                )}
+              </View>
+              {/* Info */}
               <View style={styles.champRight}>
-                <View style={styles.champNameRow}>
-                  <Text style={styles.champName}>{championName}</Text>
-                  <Text style={[styles.champClass, { color: classMeta.color }]}>
-                    {championClass?.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.champHpRow}>
-                  <HeartPulse size={11} color={hpColor} strokeWidth={2.5} />
-                  <View style={styles.champHpTrack}>
-                    <View
-                      style={[
-                        styles.champHpFill,
-                        {
-                          width: `${Math.round(hpPct * 100)}%` as any,
-                          backgroundColor: hpColor,
-                        },
-                      ]}
-                    />
+                <View style={styles.champTopRow}>
+                  <View style={[styles.champClassBadge, { backgroundColor: classMeta.color + "22", borderColor: classMeta.color + "66" }]}>
+                    <Text style={[styles.champClassText, { color: classMeta.color }]}>{championClass?.toUpperCase()}</Text>
                   </View>
-                  <Text style={[styles.champHpVal, { color: hpColor }]}>
-                    {currentHp}/{effectiveMaxHp}
-                    {boostHp > 0 && (
-                      <Text style={styles.champStatBoosted}> +{boostHp}</Text>
-                    )}
-                  </Text>
+                  <View style={styles.champLevelBadge}>
+                    <Text style={styles.champLevelText}>Lv {championLevel ?? 1}</Text>
+                  </View>
+                </View>
+                <Text style={styles.champName} numberOfLines={1}>{championName}</Text>
+                <View style={styles.champHpRow}>
+                  <HeartPulse size={10} color={hpColor} strokeWidth={2.5} />
+                  <View style={styles.champHpTrack}>
+                    <View style={[styles.champHpFill, { width: `${Math.round(hpPct * 100)}%` as any, backgroundColor: hpColor }]} />
+                  </View>
+                  <Text style={[styles.champHpVal, { color: hpColor }]}>{currentHp}/{effectiveMaxHp}</Text>
                 </View>
                 <View style={styles.champStats}>
                   <View style={styles.champStatPill}>
-                    <Swords size={10} color="#e57373" strokeWidth={2.5} />
+                    <Swords size={9} color="#e57373" strokeWidth={2.5} />
                     <Text style={styles.champStatLabel}>ATK</Text>
                     <Text style={styles.champStatVal}>{atk}</Text>
                   </View>
                   <View style={styles.champStatPill}>
-                    <Shield size={10} color="#90a4ae" strokeWidth={2.5} />
+                    <Shield size={9} color="#90a4ae" strokeWidth={2.5} />
                     <Text style={styles.champStatLabel}>DEF</Text>
-                    <Text
-                      style={[
-                        styles.champStatVal,
-                        boostDef > 0 && styles.champStatBoosted,
-                      ]}
-                    >
-                      {def}
-                    </Text>
+                    <Text style={[styles.champStatVal, boostDef > 0 && styles.champStatBoosted]}>{def}</Text>
                   </View>
                   <View style={styles.champStatPill}>
-                    <Zap size={10} color="#ce93d8" strokeWidth={2.5} />
+                    <Zap size={9} color="#ce93d8" strokeWidth={2.5} />
                     <Text style={styles.champStatLabel}>CHC</Text>
-                    <Text
-                      style={[
-                        styles.champStatVal,
-                        boostChc > 0 && styles.champStatBoosted,
-                      ]}
-                    >
-                      {chc}%
-                    </Text>
+                    <Text style={[styles.champStatVal, boostChc > 0 && styles.champStatBoosted]}>{chc}%</Text>
                   </View>
                 </View>
               </View>
             </View>
-          </ImageBackground>
+          </View>
         ) : null}
 
         {/* Tab bar */}
@@ -375,7 +366,7 @@ export default function DungeonsScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
                   <Image
                     source={DUNGEON_TAB_IMG}
-                    style={{ width: 16, height: 16 }}
+                    style={{ width: 18, height: 18 }}
                     resizeMode="contain"
                   />
                   <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
@@ -405,7 +396,7 @@ export default function DungeonsScreen() {
             ) : (
               harvestDungeons.map((dungeon) => {
                 const run = getRunForDungeon(dungeon.id);
-                const { isOnCooldown, remainingCooldownSeconds, runsToday } =
+                const { isOnCooldown, remainingCooldownSeconds, runsToday, isDailyLimitReached, remainingDailyResetSeconds } =
                   getHarvestCardProps(dungeon);
                 const enterDisabled =
                   championIsBusy && (!run || run.champion_id !== championId);
@@ -416,15 +407,18 @@ export default function DungeonsScreen() {
                     activeRun={run}
                     onEnter={handleEnter}
                     onClaim={handleClaim}
-                    disabled={enterDisabled || isOnCooldown}
+                    disabled={enterDisabled || isOnCooldown || isDailyLimitReached}
                     isOnCooldown={isOnCooldown}
                     remainingCooldownSeconds={remainingCooldownSeconds}
                     runsToday={runsToday}
                     dailyRunLimit={dungeon.daily_run_limit}
+                    isDailyLimitReached={isDailyLimitReached}
+                    remainingDailyResetSeconds={remainingDailyResetSeconds}
                     rewardResource2={dungeon.reward_resource_2}
                     rewardAmount2={dungeon.reward_amount_2}
                     coins={coins}
                     onSkipMission={handleSkipMission}
+                    championLevel={Number(championLevel ?? 1)}
                   />
                 );
               })
@@ -536,48 +530,104 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  champCardBg: {
+  champCard: {
     marginHorizontal: 16,
     marginBottom: 8,
+    backgroundColor: "#fdf3dc",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#a07030",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 2,
   },
-  champCardContent: {
+  champIdentityTag: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "rgba(46,125,50,0.15)",
+    borderBottomLeftRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    zIndex: 2,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: "rgba(46,125,50,0.3)",
+  },
+  champIdentityText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#3a1e00",
+    letterSpacing: 0.8,
+  },
+  champBody: {
     flexDirection: "row",
+  },
+  champImageWrap: {
+    width: 72,
     alignItems: "center",
-    marginHorizontal: 40,
-    paddingTop: 22,
-    paddingBottom: 22,
-    gap: 12,
+    justifyContent: "center",
+    paddingVertical: 12,
   },
   champImage: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
   },
   champRight: {
     flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
     gap: 6,
   },
-  champNameRow: {
-    gap: 2,
+  champTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    paddingRight: 110,
+  },
+  champClassBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+  },
+  champClassText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  champLevelBadge: {
+    backgroundColor: "rgba(58,30,0,0.08)",
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "rgba(58,30,0,0.15)",
+  },
+  champLevelText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#5a3a10",
+    letterSpacing: 0.5,
   },
   champName: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#3a2a10",
-  },
-  champClass: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
+    color: "#3a1e00",
   },
   champHpRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
   },
   champHpTrack: {
     flex: 1,
-    height: 6,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    height: 5,
+    backgroundColor: "rgba(58,30,0,0.1)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -586,9 +636,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   champHpVal: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
-    minWidth: 48,
+    minWidth: 40,
     textAlign: "right",
   },
   champStats: {
@@ -596,26 +646,28 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   champStatPill: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 3,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    borderRadius: 8,
-    paddingHorizontal: 7,
+    backgroundColor: "rgba(58,30,0,0.06)",
+    borderRadius: 7,
+    paddingHorizontal: 4,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: "rgba(58,30,0,0.1)",
   },
   champStatLabel: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "700",
-    color: "rgba(58,42,16,0.7)",
+    color: "#7a5a30",
     letterSpacing: 0.5,
   },
   champStatVal: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
-    color: "#3a2a10",
+    color: "#3a1e00",
   },
   champStatBoosted: {
     color: "#7a30c0",
@@ -632,18 +684,18 @@ const styles = StyleSheet.create({
   },
   tabPill: {
     flex: 1,
-    paddingVertical: 7,
+    paddingVertical: 11,
     borderRadius: 9,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
-    gap: 4,
+    gap: 5,
   },
   tabPillActive: {
     backgroundColor: "#f5e9cc",
   },
   tabText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
     color: "rgba(255,255,255,0.65)",
     letterSpacing: 0.3,

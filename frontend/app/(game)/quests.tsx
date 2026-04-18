@@ -49,10 +49,14 @@ function getNextWeeklyResetMs(): number {
 
 function formatCountdown(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  if (d > 0) {
+    return `${d}d:${String(h).padStart(2, "0")}h:${String(m).padStart(2, "0")}m:${String(sec).padStart(2, "0")}s`;
+  }
+  return `${String(h).padStart(2, "0")}h:${String(m).padStart(2, "0")}m:${String(sec).padStart(2, "0")}s`;
 }
 
 function useCountdown(targetMs: number) {

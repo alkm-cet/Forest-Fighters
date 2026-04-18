@@ -275,34 +275,34 @@ Her havuzdan rastgele 1 tanesi seçilir.
 #### WEEKLY_EASY Havuzu — scale_factors: `{t1:1.0, t2:1.5, t3:2.0}`
 | Başlık | action_key | Baz Hedef | Ödül |
 |--------|-----------|-----------|------|
-| PvP Participant | `pvp_attack` | 3 | 15 🪙 |
-| Kitchen Student | `kitchen_cook` | 3 | 15 🪙 |
-| Dungeon Explorer | `dungeon_enter_adventure` | 3 | 15 🪙 |
-| Diligent Farmer | `farmer_collect` | 5 | 15 🪙 |
+| PvP Participant | `pvp_attack` | 3 | 8 🪙 |
+| Kitchen Student | `kitchen_cook` | 3 | 8 🪙 |
+| Dungeon Explorer | `dungeon_enter_adventure` | 3 | 8 🪙 |
+| Diligent Farmer | `farmer_collect` | 5 | 8 🪙 |
 
 #### WEEKLY_MEDIUM Havuzu — scale_factors: `{t1:1.0, t2:1.5, t3:2.5}`
 | Başlık | action_key | Baz Hedef | Ödül | metadata |
 |--------|-----------|-----------|------|---------|
-| PvP Victor | `pvp_win` | 2 | 20 🪙 | — |
-| Harvest Master | `dungeon_claim_harvest` | 5 | 20 🪙 | — |
-| Animal Caretaker | `animal_collect` | 5 | 20 🪙 | — |
-| Pinecone Baron | `farmer_collect` | 50 | 20 🪙 | `{"resourceType":"pinecone"}` |
-| Head Chef | `kitchen_use` | 3 | 20 🪙 | — |
+| PvP Victor | `pvp_win` | 2 | 12 🪙 | — |
+| Harvest Master | `dungeon_claim_harvest` | 5 | 12 🪙 | — |
+| Animal Caretaker | `animal_collect` | 5 | 12 🪙 | — |
+| Pinecone Baron | `farmer_collect` | 50 | 12 🪙 | `{"resourceType":"pinecone"}` |
+| Head Chef | `kitchen_use` | 3 | 12 🪙 | — |
 
 #### WEEKLY_HARD Havuzu (2 adet seçilir) — scale_factors: `{t1:1.0, t2:2.0, t3:3.0}`
 | Başlık | action_key | Baz Hedef | Ödül | metadata |
 |--------|-----------|-----------|------|---------|
-| PvP Champion | `pvp_win` | 5 | 25 🪙 | — |
-| Archer Duelist | `pvp_win` | 2 | 25 🪙 | `{"championClass":"Archer"}` |
-| Warrior Duelist | `pvp_win` | 2 | 25 🪙 | `{"championClass":"Warrior"}` |
-| Boss Slayer | `dungeon_claim_adventure` | 1 | 25 🪙 | `{"isBoss":true}` |
-| Three Star Run | `dungeon_claim_adventure` | 1 | 25 🪙 | `{"minStars":3}` |
-| Deep Dungeon | `dungeon_claim_harvest` | 10 | 25 🪙 | — |
-| Egg Producer | `animal_collect` | 15 | 25 🪙 | `{"resourceType":"egg"}` |
-| Wool Producer | `animal_collect` | 15 | 25 🪙 | `{"resourceType":"wool"}` |
-| Upgrade Enthusiast | `any_upgrade` | 3 | 25 🪙 | — |
+| PvP Champion | `pvp_win` | 5 | 15 🪙 | — |
+| Archer Duelist | `pvp_win` | 2 | 15 🪙 | `{"championClass":"Archer"}` |
+| Warrior Duelist | `pvp_win` | 2 | 15 🪙 | `{"championClass":"Warrior"}` |
+| Boss Slayer | `dungeon_claim_adventure` | 1 | 15 🪙 | `{"isBoss":true}` |
+| Three Star Run | `dungeon_claim_adventure` | 1 | 15 🪙 | `{"minStars":3}` |
+| Deep Dungeon | `dungeon_claim_harvest` | 10 | 15 🪙 | — |
+| Egg Producer | `animal_collect` | 15 | 15 🪙 | `{"resourceType":"egg"}` |
+| Wool Producer | `animal_collect` | 15 | 15 🪙 | `{"resourceType":"wool"}` |
+| Upgrade Enthusiast | `any_upgrade` | 3 | 15 🪙 | — |
 
-**Haftalık toplam (t1):** 15 + 20 + 25 + 25 = **85 🪙**
+**Haftalık toplam (t1):** 8 + 12 + 15 + 15 = **50 🪙**
 
 ---
 
@@ -691,7 +691,7 @@ ScrollView:
 
 **Coin animasyonu:** Claim butonundan header'daki coin sayacına `ResourceCollectAnimation` ile uçar. `bonus.awarded === true` ise bonus coin'ler de toplam animasyona eklenir.
 
-**Countdown:** Tüm görevler claim edildiğinde `HH:MM:SS` formatında bir sonraki sıfırlamaya kalan süre gösterilir.
+**Countdown:** Tüm görevler claim edildiğinde bir sonraki sıfırlamaya kalan süre gösterilir. 24 saatten az ise `HHh:MMm:SSs`, 24 saatten fazla ise `Nd:HHh:MMm:SSs` formatında (haftalık görevler için genelde gün bilgisi görünür).
 
 ### QuestCard Durumları
 

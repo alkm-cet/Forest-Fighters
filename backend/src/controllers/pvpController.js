@@ -51,27 +51,33 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
     if (row.length && row[0].defender_champion_id) return row[0];
   }
 
+  const realBaseCondition = `
+    id != $1 AND is_bot = FALSE
+    AND defender_champion_id IS NOT NULL
+    AND EXISTS (SELECT 1 FROM champions WHERE player_id = players.id AND level >= 3)
+    AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())
+  `;
+
   // ±30 real players
   const real30 = await query(
-    `SELECT * FROM players
-     WHERE id != $1 AND is_bot = FALSE AND pvp_unlocked = TRUE
-       AND defender_champion_id IS NOT NULL
-       AND trophies BETWEEN $2 AND $3
-       AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())`,
+    `SELECT * FROM players WHERE ${realBaseCondition} AND trophies BETWEEN $2 AND $3`,
     [playerId, attTrophies - 30, attTrophies + 30]
   );
   if (real30.length) return real30[Math.floor(Math.random() * real30.length)];
 
   // ±60
   const real60 = await query(
-    `SELECT * FROM players
-     WHERE id != $1 AND is_bot = FALSE AND pvp_unlocked = TRUE
-       AND defender_champion_id IS NOT NULL
-       AND trophies BETWEEN $2 AND $3
-       AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())`,
+    `SELECT * FROM players WHERE ${realBaseCondition} AND trophies BETWEEN $2 AND $3`,
     [playerId, attTrophies - 60, attTrophies + 60]
   );
   if (real60.length) return real60[Math.floor(Math.random() * real60.length)];
+
+  // ±200 — wide net before falling back to bots
+  const realWide = await query(
+    `SELECT * FROM players WHERE ${realBaseCondition} AND trophies BETWEEN $2 AND $3`,
+    [playerId, attTrophies - 200, attTrophies + 200]
+  );
+  if (realWide.length) return realWide[Math.floor(Math.random() * realWide.length)];
 
   // Bot fallback
   const bots = await query(

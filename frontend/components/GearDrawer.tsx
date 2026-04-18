@@ -11,7 +11,7 @@ import {
   Image,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Sparkles, Trash2 } from "lucide-react-native";
+import { X, Sparkles, Trash2, Swords, Shield, Zap } from "lucide-react-native";
 import { Champion, PlayerGear, GearRarity, PlayerFood } from "../types";
 import { RARITY_META, CLASS_META } from "../constants/resources";
 import {
@@ -53,18 +53,11 @@ const FORGE_STONE_IMGS = [
 const DISMISS_THRESHOLD = 100;
 const DISMISS_VELOCITY = 0.6;
 
-// Soft rarity background colors
-const RARITY_BG: Record<GearRarity, string> = {
-  common: "#f4efe4",
-  rare: "#e8f0ff",
-  epic: "#f5eaff",
-};
-
-// Level badge colors: 1=neutral, 2=blue, 3=gold
-const LV_COLOR: Record<number, string> = {
-  1: "#9E9E9E",
-  2: "#2196F3",
-  3: "#c87820",
+// Tier colors
+const TIER_COLOR: Record<number, string> = {
+  1: "#5a8a3c",
+  2: "#c87820",
+  3: "#8a4cc8",
 };
 
 function calcDiscardCoins(gear: PlayerGear): number {
@@ -79,91 +72,47 @@ type Props = {
   onClose: () => void;
 };
 
-// ── Tier badge ─────────────────────────────────────────────────────────────────
+// ── Minimal badge helpers (used in discard modal) ──────────────────────────────
 function TierBadge({ tier }: { tier: number }) {
-  const colors = ["#5a8a3c", "#c87820", "#8a4cc8"];
+  const bg = TIER_COLOR[tier] ?? "#888";
   return (
-    <View
-      style={[styles.badge, { backgroundColor: colors[tier - 1] ?? "#888" }]}
-    >
-      <Text style={styles.badgeText}>T{tier}</Text>
+    <View style={{ backgroundColor: bg, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+      <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff" }}>T{tier}</Text>
     </View>
   );
 }
-
-// ── Rarity badge ───────────────────────────────────────────────────────────────
 function RarityBadge({ rarity }: { rarity: GearRarity }) {
   const meta = RARITY_META[rarity];
   return (
-    <View
-      style={[
-        styles.badge,
-        {
-          backgroundColor: meta.color + "22",
-          borderWidth: 1,
-          borderColor: meta.color,
-        },
-      ]}
-    >
-      <Text style={[styles.badgeText, { color: meta.color }]}>
-        {meta.label}
-      </Text>
+    <View style={{ backgroundColor: meta?.color ?? "#888", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+      <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff" }}>{meta?.label ?? rarity}</Text>
     </View>
   );
 }
-
-// ── Level badge ────────────────────────────────────────────────────────────────
 function LevelBadge({ level }: { level: number }) {
   return (
-    <View
-      style={[styles.lvBadge, { backgroundColor: LV_COLOR[level] ?? "#888" }]}
-    >
-      <Text style={styles.lvBadgeText}>Lv {level}</Text>
+    <View style={{ backgroundColor: "#3a2a10", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+      <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff" }}>Lv{level}</Text>
     </View>
   );
 }
 
-// ── Stat chips ─────────────────────────────────────────────────────────────────
-function StatChips({ gear }: { gear: PlayerGear }) {
-  const stats = [
-    gear.attack_bonus > 0 && {
-      label: `+${gear.attack_bonus} Saldırı`,
-      icon: "⚔️",
-      bg: "#fff0ee",
-      color: "#c0392b",
-    },
-    gear.defense_bonus > 0 && {
-      label: `+${gear.defense_bonus} Savunma`,
-      icon: "🛡️",
-      bg: "#eef4ff",
-      color: "#1976d2",
-    },
-    gear.chance_bonus > 0 && {
-      label: `+${gear.chance_bonus} Kritik`,
-      icon: "🎯",
-      bg: "#eeffee",
-      color: "#27ae60",
-    },
-  ].filter(Boolean) as {
-    label: string;
-    icon: string;
-    bg: string;
-    color: string;
-  }[];
-
-  if (stats.length === 0) return null;
+// ── Stat row ───────────────────────────────────────────────────────────────────
+function StatRow({ gear }: { gear: PlayerGear }) {
+  const stat =
+    gear.attack_bonus > 0
+      ? { label: "SALDIRI", value: gear.attack_bonus, icon: <Swords size={13} color="#c0392b" strokeWidth={2.5} />, color: "#c0392b", bg: "#fce8e4" }
+      : gear.defense_bonus > 0
+        ? { label: "SAVUNMA", value: gear.defense_bonus, icon: <Shield size={13} color="#1565c0" strokeWidth={2.5} />, color: "#1565c0", bg: "#e3eeff" }
+        : gear.chance_bonus > 0
+          ? { label: "ŞANS",    value: gear.chance_bonus,   icon: <Zap    size={13} color="#2e7d32" strokeWidth={2.5} />, color: "#2e7d32", bg: "#e8f5e9" }
+          : null;
+  if (!stat) return null;
   return (
-    <View style={styles.statChipsRow}>
-      {stats.map((s) => (
-        <View
-          key={s.label}
-          style={[styles.statChip, { backgroundColor: s.bg }]}
-        >
-          <Text style={[styles.statChipText, { color: s.color }]}>
-            {s.icon} {s.label}
-          </Text>
-        </View>
-      ))}
+    <View style={[cardStyles.statRow, { backgroundColor: stat.bg }]}>
+      {stat.icon}
+      <Text style={[cardStyles.statLabel, { color: stat.color }]}>{stat.label}</Text>
+      <Text style={[cardStyles.statValue, { color: stat.color }]}>+{stat.value}</Text>
     </View>
   );
 }
@@ -206,7 +155,6 @@ function DismissableCard({
 }
 
 // ── Unified gear card ──────────────────────────────────────────────────────────
-// Used for both equipped (mode="unequip") and inventory (mode="equip") cards.
 function GearCard({
   gear,
   mode,
@@ -225,126 +173,110 @@ function GearCard({
   t: (key: TranslationKeys) => string;
 }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const meta = RARITY_META[gear.rarity];
+  const meta        = RARITY_META[gear.rarity];
+  const tierColor   = TIER_COLOR[gear.definition.tier] ?? "#888";
   const stonesNeeded = gear.level === 1 ? 1 : 2;
-  const validStones = forgeStones.filter((f) => {
+  const validStones  = forgeStones.filter((f) => {
     const tier = (f.recipe as any).gear_upgrade_tier;
     return tier === gear.definition.tier || tier === 3;
   });
-  const canUpgrade = gear.level < 3 && validStones.length >= stonesNeeded;
-  const isMaxLevel = gear.level >= 3;
+  const canUpgrade    = gear.level < 3 && validStones.length >= stonesNeeded;
+  const isMaxLevel    = gear.level >= 3;
   const primaryDisabled = isDeployed;
 
   return (
-    <View
-      style={[styles.gearCard, { backgroundColor: RARITY_BG[gear.rarity] }]}
-    >
-      {/* Left rarity accent bar */}
-      <View
-        style={[styles.gearCardAccent, { backgroundColor: meta.borderColor }]}
-      />
+    <View style={cardStyles.card}>
+      {/* LV badge — absolute top-right */}
+      <View style={cardStyles.lvBadge}>
+        <Text style={cardStyles.lvText}>LV </Text>
+        <Text style={cardStyles.lvNum}>{gear.level}</Text>
+      </View>
 
-      {/* Card body — column so buttons can span full width below the emoji+info row */}
-      <View style={styles.gearCardBody}>
-        {/* Top row: item image + info */}
-        <View style={styles.gearCardTopRow}>
-          {GEAR_IMAGES[gear.definition.id] ? (
-            <Image
-              source={GEAR_IMAGES[gear.definition.id]}
-              style={styles.gearCardItemImg}
-              resizeMode="contain"
-            />
-          ) : (
-            <Text style={styles.gearCardEmoji}>{gear.definition.emoji}</Text>
-          )}
-          <View style={styles.gearCardInfo}>
-            <View style={styles.gearCardNameRow}>
-              <Text style={styles.gearCardName} numberOfLines={1}>
-                {gear.definition.name}
-              </Text>
-              <LevelBadge level={gear.level} />
+      <View style={cardStyles.inner}>
+        {/* Top row: icon box + name + tier/rarity badges */}
+        <View style={cardStyles.topRow}>
+          <View style={cardStyles.iconBox}>
+            {GEAR_IMAGES[gear.definition.id] ? (
+              <Image source={GEAR_IMAGES[gear.definition.id]} style={cardStyles.itemImg} resizeMode="contain" />
+            ) : (
+              <Text style={cardStyles.itemEmoji}>{gear.definition.emoji}</Text>
+            )}
+          </View>
+          <View style={cardStyles.infoCol}>
+            <Text style={cardStyles.itemName} numberOfLines={1}>{gear.definition.name}</Text>
+            <View style={cardStyles.badgeRow}>
+              {/* Tier badge */}
+              <View style={[cardStyles.tierBadge, { backgroundColor: tierColor }]}>
+                <Text style={cardStyles.tierText}>T{gear.definition.tier}</Text>
+              </View>
+              {/* Rarity badge */}
+              <View style={[cardStyles.rarityBadge, { backgroundColor: meta.color }]}>
+                <Text style={cardStyles.rarityText}>{meta.label.toUpperCase()}</Text>
+              </View>
             </View>
-            <View style={styles.gearCardBadgeRow}>
-              <TierBadge tier={gear.definition.tier} />
-              <RarityBadge rarity={gear.rarity} />
-            </View>
-            <StatChips gear={gear} />
           </View>
         </View>
 
-        {/* Action buttons — full width of body */}
-        <View style={styles.gearCardActions}>
+        {/* Stat row */}
+        <StatRow gear={gear} />
+
+        {/* Bottom row: stone/upgrade slot + primary action */}
+        <View style={cardStyles.bottomRow}>
+          {/* Stone / upgrade slot */}
+          {isMaxLevel ? (
+            <View style={[cardStyles.stonePill, cardStyles.stonePillMax]}>
+              <Text style={cardStyles.stonePillMaxText}>✦ MAX</Text>
+            </View>
+          ) : canUpgrade ? (
+            <TouchableOpacity
+              style={[cardStyles.stonePill, cardStyles.stonePillHas]}
+              onPress={() => setUpgradeOpen((v) => !v)}
+              activeOpacity={0.75}
+            >
+              <View style={cardStyles.gemDot} />
+              <Sparkles size={10} color="#4a7c3f" strokeWidth={2.5} />
+              <Text style={cardStyles.stonePillHasText}>{t("gearUpgradeBtn")} ({stonesNeeded})</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[cardStyles.stonePill, cardStyles.stonePillNone]}>
+              <Sparkles size={10} color="rgba(255,255,255,0.4)" strokeWidth={2.5} />
+              <Text style={cardStyles.stonePillNoneText}>YÜKSELT</Text>
+            </View>
+          )}
+
+          {/* Primary action button */}
           <TouchableOpacity
             style={[
-              styles.gearActionBtn,
-              mode === "equip" ? styles.equipBtn : styles.unequipBtn,
-              primaryDisabled && styles.actionBtnDisabled,
+              cardStyles.actionBtn,
+              mode === "equip" ? cardStyles.equipBtn : cardStyles.unequipBtn,
+              primaryDisabled && cardStyles.actionBtnDisabled,
             ]}
             onPress={primaryDisabled ? undefined : onPrimary}
             disabled={primaryDisabled}
             activeOpacity={0.75}
           >
-            <Text style={styles.gearActionBtnText}>
+            <Text style={cardStyles.actionBtnText}>
               {mode === "equip" ? t("gearEquipBtn") : t("gearUnequipBtn")}
             </Text>
           </TouchableOpacity>
-
-          {isMaxLevel ? (
-            <View style={[styles.gearActionBtn, styles.maxLvBtn]}>
-              <Text style={styles.maxLvBtnText}>✦ MAX</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.gearActionBtn,
-                styles.upgradeBtn,
-                !canUpgrade && styles.actionBtnDisabled,
-              ]}
-              onPress={canUpgrade ? () => setUpgradeOpen((v) => !v) : undefined}
-              activeOpacity={canUpgrade ? 0.75 : 1}
-            >
-              <Sparkles
-                size={10}
-                color={canUpgrade ? "#fff" : "rgba(255,255,255,0.4)"}
-                strokeWidth={2}
-              />
-              <Text
-                style={[
-                  styles.gearActionBtnText,
-                  !canUpgrade && { opacity: 0.5 },
-                ]}
-              >
-                {canUpgrade
-                  ? `${t("gearUpgradeBtn")} (${stonesNeeded})`
-                  : t("gearNoStonesBtn")}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Upgrade confirm panel */}
         {upgradeOpen && canUpgrade && (
-          <View style={styles.upgradePanel}>
-            <Text style={styles.upgradePanelText}>
+          <View style={cardStyles.upgradePanel}>
+            <Text style={cardStyles.upgradePanelText}>
               {stonesNeeded} {t("gearUpgradeStonesWillUse")}:{" "}
-              {validStones
-                .slice(0, stonesNeeded)
-                .map((s) => s.recipe.name)
-                .join(" + ")}
+              {validStones.slice(0, stonesNeeded).map((s) => s.recipe.name).join(" + ")}
             </Text>
             <TouchableOpacity
-              style={styles.confirmUpgradeBtn}
+              style={cardStyles.confirmBtn}
               onPress={() => {
-                onUpgrade?.(
-                  validStones.slice(0, stonesNeeded).map((s) => s.id),
-                );
+                onUpgrade?.(validStones.slice(0, stonesNeeded).map((s) => s.id));
                 setUpgradeOpen(false);
               }}
             >
               <Sparkles size={12} color="#fff" strokeWidth={2} />
-              <Text style={styles.confirmUpgradeBtnText}>
-                {t("gearConfirmUpgrade")}
-              </Text>
+              <Text style={cardStyles.confirmBtnText}>{t("gearConfirmUpgrade")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1020,122 +952,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ── Unified gear card ────────────────────────────────────────────────────────
-  gearCard: {
-    borderRadius: 12,
-    flexDirection: "row",
-    overflow: "hidden",
-    // Subtle shadow instead of heavy border
-    shadowColor: "#000",
-    shadowOpacity: 0.09,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.07)",
-  },
-  gearCardAccent: {
-    width: 5,
-    flexShrink: 0,
-  },
-  gearCardBody: {
-    flex: 1,
-    flexDirection: "column",
-    padding: 10,
-    gap: 8,
-  },
-  gearCardTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  gearCardEmoji: { fontSize: 32, lineHeight: 36, flexShrink: 0, marginTop: 2 },
-  gearCardItemImg: { width: 52, height: 52, flexShrink: 0 },
-  gearCardInfo: { flex: 1, gap: 6 },
-  gearCardNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  gearCardName: { fontSize: 13, fontWeight: "900", color: "#3a1e00", flex: 1 },
-  gearCardBadgeRow: { flexDirection: "row", gap: 4, alignItems: "center" },
-  gearCardActions: { flexDirection: "row", gap: 6 },
-
-  // Level badge
-  lvBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    flexShrink: 0,
-  },
-  lvBadgeText: { fontSize: 10, fontWeight: "900", color: "#fff" },
-
-  // Generic badges
-  badge: { borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
-  badgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-
-  // Stat chips
-  statChipsRow: { flexDirection: "row", gap: 5, flexWrap: "wrap" },
-  statChip: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  statChipText: { fontSize: 11, fontWeight: "800" },
-
-  // Action buttons
-  gearActionBtn: {
-    flex: 1,
-    borderRadius: 8,
-    paddingVertical: 7,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-  },
-  equipBtn: {
-    backgroundColor: "#4a7c3f",
-    borderWidth: 1.5,
-    borderColor: "#2d5a24",
-  },
-  unequipBtn: {
-    backgroundColor: "#c87820",
-    borderWidth: 1.5,
-    borderColor: "#a05a10",
-  },
-  upgradeBtn: {
-    backgroundColor: "#7a5a9a",
-    borderWidth: 1.5,
-    borderColor: "#5a3a7a",
-  },
-  maxLvBtn: {
-    backgroundColor: "#e8c87a",
-    borderWidth: 1.5,
-    borderColor: "#c8a040",
-  },
-  maxLvBtnText: { fontSize: 11, fontWeight: "900", color: "#7a5020" },
-  actionBtnDisabled: { opacity: 0.4 },
-  gearActionBtnText: { color: "#fff", fontSize: 11, fontWeight: "800" },
-
-  // Upgrade panel
-  upgradePanel: {
-    backgroundColor: "#f5edd8",
-    borderRadius: 8,
-    padding: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "#d4b896",
-  },
-  upgradePanelText: { fontSize: 10, color: "#7a5a30", fontWeight: "600" },
-  confirmUpgradeBtn: {
-    backgroundColor: "#7a5a9a",
-    borderRadius: 7,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    borderWidth: 1.5,
-    borderColor: "#5a3a7a",
-  },
-  confirmUpgradeBtnText: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  // (gear card styles moved to cardStyles below)
 
   // Empty inventory
   emptyInventory: { alignItems: "center", paddingVertical: 28, gap: 6 },
@@ -1230,4 +1047,216 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   discardConfirmText: { fontSize: 13, fontWeight: "900", color: "#fff" },
+});
+
+// ── Card styles (new plaque design) ──────────────────────────────────────────
+const cardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#fdf5e4",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#c8a870",
+    padding: 12,
+    shadowColor: "#6a4010",
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+    position: "relative",
+    gap: 10,
+  },
+
+  // LV badge — top-right absolute
+  lvBadge: {
+    position: "absolute",
+    top: 10,
+    right: 18,
+    flexDirection: "row",
+    alignItems: "baseline",
+    backgroundColor: "#2c2010",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 3,
+  },
+  lvText: { fontSize: 9, fontWeight: "700", color: "rgba(255,255,255,0.7)", letterSpacing: 0.5 },
+  lvNum:  { fontSize: 12, fontWeight: "900", color: "#fff" },
+
+  inner: { gap: 8 },
+
+  // Top row
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 44, // room for LV badge
+  },
+  iconBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 10,
+    backgroundColor: "#f0e6c8",
+    borderWidth: 1.5,
+    borderColor: "#c8a870",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  itemImg:   { width: 42, height: 42 },
+  itemEmoji: { fontSize: 30 },
+  infoCol:   { flex: 1, gap: 5 },
+  itemName:  { fontSize: 14, fontWeight: "900", color: "#2c1a00" },
+  badgeRow:  { flexDirection: "row", gap: 3, alignItems: "center" },
+
+  // Tier + rarity badges (connected ribbon style)
+  tierBadge: {
+    borderTopLeftRadius: 5,
+    borderBottomLeftRadius: 5,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  tierText: { fontSize: 9, fontWeight: "900", color: "#fff", letterSpacing: 0.3 },
+  rarityBadge: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 5,
+    borderBottomRightRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  rarityText: { fontSize: 9, fontWeight: "900", color: "#fff", letterSpacing: 0.8 },
+
+  // Stat row
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  statLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  // Bottom row
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  // Stone pills
+  stonePill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1.5,
+  },
+  stonePillNone: {
+    backgroundColor: "#6a5a48",
+    borderColor: "#4a3a2a",
+    opacity: 0.6,
+  },
+  stonePillNoneText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "rgba(255,255,255,0.75)",
+    letterSpacing: 0.5,
+  },
+  stonePillHas: {
+    backgroundColor: "#e8f5e9",
+    borderColor: "#4a7c3f",
+  },
+  stonePillHasText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#2d5a24",
+  },
+  stonePillMax: {
+    backgroundColor: "#e8c87a",
+    borderColor: "#c8a040",
+    justifyContent: "center",
+  },
+  stonePillMaxText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#7a5020",
+    textAlign: "center",
+    flex: 1,
+  },
+  emptyDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#6a4a20",
+    borderWidth: 2,
+    borderColor: "#4a2a08",
+    flexShrink: 0,
+  },
+  gemDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#4a7c3f",
+    flexShrink: 0,
+  },
+
+  // Primary action button
+  actionBtn: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    flexShrink: 0,
+  },
+  equipBtn: {
+    backgroundColor: "#4a7c3f",
+    borderColor: "#2d5a24",
+  },
+  unequipBtn: {
+    backgroundColor: "#c87820",
+    borderColor: "#a05a10",
+  },
+  actionBtnDisabled: { opacity: 0.4 },
+  actionBtnText: { fontSize: 13, fontWeight: "900", color: "#fff" },
+
+  // Upgrade panel
+  upgradePanel: {
+    backgroundColor: "#f5edd8",
+    borderRadius: 8,
+    padding: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#d4b896",
+  },
+  upgradePanelText: { fontSize: 10, color: "#7a5a30", fontWeight: "600" },
+  confirmBtn: {
+    backgroundColor: "#7a5a9a",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    borderWidth: 1.5,
+    borderColor: "#5a3a7a",
+  },
+  confirmBtnText: { color: "#fff", fontSize: 12, fontWeight: "800" },
 });
