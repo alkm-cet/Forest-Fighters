@@ -16,6 +16,7 @@ import { RESOURCE_META } from "../constants/resources";
 const COIN_IMG = require("../assets/icons/icon-coin.webp");
 import { useLanguage, TranslationKeys } from "../lib/i18n";
 import CustomButton from "./CustomButton";
+import CustomModal from "./CustomModal";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
 import InGameCoinConfirmModal from "./InGameCoinConfirmModal";
 import FoodInventoryDrawer from "./FoodInventoryDrawer";
@@ -73,6 +74,8 @@ export default function FarmerDrawer({
   const { triggerCoinConfirm } = useCoinConfirm();
   const queryClient = useQueryClient();
   const translateY = useRef(new Animated.Value(0)).current;
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Food slots state
   const [foodInventoryOpen, setFoodInventoryOpen] = useState(false);
@@ -272,7 +275,7 @@ export default function FarmerDrawer({
       api.get("/api/kitchen/inventory").then((res) => setPlayerFoods(res.data)).catch(() => {});
       queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
-      alert(err.response?.data?.error ?? "Could not use food");
+      alert(err.response?.data?.error ?? t("foodCouldNotUse"));
     }
   }
 
@@ -296,7 +299,7 @@ export default function FarmerDrawer({
         }
       } catch { /* non-critical */ }
     } catch (err: any) {
-      alert(err.response?.data?.error ?? "Could not remove food");
+      alert(err.response?.data?.error ?? t("foodCouldNotRemove"));
     }
   }
 
@@ -455,11 +458,11 @@ export default function FarmerDrawer({
                         {countdown ? (
                           <Text style={styles.foodSlotCountdown}>{countdown}</Text>
                         ) : (
-                          <Text style={styles.foodSlotOneShotLabel}>one-shot</Text>
+                          <Text style={styles.foodSlotOneShotLabel}>{t("foodOneShotLabel")}</Text>
                         )}
                       </>
                     ) : (
-                      <Text style={styles.addFoodText}>Add Food</Text>
+                      <Text style={styles.addFoodText}>{t("addFood")}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -586,7 +589,7 @@ export default function FarmerDrawer({
                 </View>
               ) : undefined
             }
-            onClick={() => onUpgrade(farmer)}
+            onClick={() => !isMaxLevel && canUpgrade && setShowUpgradeModal(true)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
             borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
             disabled={!canUpgrade}
@@ -649,7 +652,7 @@ export default function FarmerDrawer({
                 <Text style={styles.removeFoodEffect}>{describeEffect(food.recipe)}</Text>
                 {hasCountdown && (
                   <View style={styles.removeFoodTimerRow}>
-                    <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
+                    <Text style={styles.removeFoodTimerLabel}>{t("foodRemainingLabel")}</Text>
                     <Text style={styles.removeFoodTimer}>{formatCountdown(food.expires_at_ms!)}</Text>
                   </View>
                 )}
@@ -659,14 +662,14 @@ export default function FarmerDrawer({
                     activeOpacity={0.75}
                     onPress={() => setRemoveSlot(null)}
                   >
-                    <Text style={styles.removeFoodKeepText}>Keep</Text>
+                    <Text style={styles.removeFoodKeepText}>{t("foodKeepBtn")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.removeFoodRemoveBtn}
                     activeOpacity={0.75}
                     onPress={() => handleRemoveFood(removeSlot)}
                   >
-                    <Text style={styles.removeFoodRemoveText}>Discard Food</Text>
+                    <Text style={styles.removeFoodRemoveText}>{t("foodDiscardBtn")}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -674,6 +677,29 @@ export default function FarmerDrawer({
           );
         })()}
       </View>
+
+      <CustomModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onConfirm={() => {
+          setShowUpgradeModal(false);
+          onUpgrade(farmer);
+        }}
+        title={t("farmerUpgradeTitle")}
+        confirmText={t("upgradeBtn")}
+      >
+        <View style={styles.modalBody}>
+          <Text style={styles.modalText}>
+            {t("farmerUpgradeConfirmPre")} LV {farmer.level} → LV {farmer.level + 1} {t("farmerUpgradeConfirmPost")}
+          </Text>
+          <View style={styles.modalCostRow}>
+            {res1Meta?.image && <Image source={res1Meta.image} style={styles.modalCostIcon} resizeMode="contain" />}
+            <Text style={styles.modalCostText}>×{upgradeCost}</Text>
+            {res2Meta?.image && <Image source={res2Meta.image} style={styles.modalCostIcon} resizeMode="contain" />}
+            <Text style={styles.modalCostText}>×{upgradeCost}</Text>
+          </View>
+        </View>
+      </CustomModal>
     </Modal>
   );
 }
@@ -740,6 +766,11 @@ const styles = StyleSheet.create({
   },
   upgradeMiniLevel: { fontSize: 12, fontWeight: "800", color: "#4a7c3f" },
   costShort: { color: "#c0392b" },
+  modalBody: { gap: 10 },
+  modalText: { fontSize: 14, fontWeight: "600", color: "#5a3a10" },
+  modalCostRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  modalCostIcon: { width: 22, height: 22 },
+  modalCostText: { fontSize: 15, fontWeight: "800", color: "#3a1e00" },
   levelBadge: {
     flexDirection: "row",
     alignItems: "baseline",

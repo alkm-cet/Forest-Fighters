@@ -239,6 +239,76 @@ const translations = {
     gearErrorUpgrade: "Upgrade failed",
     gearErrorTitle: "Error",
 
+    // Gear drawer — extra strings
+    gearStatAttack: "ATTACK",
+    gearStatDefense: "DEFENSE",
+    gearStatChance: "CHANCE",
+    gearNoStonesLabel: "UPGRADE",
+    gearWeaponsTab: "Weapons",
+    gearCharmsTab: "Charms",
+    gearDiscardHint: "Are you sure you want to discard this item?",
+    gearDiscardCancel: "Cancel",
+    gearDiscardConfirm: "Discard",
+    gearDiscardFailed: "Could not discard gear",
+
+    // Food slot UI (shared)
+    foodOneShotLabel: "one-shot",
+    foodRemainingLabel: "Remaining",
+    foodKeepBtn: "Keep",
+    foodDiscardBtn: "Discard Food",
+    foodCouldNotUse: "Could not use food",
+    foodCouldNotRemove: "Could not remove food",
+
+    // Champion drawer
+    champLoading: "Loading...",
+    champInBattle: "In Battle!",
+    champDefenderTitle: "Defender Champion",
+    champDefenderWarning: "This champion is set as defender. Assign another champion as defender first to use this one in battle.",
+    okBtn: "OK",
+    champInstantCookFailed: "Instant cook failed",
+    coinReviveDescPre: "Instantly revive ",
+    coinReviveDescPost: "?",
+    skipBattleDescPost: "'s battle finished instantly?",
+    skipMissionDescPost: "'s mission finished instantly?",
+    coinHealDescPost: " fully healed?",
+
+    // Upgrade buttons and modals
+    upgradeBtn: "Upgrade",
+    farmerUpgradeTitle: "Upgrade Farmer",
+    farmerUpgradeConfirmPre: "Upgrade farmer from",
+    farmerUpgradeConfirmPost: "?",
+    farmUpgradeTitle: "Upgrade Farm",
+    farmUpgradeConfirmPre: "Upgrade farm from",
+    farmUpgradeConfirmPost: "?",
+
+    // Farm drawer labels
+    farmLevelLabel: "FARM LV",
+    farmMaxLevelLabel: "Max Farm Lv",
+    farmProductionSection: "PRODUCTION",
+    farmTotalPending: "Total Pending",
+    farmAnimalsRunning: "Animals Running",
+    farmSlotsLabel: "Slots",
+    farmCollectAll: "Collect All",
+    farmViewFarm: "View Farm",
+    farmMaxLv: "Max Lv",
+
+    // Battle history drawer
+    battleNoGearInfo: "— no gear info —",
+    battleNoGear: "— no gear —",
+    battleLevelUpPrefix: "⬆️ LEVEL UP! LV",
+    battleGearDrop: "✨ Gear Drop!",
+    battleStart: "START",
+    battleRoundPrefix: "— ROUND",
+    battleCrit: "⚡CRIT",
+    battleShield: "🛡BLOCK",
+    battleBlocked: "BLOCK",
+    battleDungeonCleared: "Dungeon cleared!",
+    battleEnemyTooStrong: "Enemy was too strong",
+    battleVictory: "⚔️  VICTORY!",
+    battleDefeat: "💀  DEFEAT",
+    battleCombatLog: "COMBAT LOG",
+    battleClose: "Close",
+
     // Instant cook
     instantCookBtn: "Cook Now",
     instantCookTitle: "Cook Now",
@@ -504,6 +574,59 @@ const translations = {
     gearErrorUpgrade: "Güçlendirme başarısız",
     gearErrorTitle: "Hata",
 
+    // Gear drawer — extra strings
+    gearStatAttack: "SALDIRI",
+    gearStatDefense: "SAVUNMA",
+    gearStatChance: "ŞANS",
+    gearNoStonesLabel: "YÜKSELT",
+    gearWeaponsTab: "Silahlar",
+    gearCharmsTab: "Tılsımlar",
+    gearDiscardHint: "Bu eşyayı atmak istediğinden emin misin?",
+    gearDiscardCancel: "Vazgeç",
+    gearDiscardConfirm: "At",
+    gearDiscardFailed: "Eşya atılamadı",
+
+    // Food slot UI (shared)
+    foodOneShotLabel: "tek seferlik",
+    foodRemainingLabel: "Kalan",
+    foodKeepBtn: "Tut",
+    foodDiscardBtn: "Yemeği Kaldır",
+    foodCouldNotUse: "Yemek kullanılamadı",
+    foodCouldNotRemove: "Yemek kaldırılamadı",
+
+    // Champion drawer
+    champLoading: "Yükleniyor...",
+    champInBattle: "Savaşta!",
+    champDefenderTitle: "Savunucu Şampiyon",
+    champDefenderWarning: "Bu şampiyon savunucu olarak seçilmiş. Savaştırmak için önce başka bir şampiyonu savunucu olarak ata.",
+    okBtn: "Tamam",
+    champInstantCookFailed: "Anlık pişirme başarısız",
+    coinReviveDescPre: "",
+    coinReviveDescPost: " anında canlandırılsın mı?",
+    skipBattleDescPost: " savaşı anında tamamlansın mı?",
+    skipMissionDescPost: " görevi anında tamamlansın mı?",
+    coinHealDescPost: " tam olarak iyileştirilsin mi?",
+
+    // Upgrade buttons and modals
+    upgradeBtn: "Geliştir",
+    farmerUpgradeTitle: "Çiftçiyi Geliştir",
+    farmerUpgradeConfirmPre: "Çiftçiyi",
+    farmerUpgradeConfirmPost: "seviyesine yükseltmek istiyor musun?",
+    farmUpgradeTitle: "Çiftliği Geliştir",
+    farmUpgradeConfirmPre: "Çiftliği",
+    farmUpgradeConfirmPost: "seviyesine yükseltmek istiyor musun?",
+
+    // Farm drawer labels
+    farmLevelLabel: "ÇİFT SVY",
+    farmMaxLevelLabel: "Max Çiftlik Sv",
+    farmProductionSection: "ÜRETİM",
+    farmTotalPending: "Bekleyen",
+    farmAnimalsRunning: "Çalışan Hayvan",
+    farmSlotsLabel: "Yuva",
+    farmCollectAll: "Hepsini Topla",
+    farmViewFarm: "Çiftliği Gör",
+    farmMaxLv: "Max Sv",
+
     // Instant cook
     instantCookBtn: "Hemen Pişir",
     instantCookTitle: "Hemen Pişir",
@@ -513,6 +636,23 @@ const translations = {
     forgeStoneT1Desc: "Tier 1 eşyaları 1 seviye yükseltir",
     forgeStoneT2Desc: "Tier 2 eşyaları 1 seviye yükseltir",
     forgeStoneAnyDesc: "Tüm tier eşyaları 1 seviye yükseltir",
+
+    // Battle history drawer
+    battleNoGearInfo: "— ekipman bilgisi yok —",
+    battleNoGear: "— ekipmansız —",
+    battleLevelUpPrefix: "⬆️ SEVİYE ATLADI! LV",
+    battleGearDrop: "✨ Ekipman Düştü!",
+    battleStart: "BAŞLANGIÇ",
+    battleRoundPrefix: "— TUR",
+    battleCrit: "⚡KRİT",
+    battleShield: "🛡KALKAN",
+    battleBlocked: "BLOK",
+    battleDungeonCleared: "Dungeon temizlendi!",
+    battleEnemyTooStrong: "Düşman çok güçlüydü",
+    battleVictory: "⚔️  ZAFER!",
+    battleDefeat: "💀  BOZGUN",
+    battleCombatLog: "SAVAŞ GÜNLÜĞÜ",
+    battleClose: "Kapat",
 
     // Fire Screen (Kitchen)
     fireScreen: "Ateş",

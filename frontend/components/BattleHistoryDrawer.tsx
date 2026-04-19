@@ -10,6 +10,8 @@ import {
 import { Text } from "./StyledText";
 import { ArrowRight, ArrowLeft } from "lucide-react-native";
 import { RESOURCE_META, CLASS_META, RARITY_META } from "../constants/resources";
+import { GEAR_IMAGES } from "./GearDrawer";
+import { useLanguage } from "../lib/i18n";
 import type {
   PvpBattle,
   ClaimResult,
@@ -224,7 +226,15 @@ function GearChip({ gear }: { gear: PlayerGear }) {
   const meta = RARITY_META[gear.rarity];
   return (
     <View style={[gearChipStyles.chip, { borderColor: meta.borderColor }]}>
-      <Text style={gearChipStyles.emoji}>{gear.definition.emoji}</Text>
+      {GEAR_IMAGES[gear.definition.id] ? (
+        <Image
+          source={GEAR_IMAGES[gear.definition.id]}
+          style={gearChipStyles.gearImg}
+          resizeMode="contain"
+        />
+      ) : (
+        <Text style={gearChipStyles.emoji}>{gear.definition.emoji}</Text>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={gearChipStyles.name} numberOfLines={1}>
           {gear.definition.name}
@@ -258,6 +268,7 @@ const gearChipStyles = StyleSheet.create({
     marginBottom: 3,
   },
   emoji: { fontSize: 16, lineHeight: 20 },
+  gearImg: { width: 20, height: 20 },
   name: { fontSize: 10, fontWeight: "700", color: "#3a2a10", maxWidth: 90 },
   rarityBadge: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   rarityText: { fontSize: 8, fontWeight: "700", color: "#fff" },
@@ -271,6 +282,7 @@ function GearSlotRow({
   gear: GearSnapshot | null;
   align?: "left" | "right";
 }) {
+  const { t } = useLanguage();
   if (!gear) {
     return (
       <View
@@ -280,9 +292,7 @@ function GearSlotRow({
           alignItems: align === "right" ? "flex-end" : "flex-start",
         }}
       >
-        <Text style={{ fontSize: 10, color: "#888" }}>
-          — ekipman bilgisi yok —
-        </Text>
+        <Text style={{ fontSize: 10, color: "#888" }}>{t("battleNoGearInfo")}</Text>
       </View>
     );
   }
@@ -296,7 +306,7 @@ function GearSlotRow({
           alignItems: align === "right" ? "flex-end" : "flex-start",
         }}
       >
-        <Text style={{ fontSize: 10, color: "#888" }}>— ekipsiz —</Text>
+        <Text style={{ fontSize: 10, color: "#888" }}>{t("battleNoGear")}</Text>
       </View>
     );
   }
@@ -398,11 +408,6 @@ const portraitStyles = StyleSheet.create({
 
 function PvpOutcome({ n, won }: { n: Normalized; won: boolean }) {
   const delta = n.trophyDelta ?? 0;
-  const resources = (["strawberry", "pinecone", "blueberry"] as const).filter(
-    (r) =>
-      ((n as any)[`transferred${r.charAt(0).toUpperCase() + r.slice(1)}`] ??
-        0) > 0,
-  );
   return (
     <View style={outcomeStyles.row}>
       <View
@@ -453,6 +458,7 @@ function PvpOutcome({ n, won }: { n: Normalized; won: boolean }) {
 }
 
 function PveOutcome({ n }: { n: Normalized }) {
+  const { t } = useLanguage();
   return (
     <View style={{ gap: 8 }}>
       {/* Stars */}
@@ -510,7 +516,7 @@ function PveOutcome({ n }: { n: Normalized }) {
       {(n.levelsGained ?? 0) > 0 && (
         <View style={outcomeStyles.levelUpBadge}>
           <Text style={outcomeStyles.levelUpText}>
-            ⬆️ SEVİYE ATLADI! LV {n.newLevel}
+            {t("battleLevelUpPrefix")} {n.newLevel}
           </Text>
         </View>
       )}
@@ -528,13 +534,21 @@ function PveOutcome({ n }: { n: Normalized }) {
               },
             ]}
           >
-            <Text style={outcomeStyles.gearDropTitle}>✨ Gear Drop!</Text>
+            <Text style={outcomeStyles.gearDropTitle}>{t("battleGearDrop")}</Text>
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
             >
-              <Text style={{ fontSize: 30, lineHeight: 36 }}>
-                {drop.definition.emoji}
-              </Text>
+              {GEAR_IMAGES[drop.definition.id] ? (
+                <Image
+                  source={GEAR_IMAGES[drop.definition.id]}
+                  style={{ width: 36, height: 36 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={{ fontSize: 30, lineHeight: 36 }}>
+                  {drop.definition.emoji}
+                </Text>
+              )}
               <View style={{ flex: 1, gap: 3 }}>
                 <Text
                   style={{ fontSize: 14, fontWeight: "700", color: "#3a2a10" }}
@@ -642,6 +656,7 @@ function StartHpRow({
   leftName: string;
   rightName: string;
 }) {
+  const { t } = useLanguage();
   if (log.length === 0) return null;
   const first = log[0];
   // Derive starting HP: whoever was hit in the first entry had HP reduced by damage
@@ -661,7 +676,7 @@ function StartHpRow({
         </Text>
         <Text style={logStyles.startHpVal}>❤️ {leftStartHp} HP</Text>
       </View>
-      <Text style={logStyles.startHpVs}>BAŞLANGIÇ</Text>
+      <Text style={logStyles.startHpVs}>{t("battleStart")}</Text>
       <View style={[logStyles.startHpSide, { alignItems: "flex-end" }]}>
         <Text style={logStyles.startHpName} numberOfLines={1}>
           {rightName}
@@ -724,6 +739,7 @@ function CombatLogEntry({
   rightClass: string | null;
   rightEnemyImg?: any;
 }) {
+  const { t } = useLanguage();
   const newRound = !prevEntry || prevEntry.round !== entry.round;
   const leftAttacks = entry.actor === "left";
   const blocked = entry.damage === 0;
@@ -743,7 +759,7 @@ function CombatLogEntry({
     <View style={logStyles.row}>
       {newRound && (
         <View style={logStyles.roundBadge}>
-          <Text style={logStyles.roundText}>— TUR {entry.round + 1} —</Text>
+          <Text style={logStyles.roundText}>{t("battleRoundPrefix")} {entry.round + 1} —</Text>
         </View>
       )}
 
@@ -777,7 +793,7 @@ function CombatLogEntry({
               <Text style={logStyles.atkVal}>ATK {entry.attackValue}</Text>
               {entry.atkBoosted && (
                 <View style={logStyles.critBadge}>
-                  <Text style={logStyles.critText}>⚡KRİT</Text>
+                  <Text style={logStyles.critText}>{t("battleCrit")}</Text>
                 </View>
               )}
             </View>
@@ -785,7 +801,7 @@ function CombatLogEntry({
             <View style={logStyles.statBadgeRow}>
               {entry.defBoosted && (
                 <View style={logStyles.blockBadge}>
-                  <Text style={logStyles.blockText}>🛡KALKAN</Text>
+                  <Text style={logStyles.blockText}>{t("battleShield")}</Text>
                 </View>
               )}
               <Text style={logStyles.defVal}>DEF {entry.defenseValue}</Text>
@@ -812,7 +828,7 @@ function CombatLogEntry({
                 blocked ? logStyles.dmgTextBlock : logStyles.dmgTextHit,
               ]}
             >
-              {blocked ? "BLOK" : `−${entry.damage}`}
+              {blocked ? t("battleBlocked") : `−${entry.damage}`}
             </Text>
           </View>
         </View>
@@ -851,7 +867,7 @@ function CombatLogEntry({
               <Text style={logStyles.atkVal}>ATK {entry.attackValue}</Text>
               {entry.atkBoosted && (
                 <View style={logStyles.critBadge}>
-                  <Text style={logStyles.critText}>⚡KRİT</Text>
+                  <Text style={logStyles.critText}>{t("battleCrit")}</Text>
                 </View>
               )}
             </View>
@@ -859,7 +875,7 @@ function CombatLogEntry({
             <View style={[logStyles.statBadgeRow, logStyles.statBadgeRowRight]}>
               {entry.defBoosted && (
                 <View style={logStyles.blockBadge}>
-                  <Text style={logStyles.blockText}>🛡KALKAN</Text>
+                  <Text style={logStyles.blockText}>{t("battleShield")}</Text>
                 </View>
               )}
               <Text style={logStyles.defVal}>DEF {entry.defenseValue}</Text>
@@ -983,6 +999,7 @@ const logStyles = StyleSheet.create({
 
 export default function BattleHistoryDrawer(props: Props) {
   const { visible, onClose } = props;
+  const { t } = useLanguage();
 
   const n = useMemo(() => {
     if (props.mode === "pvp") {
@@ -1000,8 +1017,8 @@ export default function BattleHistoryDrawer(props: Props) {
     props.mode === "pvp"
       ? `vs ${props.battle.attacker_id === props.myPlayerId ? props.battle.defender_name : props.battle.attacker_name}`
       : props.result.winner === "champion"
-        ? "Dungeon temizlendi!"
-        : "Düşman çok güçlüydü";
+        ? t("battleDungeonCleared")
+        : t("battleEnemyTooStrong");
 
   return (
     <Modal
@@ -1020,7 +1037,7 @@ export default function BattleHistoryDrawer(props: Props) {
             ]}
           >
             <Text style={styles.title}>
-              {n.won ? "⚔️  ZAFER!" : "💀  BOZGUN"}
+              {n.won ? t("battleVictory") : t("battleDefeat")}
             </Text>
             <Text style={styles.subtitle}>{subtitleText}</Text>
           </View>
@@ -1064,7 +1081,7 @@ export default function BattleHistoryDrawer(props: Props) {
             {/* ── COMBAT LOG ── */}
             {n.log.length > 0 && (
               <View style={styles.logSection}>
-                <Text style={styles.logTitle}>SAVAŞ GÜNLÜĞÜ</Text>
+                <Text style={styles.logTitle}>{t("battleCombatLog")}</Text>
                 <StartHpRow
                   log={n.log}
                   leftName={n.leftName}
@@ -1088,7 +1105,7 @@ export default function BattleHistoryDrawer(props: Props) {
 
           {/* ── CLOSE BUTTON ── */}
           <TouchableOpacity style={styles.btn} onPress={onClose}>
-            <Text style={styles.btnText}>Kapat</Text>
+            <Text style={styles.btnText}>{t("battleClose")}</Text>
           </TouchableOpacity>
         </View>
       </View>

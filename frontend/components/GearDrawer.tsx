@@ -98,14 +98,14 @@ function LevelBadge({ level }: { level: number }) {
 }
 
 // ── Stat row ───────────────────────────────────────────────────────────────────
-function StatRow({ gear }: { gear: PlayerGear }) {
+function StatRow({ gear, t }: { gear: PlayerGear; t: (key: TranslationKeys) => string }) {
   const stat =
     gear.attack_bonus > 0
-      ? { label: "SALDIRI", value: gear.attack_bonus, icon: <Swords size={13} color="#c0392b" strokeWidth={2.5} />, color: "#c0392b", bg: "#fce8e4" }
+      ? { label: t("gearStatAttack"), value: gear.attack_bonus, icon: <Swords size={13} color="#c0392b" strokeWidth={2.5} />, color: "#c0392b", bg: "#fce8e4" }
       : gear.defense_bonus > 0
-        ? { label: "SAVUNMA", value: gear.defense_bonus, icon: <Shield size={13} color="#1565c0" strokeWidth={2.5} />, color: "#1565c0", bg: "#e3eeff" }
+        ? { label: t("gearStatDefense"), value: gear.defense_bonus, icon: <Shield size={13} color="#1565c0" strokeWidth={2.5} />, color: "#1565c0", bg: "#e3eeff" }
         : gear.chance_bonus > 0
-          ? { label: "ŞANS",    value: gear.chance_bonus,   icon: <Zap    size={13} color="#2e7d32" strokeWidth={2.5} />, color: "#2e7d32", bg: "#e8f5e9" }
+          ? { label: t("gearStatChance"), value: gear.chance_bonus, icon: <Zap size={13} color="#2e7d32" strokeWidth={2.5} />, color: "#2e7d32", bg: "#e8f5e9" }
           : null;
   if (!stat) return null;
   return (
@@ -218,7 +218,7 @@ function GearCard({
         </View>
 
         {/* Stat row */}
-        <StatRow gear={gear} />
+        <StatRow gear={gear} t={t} />
 
         {/* Bottom row: stone/upgrade slot + primary action */}
         <View style={cardStyles.bottomRow}>
@@ -240,7 +240,7 @@ function GearCard({
           ) : (
             <View style={[cardStyles.stonePill, cardStyles.stonePillNone]}>
               <Sparkles size={10} color="rgba(255,255,255,0.4)" strokeWidth={2.5} />
-              <Text style={cardStyles.stonePillNoneText}>YÜKSELT</Text>
+              <Text style={cardStyles.stonePillNoneText}>{t("gearNoStonesLabel")}</Text>
             </View>
           )}
 
@@ -471,7 +471,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
       setDismissingId(null);
       Alert.alert(
         t("gearErrorTitle"),
-        e?.response?.data?.error ?? "Could not discard gear",
+        e?.response?.data?.error ?? t("gearDiscardFailed"),
       );
     });
   }
@@ -651,7 +651,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                     activeTab === "weapon" && styles.tabBtnTextActive,
                   ]}
                 >
-                  Silahlar ({inventoryWeapons.length})
+                  {t("gearWeaponsTab")} ({inventoryWeapons.length})
                 </Text>
                 {activeTab === "weapon" && <View style={styles.tabUnderline} />}
               </TouchableOpacity>
@@ -666,7 +666,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                     activeTab === "charm" && styles.tabBtnTextActive,
                   ]}
                 >
-                  Tılsımlar ({inventoryCharms.length})
+                  {t("gearCharmsTab")} ({inventoryCharms.length})
                 </Text>
                 {activeTab === "charm" && <View style={styles.tabUnderline} />}
               </TouchableOpacity>
@@ -744,7 +744,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
               </Text>
             </View>
             <Text style={styles.discardModalHint}>
-              Bu eşyayı atmak istediğinden emin misin?
+              {t("gearDiscardHint")}
             </Text>
             <View style={styles.discardModalBtnRow}>
               <TouchableOpacity
@@ -752,7 +752,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                 onPress={() => setDiscardTarget(null)}
                 activeOpacity={0.75}
               >
-                <Text style={styles.discardCancelText}>Vazgeç</Text>
+                <Text style={styles.discardCancelText}>{t("gearDiscardCancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.discardConfirmBtn}
@@ -760,7 +760,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                 activeOpacity={0.75}
               >
                 <Trash2 size={13} color="#fff" strokeWidth={2.5} />
-                <Text style={styles.discardConfirmText}>At</Text>
+                <Text style={styles.discardConfirmText}>{t("gearDiscardConfirm")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1160,10 +1160,11 @@ const cardStyles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
     borderWidth: 1.5,
   },
   stonePillNone: {
@@ -1217,13 +1218,13 @@ const cardStyles = StyleSheet.create({
 
   // Primary action button
   actionBtn: {
+    flex: 1,
     borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    flexShrink: 0,
   },
   equipBtn: {
     backgroundColor: "#4a7c3f",

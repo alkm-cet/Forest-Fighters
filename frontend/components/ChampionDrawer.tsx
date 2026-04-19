@@ -402,7 +402,7 @@ export default function ChampionDrawer({
         .catch(() => {});
       queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
     } catch (err: any) {
-      alert(err.response?.data?.error ?? "Could not use food");
+      alert(err.response?.data?.error ?? t("foodCouldNotUse"));
     }
   }
 
@@ -421,7 +421,7 @@ export default function ChampionDrawer({
         onFoodUsed(res.data.champion);
       }
     } catch (err: any) {
-      alert(err.response?.data?.error ?? "Could not remove food");
+      alert(err.response?.data?.error ?? t("foodCouldNotRemove"));
     }
   }
 
@@ -531,7 +531,7 @@ export default function ChampionDrawer({
               showsVerticalScrollIndicator={false}
             >
               {historyLoading ? (
-                <Text style={styles.historyEmpty}>Yükleniyor...</Text>
+                <Text style={styles.historyEmpty}>{t("champLoading")}</Text>
               ) : history.length === 0 ? (
                 <Text style={styles.historyEmpty}>{t("noHistory")}</Text>
               ) : (
@@ -886,7 +886,7 @@ export default function ChampionDrawer({
                                   </Text>
                                 ) : (
                                   <Text style={styles.foodSlotOneShotLabel}>
-                                    one-shot
+                                    {t("foodOneShotLabel")}
                                   </Text>
                                 )}
                               </>
@@ -1026,7 +1026,7 @@ export default function ChampionDrawer({
                       triggerCoinConfirm({
                         transactionCost: COIN_REVIVE_COST,
                         transactionTitle: t("coinRevive"),
-                        transactionDesc: `${champion.name} anında canlandırılsın mı?`,
+                        transactionDesc: t("coinReviveDescPre") + champion.name + t("coinReviveDescPost"),
                         onConfirm: () => onCoinRevive?.(champion),
                       })
                     }
@@ -1049,7 +1049,7 @@ export default function ChampionDrawer({
                           activeOpacity={0.8}
                         >
                           <Swords size={16} color="#fff" strokeWidth={2} />
-                          <Text style={styles.claimBtnText}>Sonucu Gör</Text>
+                          <Text style={styles.claimBtnText}>{t("viewResult")}</Text>
                         </TouchableOpacity>
                       </View>
                     ) : (
@@ -1059,7 +1059,7 @@ export default function ChampionDrawer({
                           <Swords size={16} color="#8a5cc7" strokeWidth={2} />
                           <View style={styles.onMissionInner}>
                             <Text style={[styles.onMissionText, { color: "#8a5cc7" }]}>
-                              Savaşta!
+                              {t("champInBattle")}
                             </Text>
                             {pvpBattleEndsAt && (
                               <CountdownTimer
@@ -1083,7 +1083,7 @@ export default function ChampionDrawer({
                                   triggerCoinConfirm({
                                     transactionCost: skipCost,
                                     transactionTitle: t("skipCooldown"),
-                                    transactionDesc: `${champion.name} savaşı anında tamamlansın mı?`,
+                                    transactionDesc: champion.name + t("skipBattleDescPost"),
                                     onConfirm: () => onSkipPvp?.(),
                                   })
                                 }
@@ -1168,7 +1168,7 @@ export default function ChampionDrawer({
                                       triggerCoinConfirm({
                                         transactionCost: skipCost,
                                         transactionTitle: t("skipCooldown"),
-                                        transactionDesc: `${champion.name} görevi anında tamamlansın mı?`,
+                                        transactionDesc: champion.name + t("skipMissionDescPost"),
                                         onConfirm: () => onSkipMission?.(champion),
                                       })
                                     }
@@ -1268,7 +1268,7 @@ export default function ChampionDrawer({
                                   triggerCoinConfirm({
                                     transactionCost: coinHealCost,
                                     transactionTitle: t("heal"),
-                                    transactionDesc: `${champion.name} tam olarak iyileştirilsin mi?`,
+                                    transactionDesc: champion.name + t("coinHealDescPost"),
                                     onConfirm: () => onCoinHeal?.(champion),
                                   })
                                 }
@@ -1345,18 +1345,17 @@ export default function ChampionDrawer({
                   }}
                 >
                   <Shield size={20} color="#4a7c3f" strokeWidth={2.5} />
-                  <Text style={styles.confirmTitle}>Savunucu Şampiyon</Text>
+                  <Text style={styles.confirmTitle}>{t("champDefenderTitle")}</Text>
                 </View>
                 <Text style={styles.confirmSubtitle}>
-                  Bu şampiyon savunucu olarak seçilmiş. Savaştırmak için önce
-                  başka bir şampiyonu savunucu olarak ata.
+                  {t("champDefenderWarning")}
                 </Text>
                 <TouchableOpacity
                   style={styles.confirmAcceptBtn}
                   onPress={() => setShowDefenderWarning(false)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.confirmAcceptText}>Tamam</Text>
+                  <Text style={styles.confirmAcceptText}>{t("okBtn")}</Text>
                 </TouchableOpacity>
               </View>
             </Modal>
@@ -1386,8 +1385,8 @@ export default function ChampionDrawer({
           onInstantCook={(foodId, coinCost) =>
             triggerCoinConfirm({
               transactionCost: coinCost,
-              transactionTitle: "Hemen Pişir",
-              transactionDesc: "Yemek anında hazır olsun mu?",
+              transactionTitle: t("instantCookTitle"),
+              transactionDesc: t("instantCookDesc"),
               onConfirm: async () => {
                 try {
                   const res = await api.post(`/api/kitchen/instant/${foodId}`);
@@ -1398,7 +1397,7 @@ export default function ChampionDrawer({
                   const r = await api.get("/api/kitchen/inventory");
                   setPlayerFoods(r.data);
                 } catch (err: any) {
-                  alert(err.response?.data?.error ?? "Instant cook failed");
+                  alert(err.response?.data?.error ?? t("champInstantCookFailed"));
                 }
               },
             })
@@ -1431,7 +1430,7 @@ export default function ChampionDrawer({
                   </Text>
                   {hasCountdown && (
                     <View style={styles.removeFoodTimerRow}>
-                      <Text style={styles.removeFoodTimerLabel}>Remaining</Text>
+                      <Text style={styles.removeFoodTimerLabel}>{t("foodRemainingLabel")}</Text>
                       <Text style={styles.removeFoodTimer}>
                         {formatCountdown(food.expires_at_ms!)}
                       </Text>
@@ -1443,7 +1442,7 @@ export default function ChampionDrawer({
                       activeOpacity={0.75}
                       onPress={() => setRemoveSlot(null)}
                     >
-                      <Text style={styles.removeFoodKeepText}>Keep</Text>
+                      <Text style={styles.removeFoodKeepText}>{t("foodKeepBtn")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.removeFoodRemoveBtn}
@@ -1451,7 +1450,7 @@ export default function ChampionDrawer({
                       onPress={() => handleRemoveFood(removeSlot)}
                     >
                       <Text style={styles.removeFoodRemoveText}>
-                        Discard Food
+                        {t("foodDiscardBtn")}
                       </Text>
                     </TouchableOpacity>
                   </View>

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -14,7 +14,9 @@ import { X, Package, ChevronRight } from "lucide-react-native";
 import { Farm, Resources } from "../types";
 import { FARM_META, RESOURCE_META } from "../constants/resources";
 import CustomButton from "./CustomButton";
+import CustomModal from "./CustomModal";
 import { useRouter } from "expo-router";
+import { useLanguage } from "../lib/i18n";
 
 const DISMISS_THRESHOLD = 100;
 
@@ -42,6 +44,8 @@ export default function FarmDrawer({
   onUpgrade,
 }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const translateY = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
@@ -139,11 +143,11 @@ export default function FarmDrawer({
                 <Text style={styles.upgradeMiniLevel}>LV {farm.level + 1}</Text>
               </>
             ) : (
-              <Text style={styles.upgradeMiniLevel}>Max Farm LV {farm.level}</Text>
+              <Text style={styles.upgradeMiniLevel}>{t("farmMaxLevelLabel")} {farm.level}</Text>
             )}
           </View>
           <View style={styles.levelBadge}>
-            <Text style={styles.levelBadgeLabel}>FARM LV</Text>
+            <Text style={styles.levelBadgeLabel}>{t("farmLevelLabel")}</Text>
             <Text style={styles.levelBadgeNum}>{farm.level}</Text>
           </View>
         </View>
@@ -163,12 +167,12 @@ export default function FarmDrawer({
         {/* Production stats */}
         <View style={styles.sectionLabelRow}>
           <Package size={12} color="#9a7040" strokeWidth={2} />
-          <Text style={styles.sectionLabel}>PRODUCTION</Text>
+          <Text style={styles.sectionLabel}>{t("farmProductionSection")}</Text>
         </View>
 
         <View style={styles.statsBlock}>
           <View style={styles.statRow}>
-            <Text style={styles.statRowLabel}>Total Pending</Text>
+            <Text style={styles.statRowLabel}>{t("farmTotalPending")}</Text>
             <View style={[styles.pendingBadge, { backgroundColor: meta.color }]}>
               {produceMeta?.image && (
                 <Image source={produceMeta.image} style={styles.pendingBadgeIcon} resizeMode="contain" />
@@ -179,13 +183,13 @@ export default function FarmDrawer({
             </View>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statRowLabel}>Animals Running</Text>
+            <Text style={styles.statRowLabel}>{t("farmAnimalsRunning")}</Text>
             <Text style={styles.statRowValue}>
               {runningCount} / {farm.animals.length}
             </Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statRowLabel}>Slots</Text>
+            <Text style={styles.statRowLabel}>{t("farmSlotsLabel")}</Text>
             <Text style={styles.statRowValue}>
               {farm.animals.length} / {farm.slot_count}
             </Text>
@@ -197,10 +201,10 @@ export default function FarmDrawer({
           btnImage={produceMeta?.image ?? undefined}
           text={
             produceCapFull
-              ? `${produceMeta?.label ?? farm.produce_resource} — Storage Full`
+              ? `${produceMeta?.label ?? farm.produce_resource} — ${t("farmerStorageFull")}`
               : collectible > 0
-                ? `Collect All (+${collectible}${collectible < farm.total_pending ? `/${farm.total_pending}` : ""})`
-                : "Nothing to Collect"
+                ? `${t("farmCollectAll")} (+${collectible}${collectible < farm.total_pending ? `/${farm.total_pending}` : ""})`
+                : t("nothingToCollect")
           }
           onClick={() => onCollect(farm)}
           bgColor={produceCapFull ? "#9a7040" : meta.color}
@@ -216,7 +220,7 @@ export default function FarmDrawer({
           <CustomButton
             btnIcon={<ChevronRight size={20} color="#fff" strokeWidth={2.5} />}
             btnImagePos="right"
-            text="Çiftliği Gör"
+            text={t("farmViewFarm")}
             onClick={() => {
               onClose();
               setTimeout(() => {
@@ -231,7 +235,7 @@ export default function FarmDrawer({
             style={{ flex: 1 }}
           />
           <CustomButton
-            text={isMaxLevel ? `Max LV` : `Geliştir`}
+            text={isMaxLevel ? t("farmMaxLv") : t("upgradeBtn")}
             subContent={
               !isMaxLevel ? (
                 <View style={styles.costRow}>
@@ -244,7 +248,7 @@ export default function FarmDrawer({
                 </View>
               ) : undefined
             }
-            onClick={() => onUpgrade(farm)}
+            onClick={() => !isMaxLevel && canAffordUpgrade && setShowUpgradeModal(true)}
             bgColor={isMaxLevel ? "#9a7040" : "#4a7c3f"}
             borderColor={isMaxLevel ? "#7a5030" : "#2d5a24"}
             disabled={isMaxLevel || !canAffordUpgrade}
@@ -252,6 +256,31 @@ export default function FarmDrawer({
           />
         </View>
       </Animated.View>
+
+      <CustomModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onConfirm={() => {
+          setShowUpgradeModal(false);
+          onUpgrade(farm);
+        }}
+        title={t("farmUpgradeTitle")}
+        confirmText={t("upgradeBtn")}
+      >
+        <View style={styles.modalBody}>
+          <Text style={styles.modalText}>
+            {t("farmUpgradeConfirmPre")} LV {farm.level} → LV {farm.level + 1} {t("farmUpgradeConfirmPost")}
+          </Text>
+          <View style={styles.modalCostRow}>
+            {strawberryMeta?.image && <Image source={strawberryMeta.image} style={styles.modalCostIcon} resizeMode="contain" />}
+            <Text style={styles.modalCostText}>×{upgradeCost}</Text>
+            {pineconesMeta?.image && <Image source={pineconesMeta.image} style={styles.modalCostIcon} resizeMode="contain" />}
+            <Text style={styles.modalCostText}>×{upgradeCost}</Text>
+            {blueberryMeta?.image && <Image source={blueberryMeta.image} style={styles.modalCostIcon} resizeMode="contain" />}
+            <Text style={styles.modalCostText}>×{upgradeCost}</Text>
+          </View>
+        </View>
+      </CustomModal>
     </Modal>
   );
 }
@@ -415,4 +444,9 @@ const styles = StyleSheet.create({
   costRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   costIcon: { width: 16, height: 16 },
   costText: { fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
+  modalBody: { gap: 10 },
+  modalText: { fontSize: 14, fontWeight: "600", color: "#5a3a10" },
+  modalCostRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  modalCostIcon: { width: 22, height: 22 },
+  modalCostText: { fontSize: 15, fontWeight: "800", color: "#3a1e00" },
 });
