@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { getChampionGearBonuses } = require('./gear');
 
 const COIN_REVIVE_COST = 15;
 const MAX_COINS = 999999;
@@ -354,10 +355,21 @@ router.post('/revive-champion', authMiddleware, async (req, res) => {
       [champion_id]
     );
 
-    const updated = await query('SELECT * FROM champions WHERE id = $1', [champion_id]);
+    const updated = await query(
+      'SELECT id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed, stat_points, boost_hp, boost_defense, boost_chance, last_defender FROM champions WHERE id = $1',
+      [champion_id]
+    );
     const newCoins = await getCoins(playerId);
+    const champ = updated[0];
+    const raw = await getChampionGearBonuses(champion_id);
+    const championWithGear = {
+      ...champ,
+      gear_attack:  Math.min(raw.attack,  Math.floor(champ.attack  * 0.5)),
+      gear_defense: Math.min(raw.defense, Math.floor(champ.defense * 0.5)),
+      gear_chance:  Math.min(raw.chance,  Math.floor(champ.chance  * 0.5)),
+    };
 
-    return res.json({ coins: newCoins, champion: updated[0] });
+    return res.json({ coins: newCoins, champion: championWithGear });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to revive champion with coins' });
@@ -399,10 +411,21 @@ router.post('/heal-champion', authMiddleware, async (req, res) => {
     await query('UPDATE players SET coins = coins - $1 WHERE id = $2', [cost, playerId]);
     await query('UPDATE champions SET current_hp = $1 WHERE id = $2', [effectiveMaxHp, champion_id]);
 
-    const updated = await query('SELECT * FROM champions WHERE id = $1', [champion_id]);
+    const updated = await query(
+      'SELECT id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed, stat_points, boost_hp, boost_defense, boost_chance, last_defender FROM champions WHERE id = $1',
+      [champion_id]
+    );
     const newCoins = await getCoins(playerId);
+    const champ = updated[0];
+    const raw = await getChampionGearBonuses(champion_id);
+    const championWithGear = {
+      ...champ,
+      gear_attack:  Math.min(raw.attack,  Math.floor(champ.attack  * 0.5)),
+      gear_defense: Math.min(raw.defense, Math.floor(champ.defense * 0.5)),
+      gear_chance:  Math.min(raw.chance,  Math.floor(champ.chance  * 0.5)),
+    };
 
-    return res.json({ coins: newCoins, champion: updated[0] });
+    return res.json({ coins: newCoins, champion: championWithGear });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to heal champion with coins' });

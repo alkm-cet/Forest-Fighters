@@ -28,14 +28,14 @@ export type FoodContext = "fighter" | "farmer" | "animal";
 
 const CONTEXT_LABEL: Record<FoodContext, string> = {
   fighter: "Fighters",
-  farmer:  "Farmers",
-  animal:  "Animals",
+  farmer: "Farmers",
+  animal: "Animals",
 };
 
 function targetLabel(target: string): string {
-  if (target === "fighters")    return "Fighters only";
-  if (target === "farmers")     return "Farmers only";
-  if (target === "animals")     return "Animals only";
+  if (target === "fighters") return "Fighters only";
+  if (target === "farmers") return "Farmers only";
+  if (target === "animals") return "Animals only";
   if (target === "farm_animals") return "Farmers & Animals";
   return "All";
 }
@@ -43,8 +43,10 @@ function targetLabel(target: string): string {
 function isCompatible(target: string, context: FoodContext): boolean {
   if (target === "all") return true;
   if (context === "fighter") return target === "fighters";
-  if (context === "farmer")  return target === "farmers" || target === "farm_animals";
-  if (context === "animal")  return target === "animals" || target === "farm_animals";
+  if (context === "farmer")
+    return target === "farmers" || target === "farm_animals";
+  if (context === "animal")
+    return target === "animals" || target === "farm_animals";
   return false;
 }
 
@@ -56,17 +58,29 @@ type Props = {
   context?: FoodContext;
   coins?: number;
   onInstantCook?: (foodId: string, coinCost: number) => void;
+  onGoToKitchen?: () => void;
 };
 
 // NOT a Modal — renders as an absolutely-positioned Animated.View so it can
 // live inside ChampionDrawer's Modal without causing double-Modal touch issues.
-export default function FoodInventoryDrawer({ visible, inventory, onClose, onUseFood, context = "fighter", coins = 0, onInstantCook }: Props) {
+export default function FoodInventoryDrawer({
+  visible,
+  inventory,
+  onClose,
+  onUseFood,
+  context = "fighter",
+  coins = 0,
+  onInstantCook,
+  onGoToKitchen,
+}: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const panelWidth = screenWidth * 0.72;
   const translateX = useRef(new Animated.Value(panelWidth)).current;
 
   // Tracks recipe_ids that have finished cooking locally (without waiting for a server re-fetch)
-  const [locallyReadyIds, setLocallyReadyIds] = useState<Set<string>>(new Set());
+  const [locallyReadyIds, setLocallyReadyIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Reset local promotions whenever fresh inventory arrives
   useEffect(() => {
@@ -90,15 +104,23 @@ export default function FoodInventoryDrawer({ visible, inventory, onClose, onUse
   const effectiveInventory = inventory.map((f) =>
     f.status === "cooking" && locallyReadyIds.has(f.recipe_id)
       ? { ...f, status: "ready" as const }
-      : f
+      : f,
   );
 
   // Group by recipe_id — one card per unique recipe
-  const readyGroups   = groupByRecipe(effectiveInventory.filter((f) => f.status === "ready"));
-  const cookingGroups = groupByRecipe(effectiveInventory.filter((f) => f.status === "cooking"));
+  const readyGroups = groupByRecipe(
+    effectiveInventory.filter((f) => f.status === "ready"),
+  );
+  const cookingGroups = groupByRecipe(
+    effectiveInventory.filter((f) => f.status === "cooking"),
+  );
 
-  const totalReady   = effectiveInventory.filter((f) => f.status === "ready").length;
-  const totalCooking = effectiveInventory.filter((f) => f.status === "cooking").length;
+  const totalReady = effectiveInventory.filter(
+    (f) => f.status === "ready",
+  ).length;
+  const totalCooking = effectiveInventory.filter(
+    (f) => f.status === "cooking",
+  ).length;
 
   return (
     <View
@@ -108,92 +130,116 @@ export default function FoodInventoryDrawer({ visible, inventory, onClose, onUse
       {/* Left overlay — tapping it closes the drawer */}
       {visible && (
         <TouchableWithoutFeedback onPress={onClose}>
-          <View style={[styles.leftOverlay, { width: screenWidth - panelWidth }]} />
+          <View
+            style={[styles.leftOverlay, { width: screenWidth - panelWidth }]}
+          />
         </TouchableWithoutFeedback>
       )}
 
-    <Animated.View
-      style={[styles.panel, { width: panelWidth, transform: [{ translateX }] }]}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <ChefHat size={16} color="#9a7040" strokeWidth={2} />
-        <Text style={styles.headerTitle}>Kitchen Bag</Text>
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-          <X size={14} color="#7a5230" strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.headerDivider} />
-
-      {/* Info row */}
-      <View style={styles.infoRow}>
-        <Info size={11} color="#9a7040" strokeWidth={2} />
-        <Text style={styles.infoText}>
-          Seçili biriminizi yemeklerle güçlendirin ve savaşlarda / üretimde avantaj kazanın
-        </Text>
-      </View>
-
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Ready section */}
-        <View style={styles.sectionHeader}>
-          <View style={[styles.sectionPill, { backgroundColor: "#4a7c3f" }]}>
-            <Text style={styles.sectionPillText}>READY</Text>
-          </View>
-          <Text style={styles.sectionCount}>{totalReady}</Text>
+      <Animated.View
+        style={[
+          styles.panel,
+          { width: panelWidth, transform: [{ translateX }] },
+        ]}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <ChefHat size={16} color="#9a7040" strokeWidth={2} />
+          <Text style={styles.headerTitle}>Kitchen Bag</Text>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            onPress={onClose}
+            activeOpacity={0.7}
+          >
+            <X size={14} color="#7a5230" strokeWidth={2.5} />
+          </TouchableOpacity>
         </View>
 
-        {readyGroups.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing ready yet</Text>
-        ) : (
-          <View style={styles.grid}>
-            {readyGroups.map(({ representative, count }) => (
-              <FoodItem
-                key={representative.recipe_id}
-                food={representative}
-                count={count}
-                context={context}
-                onUse={onUseFood}
-              />
-            ))}
-          </View>
-        )}
+        <View style={styles.headerDivider} />
 
-        {/* Cooking section */}
-        <View style={[styles.sectionHeader, { marginTop: 14 }]}>
-          <View style={[styles.sectionPill, { backgroundColor: "#c87820" }]}>
-            <Text style={styles.sectionPillText}>COOKING</Text>
-          </View>
-          <Text style={styles.sectionCount}>{totalCooking}</Text>
+        {/* Info row */}
+        <View style={styles.infoRow}>
+          <Info size={11} color="#9a7040" strokeWidth={2} />
+          <Text style={styles.infoText}>
+            Seçili biriminizi yemeklerle güçlendirin ve savaşlarda / üretimde
+            avantaj kazanın
+          </Text>
         </View>
 
-        {cookingGroups.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing cooking</Text>
-        ) : (
-          <View style={styles.grid}>
-            {cookingGroups.map(({ representative, count }) => (
-              <CookingItem
-                key={representative.recipe_id}
-                food={representative}
-                count={count}
-                context={context}
-                onReady={handleItemReady}
-                coins={coins}
-                onInstantCook={onInstantCook}
-              />
-            ))}
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Ready section */}
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionPill, { backgroundColor: "#4a7c3f" }]}>
+              <Text style={styles.sectionPillText}>READY</Text>
+            </View>
+            <Text style={styles.sectionCount}>{totalReady}</Text>
+          </View>
+
+          {readyGroups.length === 0 ? (
+            <Text style={styles.emptyText}>Nothing ready yet</Text>
+          ) : (
+            <View style={styles.grid}>
+              {readyGroups.map(({ representative, count }) => (
+                <FoodItem
+                  key={representative.recipe_id}
+                  food={representative}
+                  count={count}
+                  context={context}
+                  onUse={onUseFood}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Cooking section */}
+          <View style={[styles.sectionHeader, { marginTop: 14 }]}>
+            <View style={[styles.sectionPill, { backgroundColor: "#c87820" }]}>
+              <Text style={styles.sectionPillText}>COOKING</Text>
+            </View>
+            <Text style={styles.sectionCount}>{totalCooking}</Text>
+          </View>
+
+          {cookingGroups.length === 0 ? (
+            <Text style={styles.emptyText}>Nothing cooking</Text>
+          ) : (
+            <View style={styles.grid}>
+              {cookingGroups.map(({ representative, count }) => (
+                <CookingItem
+                  key={representative.recipe_id}
+                  food={representative}
+                  count={count}
+                  context={context}
+                  onReady={handleItemReady}
+                  coins={coins}
+                  onInstantCook={onInstantCook}
+                />
+              ))}
+            </View>
+          )}
+
+          <View style={{ height: 20 }} />
+        </ScrollView>
+
+        {onGoToKitchen && (
+          <View style={styles.kitchenBtnWrap}>
+            <TouchableOpacity
+              style={styles.kitchenBtn}
+              onPress={onGoToKitchen}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.kitchenBtnText}>🍳 Pişirmeye Başla!</Text>
+            </TouchableOpacity>
           </View>
         )}
-
-        <View style={{ height: 20 }} />
-      </ScrollView>
-    </Animated.View>
+      </Animated.View>
     </View>
   );
 }
 
 // Groups foods by recipe_id. Representative = soonest finishing (for cooking) or first item.
-function groupByRecipe(foods: PlayerFood[]): { representative: PlayerFood; count: number }[] {
+function groupByRecipe(
+  foods: PlayerFood[],
+): { representative: PlayerFood; count: number }[] {
   const map = new Map<string, PlayerFood[]>();
   foods.forEach((f) => {
     const group = map.get(f.recipe_id) ?? [];
@@ -203,21 +249,29 @@ function groupByRecipe(foods: PlayerFood[]): { representative: PlayerFood; count
   return Array.from(map.values()).map((group) => {
     // Pick the one that finishes soonest as the representative
     const representative = group.reduce((best, cur) =>
-      (cur.cooking_ready_at_ms ?? Infinity) < (best.cooking_ready_at_ms ?? Infinity) ? cur : best
+      (cur.cooking_ready_at_ms ?? Infinity) <
+      (best.cooking_ready_at_ms ?? Infinity)
+        ? cur
+        : best,
     );
     return { representative, count: group.length };
   });
 }
 
-function FoodItem({ food, count, context, onUse }: {
+function FoodItem({
+  food,
+  count,
+  context,
+  onUse,
+}: {
   food: PlayerFood;
   count: number;
   context: FoodContext;
   onUse: (f: PlayerFood) => void;
 }) {
   const { t } = useLanguage();
-  const emoji    = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
-  const enabled  = isCompatible(food.recipe.target, context);
+  const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
+  const enabled = isCompatible(food.recipe.target, context);
 
   return (
     <TouchableOpacity
@@ -230,14 +284,24 @@ function FoodItem({ food, count, context, onUse }: {
           <Text style={styles.countBadgeText}>{count}</Text>
         </View>
       )}
-      <View style={[styles.foodEmojiBg, !enabled && styles.foodEmojiBgDisabled]}>
-        <Text style={[styles.foodEmoji, !enabled && styles.foodEmojiDisabled]}>{emoji}</Text>
+      <View
+        style={[styles.foodEmojiBg, !enabled && styles.foodEmojiBgDisabled]}
+      >
+        <Text style={[styles.foodEmoji, !enabled && styles.foodEmojiDisabled]}>
+          {emoji}
+        </Text>
       </View>
-      <Text style={[styles.foodName, !enabled && styles.textDisabled]} numberOfLines={2}>
+      <Text
+        style={[styles.foodName, !enabled && styles.textDisabled]}
+        numberOfLines={2}
+      >
         {food.recipe.name}
       </Text>
       <View style={styles.effectChip}>
-        <Text style={[styles.effectText, !enabled && styles.textDisabled]} numberOfLines={3}>
+        <Text
+          style={[styles.effectText, !enabled && styles.textDisabled]}
+          numberOfLines={3}
+        >
           {describeEffect(food.recipe)}
         </Text>
       </View>
@@ -247,14 +311,23 @@ function FoodItem({ food, count, context, onUse }: {
         </View>
       ) : (
         <View style={styles.disabledBadge}>
-          <Text style={styles.disabledBadgeText}>{targetLabel(food.recipe.target)}</Text>
+          <Text style={styles.disabledBadgeText}>
+            {targetLabel(food.recipe.target)}
+          </Text>
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
-function CookingItem({ food, count, context, onReady, coins = 0, onInstantCook }: {
+function CookingItem({
+  food,
+  count,
+  context,
+  onReady,
+  coins = 0,
+  onInstantCook,
+}: {
   food: PlayerFood;
   count: number;
   context: FoodContext;
@@ -263,11 +336,11 @@ function CookingItem({ food, count, context, onReady, coins = 0, onInstantCook }
   onInstantCook?: (foodId: string, coinCost: number) => void;
 }) {
   const { t } = useLanguage();
-  const emoji   = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
+  const emoji = FOOD_EMOJIS[food.recipe.name] ?? "🍴";
   const enabled = isCompatible(food.recipe.target, context);
-  const readyAt   = food.cooking_ready_at_ms;
+  const readyAt = food.cooking_ready_at_ms;
   const startedAt = food.cooking_started_at_ms;
-  const totalMs   = readyAt - startedAt;
+  const totalMs = readyAt - startedAt;
 
   const [msLeft, setMsLeft] = useState(() => Math.max(0, readyAt - Date.now()));
   const promotedRef = useRef(false);
@@ -293,30 +366,53 @@ function CookingItem({ food, count, context, onReady, coins = 0, onInstantCook }
   const canAfford = coins >= coinCost;
 
   return (
-    <View style={[styles.foodItem, styles.cookingItem, !enabled && styles.foodItemDisabled]}>
+    <View
+      style={[
+        styles.foodItem,
+        styles.cookingItem,
+        !enabled && styles.foodItemDisabled,
+      ]}
+    >
       {count > 1 && (
         <View style={styles.countBadge}>
           <Text style={styles.countBadgeText}>{count}</Text>
         </View>
       )}
-      <View style={[styles.foodEmojiBg, !enabled && styles.foodEmojiBgDisabled]}>
-        <Text style={[styles.foodEmoji, !enabled && styles.foodEmojiDisabled]}>{emoji}</Text>
+      <View
+        style={[styles.foodEmojiBg, !enabled && styles.foodEmojiBgDisabled]}
+      >
+        <Text style={[styles.foodEmoji, !enabled && styles.foodEmojiDisabled]}>
+          {emoji}
+        </Text>
       </View>
-      <Text style={[styles.foodName, !enabled && styles.textDisabled]} numberOfLines={2}>
+      <Text
+        style={[styles.foodName, !enabled && styles.textDisabled]}
+        numberOfLines={2}
+      >
         {food.recipe.name}
       </Text>
       <View style={styles.effectChip}>
-        <Text style={[styles.effectText, !enabled && styles.textDisabled]} numberOfLines={3}>
+        <Text
+          style={[styles.effectText, !enabled && styles.textDisabled]}
+          numberOfLines={3}
+        >
           {describeEffect(food.recipe, t)}
         </Text>
       </View>
       {!enabled && (
         <View style={styles.disabledBadge}>
-          <Text style={styles.disabledBadgeText}>{targetLabel(food.recipe.target)}</Text>
+          <Text style={styles.disabledBadgeText}>
+            {targetLabel(food.recipe.target)}
+          </Text>
         </View>
       )}
       <View style={styles.cookProgressTrack}>
-        <View style={[styles.cookProgressFill, { width: `${progress * 100}%` as any }]} />
+        <View
+          style={[
+            styles.cookProgressFill,
+            { width: `${progress * 100}%` as any },
+          ]}
+        />
       </View>
       <View style={styles.cookTimerRow}>
         <Timer size={9} color="#9a7040" strokeWidth={2} />
@@ -328,10 +424,18 @@ function CookingItem({ food, count, context, onReady, coins = 0, onInstantCook }
           activeOpacity={canAfford ? 0.8 : 1}
           onPress={() => canAfford && onInstantCook(food.id, coinCost)}
         >
-          <Zap size={9} color={canAfford ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={2.5} />
+          <Zap
+            size={9}
+            color={canAfford ? "#fff" : "rgba(255,255,255,0.5)"}
+            strokeWidth={2.5}
+          />
           <Text style={styles.instantBtnText}>{t("instantCookBtn")}</Text>
           <View style={styles.instantCostRow}>
-            <Image source={COIN_IMG} style={styles.instantCoinIcon} resizeMode="contain" />
+            <Image
+              source={COIN_IMG}
+              style={styles.instantCoinIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.instantCostText}>×{coinCost}</Text>
           </View>
         </TouchableOpacity>
@@ -364,7 +468,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: -4, height: 0 },
     elevation: 16,
     paddingTop: 52,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   header: {
     flexDirection: "row",
@@ -589,5 +693,31 @@ const styles = StyleSheet.create({
   instantBtnText: { fontSize: 9, fontWeight: "900", color: "#fff" },
   instantCostRow: { flexDirection: "row", alignItems: "center", gap: 2 },
   instantCoinIcon: { width: 10, height: 10 },
-  instantCostText: { fontSize: 9, fontWeight: "800", color: "rgba(255,255,255,0.85)" },
+  instantCostText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.85)",
+  },
+  kitchenBtnWrap: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 35,
+    borderTopWidth: 1,
+    borderTopColor: "#d4b896",
+  },
+  kitchenBtn: {
+    backgroundColor: "#c87820",
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#9a5810",
+  },
+  kitchenBtnText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.3,
+  },
 });

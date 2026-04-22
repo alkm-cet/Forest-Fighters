@@ -91,43 +91,51 @@ async function insertGearDrop(playerId, definitionId, rarity) {
  * Special stage 99 = "Test Chamber": always drops both weapon and charm (T1 epic).
  */
 async function rollGearDrop(run, playerId) {
-  const { dungeon_type, is_boss_stage, stage_number, champion_id } = run;
+  const { dungeon_type, is_boss_stage, stage_number, dungeon_level, champion_id } = run;
+  const level = dungeon_level ?? (stage_number <= 10 ? 1 : stage_number <= 20 ? 2 : 3);
 
   if (dungeon_type === 'harvest') return [];
 
   // ── Drop chance ───────────────────────────────────────────────────────────
-  // Stage 1 has 100% drop chance (beginner tutorial feel)
+  // Stage 1: 100% (tutorial discovery). Higher levels = lower frequency, better tier.
   let dropChance;
-  if (stage_number === 1)       dropChance = 1.0;
-  else if (dungeon_type === 'event')   dropChance = 0.35;
-  else if (is_boss_stage)              dropChance = 0.28;
-  else                                 dropChance = 0.12;
+  if (stage_number === 1)           dropChance = 1.0;
+  else if (dungeon_type === 'event') dropChance = 0.35;
+  else if (is_boss_stage)            dropChance = 0.28;
+  else if (level === 1)              dropChance = 0.10;
+  else if (level === 2)              dropChance = 0.08;
+  else                               dropChance = 0.06;
 
   if (Math.random() >= dropChance) return [];
 
-  // Determine tier
+  // ── Tier — based on dungeon level, not raw stage number ──────────────────
   let tier;
   if (dungeon_type === 'event') {
     tier = Math.random() < 0.5 ? 2 : 3;
   } else if (is_boss_stage) {
-    if (stage_number <= 5)       tier = Math.random() < 0.5 ? 1 : 2;
-    else if (stage_number <= 10) tier = Math.random() < 0.5 ? 2 : 3;
-    else                         tier = 3;
+    // Boss drops guaranteed tier ≥ current level, weighted upward
+    tier = level === 1 ? (Math.random() < 0.5 ? 1 : 2) : level === 2 ? (Math.random() < 0.5 ? 2 : 3) : 3;
   } else {
-    if (stage_number <= 5)       tier = 1;
-    else if (stage_number <= 10) tier = 2;
-    else                         tier = 3;
+    tier = level; // Normal dungeons drop tier matching their level
   }
 
-  // Determine rarity
+  // ── Rarity — higher level = better rarity distribution ───────────────────
   let rarity;
   const rarityRoll = Math.random();
   if (dungeon_type === 'event') {
     rarity = rarityRoll < 0.6 ? 'rare' : 'epic';
   } else if (is_boss_stage) {
-    rarity = rarityRoll < 0.50 ? 'common' : rarityRoll < 0.85 ? 'rare' : 'epic';
+    // Boss: 30% common, 50% rare, 20% epic
+    rarity = rarityRoll < 0.30 ? 'common' : rarityRoll < 0.80 ? 'rare' : 'epic';
+  } else if (level === 1) {
+    // Level 1: mostly common
+    rarity = rarityRoll < 0.75 ? 'common' : rarityRoll < 0.95 ? 'rare' : 'epic';
+  } else if (level === 2) {
+    // Level 2: more rare
+    rarity = rarityRoll < 0.55 ? 'common' : rarityRoll < 0.90 ? 'rare' : 'epic';
   } else {
-    rarity = rarityRoll < 0.80 ? 'common' : rarityRoll < 0.98 ? 'rare' : 'epic';
+    // Level 3: more epic
+    rarity = rarityRoll < 0.35 ? 'common' : rarityRoll < 0.80 ? 'rare' : 'epic';
   }
 
   // Stage 1 always drops BOTH a weapon and a charm (discovery run)

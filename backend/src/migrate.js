@@ -750,6 +750,55 @@ async function migrate() {
     await query(`UPDATE quest_definitions SET reward_coins = 15 WHERE quest_type = 'weekly' AND difficulty = 'weekly_hard'   AND reward_coins = 25`);
     console.log('Weekly quest rewards rebalanced');
 
+    // ── Adventure Dungeon Level System (3 levels × 10 stages, boss battles) ────
+    await query(`ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS dungeon_level INT DEFAULT 1`);
+    await query(`ALTER TABLE dungeon_runs ADD COLUMN IF NOT EXISTS champion_id_2 UUID REFERENCES champions(id) ON DELETE SET NULL DEFAULT NULL`);
+    console.log('Added dungeon_level + champion_id_2 columns');
+
+    // Compute dungeon_level from stage_number for all adventure dungeons
+    await query(`
+      UPDATE dungeons
+        SET dungeon_level = CEIL(stage_number::float / 10)
+        WHERE dungeon_type = 'adventure' AND stage_number IS NOT NULL
+    `);
+
+    // Only stages 10, 20, 30 are boss stages now (5 and 15 demoted)
+    await query(`UPDATE dungeons SET is_boss_stage = FALSE WHERE dungeon_type = 'adventure' AND stage_number IN (5, 15)`);
+    console.log('Fixed adventure dungeon boss stages (only 10, 20, 30 are bosses)');
+
+    // Seed adventure stages 16-30 (levels 2 & 3 expansion)
+    const newAdventureStages = [
+      // Level 2 completion — stages 16-19
+      { stage: 16, name: 'Moonlit Forest',      desc: 'A twilight forest where shadow wolves prowl.',                        enemy: 'Shadow Wolf',     atk: 38, def: 20, chc: 25, hp: 175, dur: 35, coins: 30,  xp: 200, boss: false, lv: 2, amt: 8  },
+      { stage: 17, name: 'Storm Peak',           desc: 'A mountain summit lashed by eternal thunder.',                       enemy: 'Thunder Eagle',   atk: 42, def: 22, chc: 28, hp: 185, dur: 35, coins: 35,  xp: 220, boss: false, lv: 2, amt: 8  },
+      { stage: 18, name: 'Ice Fortress',         desc: 'A frozen fortress carved from glacial ice.',                         enemy: 'Frost Golem',     atk: 46, def: 26, chc: 22, hp: 200, dur: 40, coins: 40,  xp: 250, boss: false, lv: 2, amt: 8  },
+      { stage: 19, name: 'Lava Plains',          desc: 'Scorched flatlands where fire salamanders roam.',                    enemy: 'Fire Salamander', atk: 50, def: 24, chc: 30, hp: 210, dur: 40, coins: 45,  xp: 280, boss: false, lv: 2, amt: 8  },
+      // Level 2 boss — stage 20
+      { stage: 20, name: "Demon Warlord's Keep", desc: 'The fortified stronghold of a fearsome demon warlord.',             enemy: 'Demon Warlord',   atk: 65, def: 35, chc: 32, hp: 320, dur: 45, coins: 100, xp: 400, boss: true,  lv: 2, amt: 20 },
+      // Level 3 stages — stages 21-29
+      { stage: 21, name: 'Umbral Wastes',        desc: 'A desolate realm where shade specters drift endlessly.',             enemy: 'Shade Specter',   atk: 55, def: 28, chc: 33, hp: 225, dur: 40, coins: 50,  xp: 300, boss: false, lv: 3, amt: 12 },
+      { stage: 22, name: 'Dragonspine Peak',     desc: 'A jagged mountain range where wyverns make their nests.',           enemy: 'Wyvern',          atk: 60, def: 30, chc: 30, hp: 240, dur: 45, coins: 55,  xp: 330, boss: false, lv: 3, amt: 12 },
+      { stage: 23, name: 'Ancient Ruins',        desc: 'Collapsed temples guarded by a dormant stone colossus.',            enemy: 'Stone Colossus',  atk: 64, def: 34, chc: 28, hp: 255, dur: 45, coins: 60,  xp: 360, boss: false, lv: 3, amt: 12 },
+      { stage: 24, name: 'The Abyss',            desc: 'A bottomless chasm filled with void crawlers.',                     enemy: 'Void Crawler',    atk: 68, def: 32, chc: 35, hp: 265, dur: 50, coins: 65,  xp: 390, boss: false, lv: 3, amt: 12 },
+      { stage: 25, name: 'Celestial Tower',      desc: 'A tower reaching the heavens, guarded by a fallen paladin.',        enemy: 'Fallen Paladin',  atk: 70, def: 36, chc: 32, hp: 280, dur: 50, coins: 70,  xp: 420, boss: false, lv: 3, amt: 12 },
+      { stage: 26, name: 'Dark Forest',          desc: 'An ancient forest where cursed knights stand eternal vigil.',       enemy: 'Cursed Knight',   atk: 74, def: 38, chc: 34, hp: 290, dur: 50, coins: 75,  xp: 450, boss: false, lv: 3, amt: 12 },
+      { stage: 27, name: "Titan's Lair",         desc: "Deep within the earth, a stone titan guards its domain.",           enemy: 'Stone Titan',     atk: 78, def: 42, chc: 30, hp: 310, dur: 55, coins: 80,  xp: 480, boss: false, lv: 3, amt: 12 },
+      { stage: 28, name: 'Eternal Flame',        desc: 'A realm of fire where an inferno djinn holds court.',               enemy: 'Inferno Djinn',   atk: 82, def: 38, chc: 38, hp: 325, dur: 55, coins: 85,  xp: 510, boss: false, lv: 3, amt: 12 },
+      { stage: 29, name: 'Void Sanctum',         desc: 'The inner sanctum of the void, home to an ancient void archon.',   enemy: 'Void Archon',     atk: 86, def: 44, chc: 36, hp: 340, dur: 60, coins: 90,  xp: 540, boss: false, lv: 3, amt: 12 },
+      // Level 3 boss — stage 30
+      { stage: 30, name: 'The Elder Dragon',     desc: 'The ancient dragon that presides over all darkness. Two champions required.', enemy: 'Ancient Dragon', atk: 100, def: 55, chc: 42, hp: 500, dur: 60, coins: 250, xp: 800, boss: true, lv: 3, amt: 35 },
+    ];
+    for (const s of newAdventureStages) {
+      await query(`
+        INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
+          duration_minutes, reward_resource, reward_amount, dungeon_type, stage_number, is_boss_stage, coin_reward, xp_reward, dungeon_level)
+        SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
+               $8::INT, 'pinecone', $9::INT, 'adventure', $10::INT, $11::BOOLEAN, $12::INT, $13::INT, $14::INT
+        WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
+      `, [s.name, s.desc, s.enemy, s.atk, s.def, s.chc, s.hp, s.dur, s.amt, s.stage, s.boss, s.coins, s.xp, s.lv]);
+    }
+    console.log('Seeded adventure stages 16-30 (3-level system with boss battles)');
+
     console.log('Migration complete!');
   } catch (err) {
     console.error('Migration failed:', err);

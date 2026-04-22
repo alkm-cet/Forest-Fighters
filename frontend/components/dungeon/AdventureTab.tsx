@@ -8,6 +8,7 @@ import {
   Modal,
   useWindowDimensions,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import {
   Lock,
@@ -25,10 +26,12 @@ import {
   AdventureMilestone,
   DungeonRun,
   Dungeon,
+  Champion,
 } from "../../types";
 import CountdownTimer from "../CountdownTimer";
 import CustomButton from "../CustomButton";
 import { RESOURCE_META } from "../../constants/resources";
+import api from "../../lib/api";
 
 const CAT_PAWN = require("../../assets/icons/icon-cat-pawn.webp");
 const COIN_IMG = require("../../assets/icons/icon-coin.webp");
@@ -57,6 +60,21 @@ const ENEMY_IMAGES: Record<string, ReturnType<typeof require>> = {
   "mummy lord": require("../../assets/dungeon/skeleton.webp"),
   wyvern: require("../../assets/dungeon/troll.webp"),
   "void lich": require("../../assets/dungeon/dark-mage.webp"),
+  // Level 2–3 enemies mapped to existing assets
+  "shadow wolf": require("../../assets/dungeon/skeleton.webp"),
+  "thunder eagle": require("../../assets/dungeon/goblin.webp"),
+  "frost golem": require("../../assets/dungeon/troll.webp"),
+  "fire salamander": require("../../assets/dungeon/slime.webp"),
+  "demon warlord": require("../../assets/dungeon/orc.webp"),
+  "shade specter": require("../../assets/dungeon/dark-mage.webp"),
+  "stone colossus": require("../../assets/dungeon/troll.webp"),
+  "void crawler": require("../../assets/dungeon/slime.webp"),
+  "fallen paladin": require("../../assets/dungeon/skeleton.webp"),
+  "cursed knight": require("../../assets/dungeon/skeleton.webp"),
+  "stone titan": require("../../assets/dungeon/troll.webp"),
+  "inferno djinn": require("../../assets/dungeon/dark-mage.webp"),
+  "void archon": require("../../assets/dungeon/dark-mage.webp"),
+  "ancient dragon": require("../../assets/dungeon/orc.webp"),
 };
 
 const NODE_SIZE = 62;
@@ -65,6 +83,7 @@ const NODE_SPACING = 120;
 const DOT_SIZE = 5;
 const DOT_GAP = 9;
 const S_OFFSET = 16;
+const LEVEL_SEPARATOR_H = 56;
 
 interface Props {
   dungeons: AdventureDungeon[];
@@ -75,7 +94,7 @@ interface Props {
   championId: string | undefined;
   championClass: string | undefined;
   championIsBusy: boolean;
-  onEnter: (dungeon: Dungeon) => void;
+  onEnter: (dungeon: Dungeon, champion2Id?: string, champion2Class?: string) => void;
   onClaim: (run: DungeonRun) => void;
   onMilestoneClaim: (requiredStars: number) => void;
 }
@@ -95,7 +114,6 @@ function StarsRow({ stars }: { stars: number }) {
   );
 }
 
-/** Renders dotted dots along a straight segment between two points */
 function renderDottedSegment(
   a: { x: number; y: number },
   b: { x: number; y: number },
@@ -130,7 +148,6 @@ function renderDottedSegment(
   });
 }
 
-/** Renders an S-shaped dotted connector between two node positions */
 function renderSConnector(
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -141,11 +158,9 @@ function renderSConnector(
   const dy = to.y - from.y;
   const len = Math.sqrt(dx * dx + dy * dy);
 
-  // Perpendicular unit vector (for S-curve offset)
   const nx = -dy / len;
   const ny = dx / len;
 
-  // S-curve: two control points offset in opposite directions
   const q1 = {
     x: from.x + dx * 0.33 + nx * S_OFFSET,
     y: from.y + dy * 0.33 + ny * S_OFFSET,
@@ -182,8 +197,10 @@ export default function AdventureTab({
   const { width } = useWindowDimensions();
   const [selectedDungeon, setSelectedDungeon] =
     useState<AdventureDungeon | null>(null);
+  const [selectedChampion2, setSelectedChampion2] = useState<Champion | null>(null);
+  const [availableChampions, setAvailableChampions] = useState<Champion[]>([]);
+  const [loadingChampions, setLoadingChampions] = useState(false);
 
-  // Pulse animation for active run nodes
   const pulseAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -204,26 +221,67 @@ export default function AdventureTab({
     return () => loop.stop();
   }, []);
 
-  const ZIGZAG_X = [width * 0.5, width * 0.73, width * 0.5, width * 0.27];
-  const nodePositions = dungeons.map((_, i) => ({
-    x: ZIGZAG_X[i % 4],
-    y: 44 + i * NODE_SPACING,
-  }));
-  const totalMapHeight = 44 + dungeons.length * NODE_SPACING + 80;
+  // Load available champions when a boss stage is selected
+  useEffect(() => {
+    if (selectedDungeon?.is_boss_stage) {
+      setLoadingChampions(true);
+      setSelectedChampion2(null);
+      Promise.all([
+        api.get("/api/champions"),
+        api.get("/api/pvp/status").catch(() => ({ data: null })),
+      ]).then(([champsRes, pvpRes]) => {
+        const all: Champion[] = champsRes.data;
+        const pvpDefenderId: string | null =
+          pvpRes.data?.defender_champion_id ?? null;
+        setAvailableChampions(
+          all.filter(
+            (c) =>
+              c.id !== championId &&
+              !c.is_deployed &&
+              c.current_hp > 0 &&
+              c.id !== pvpDefenderId,
+          ),
+        );
+        setLoadingChampions(false);
+      }).catch(() => setLoadingChampions(false));
+    } else {
+      setAvailableChampions([]);
+      setSelectedChampion2(null);
+    }
+  }, [selectedDungeon?.id]);
+
+  // Level grouping
+  const level1Dungeons = dungeons
+    .filter((d) => (d.dungeon_level ?? 1) === 1)
+    .sort((a, b) => a.stage_number - b.stage_number);
+  const level2Dungeons = dungeons
+    .filter((d) => d.dungeon_level === 2)
+    .sort((a, b) => a.stage_number - b.stage_number);
+  const level3Dungeons = dungeons
+    .filter((d) => d.dungeon_level === 3)
+    .sort((a, b) => a.stage_number - b.stage_number);
+
+  function isBossCleared(level: number): boolean {
+    const bossStage = level * 10;
+    const bossDungeon = dungeons.find((d) => d.stage_number === bossStage);
+    if (!bossDungeon) return false;
+    return progress.some(
+      (p) => p.dungeon_id === bossDungeon.id && p.best_stars > 0,
+    );
+  }
+
+  const level2Locked = !isBossCleared(1);
+  const level3Locked = !isBossCleared(2);
 
   const nextMilestone = milestones.find((m) => !m.claimed);
   const nextClaimable = milestones.find(
     (m) => !m.claimed && totalStars >= m.required_stars,
   );
 
+  const ZIGZAG_X = [width * 0.5, width * 0.73, width * 0.5, width * 0.27];
+
   function getProgress(dungeonId: string): AdventureProgress | undefined {
     return progress.find((p) => p.dungeon_id === dungeonId);
-  }
-
-  function isLocked(index: number): boolean {
-    if (index === 0) return false;
-    const prevProg = getProgress(dungeons[index - 1].id);
-    return !prevProg || prevProg.best_stars === 0;
   }
 
   function getRunForDungeon(dungeonId: string): DungeonRun | undefined {
@@ -231,6 +289,241 @@ export default function AdventureTab({
       (r) => r.dungeon_id === dungeonId && r.status === "active",
     );
   }
+
+  function renderMapSection(
+    levelDungeons: AdventureDungeon[],
+    levelLocked: boolean,
+    levelKey: string,
+  ) {
+    if (levelDungeons.length === 0) return null;
+
+    const nodePositions = levelDungeons.map((_, i) => ({
+      x: ZIGZAG_X[i % 4],
+      y: 44 + i * NODE_SPACING,
+    }));
+    const sectionHeight = 44 + levelDungeons.length * NODE_SPACING + 80;
+
+    return (
+      <View
+        key={levelKey}
+        style={{ height: sectionHeight, position: "relative" }}
+      >
+        {/* S-shaped dotted connectors */}
+        {levelDungeons.slice(0, -1).map((d, i) => {
+          const from = nodePositions[i];
+          const to = nodePositions[i + 1];
+          const prevProg = getProgress(d.id);
+          const isCleared = !levelLocked && prevProg && prevProg.best_stars > 0;
+          const dotColor = isCleared ? "#6aaa4a" : "#8a7a60";
+          return renderSConnector(from, to, dotColor, parseInt(levelKey + i));
+        })}
+
+        {/* Nodes */}
+        {levelDungeons.map((dungeon, i) => {
+          // Within-level lock: first node of level always available (if level itself unlocked)
+          const withinLevelLocked =
+            i > 0 &&
+            (() => {
+              const prevProg = getProgress(levelDungeons[i - 1].id);
+              return !prevProg || prevProg.best_stars === 0;
+            })();
+          const locked = levelLocked || withinLevelLocked;
+
+          const prog = getProgress(dungeon.id);
+          const stars = prog?.best_stars ?? 0;
+          const isBoss = dungeon.is_boss_stage;
+          const activeRun = getRunForDungeon(dungeon.id);
+          const nodeSize = isBoss ? BOSS_NODE_SIZE : NODE_SIZE;
+          const pos = nodePositions[i];
+
+          let nodeBg = "#6a5a48";
+          let nodeBorder = "#4a3a28";
+          if (!locked) {
+            if (stars === 3) {
+              nodeBg = "#b8820a";
+              nodeBorder = "#f9ca24";
+            } else if (stars === 2) {
+              nodeBg = "#5a7888";
+              nodeBorder = "#8ab8cc";
+            } else if (stars === 1) {
+              nodeBg = "#7a4e20";
+              nodeBorder = "#cd7f32";
+            } else {
+              nodeBg = "#3a6a30";
+              nodeBorder = "#6aaa4a";
+            }
+          }
+
+          const indicatorOnLeft = pos.x > width / 2;
+          const CARD_W = 110;
+          const CARD_H = 52;
+          const cardLeft = indicatorOnLeft
+            ? pos.x - nodeSize / 2 - CARD_W - 10
+            : pos.x + nodeSize / 2 + 10;
+          const cardTop = pos.y - CARD_H / 2;
+          const champImg = championClass ? CHAMP_IMAGES[championClass] : null;
+
+          const pulseScale = pulseAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.55],
+          });
+          const pulseOpacity = pulseAnim.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.7, 0.4, 0],
+          });
+
+          return (
+            <View key={dungeon.id}>
+              {activeRun && !locked && (
+                <Animated.View
+                  style={{
+                    position: "absolute",
+                    left: pos.x - nodeSize / 2,
+                    top: pos.y - nodeSize / 2,
+                    width: nodeSize,
+                    height: nodeSize,
+                    borderRadius: nodeSize / 2,
+                    borderWidth: 3,
+                    borderColor: "#5352ed",
+                    transform: [{ scale: pulseScale }],
+                    opacity: pulseOpacity,
+                  }}
+                  pointerEvents="none"
+                />
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.node,
+                  {
+                    width: nodeSize,
+                    height: nodeSize,
+                    borderRadius: nodeSize / 2,
+                    left: pos.x - nodeSize / 2,
+                    top: pos.y - nodeSize / 2,
+                    backgroundColor: nodeBg,
+                    borderColor: activeRun
+                      ? "#5352ed"
+                      : isBoss
+                        ? "#f9ca24"
+                        : nodeBorder,
+                    borderWidth: isBoss ? 3 : 2.5,
+                    opacity: locked ? 0.45 : 1,
+                  },
+                ]}
+                onPress={() => !locked && setSelectedDungeon(dungeon)}
+                disabled={locked}
+                activeOpacity={locked ? 1 : 0.75}
+              >
+                <Image
+                  source={CAT_PAWN}
+                  style={{
+                    width: nodeSize * 0.72,
+                    height: nodeSize * 0.72,
+                    opacity: locked ? 0.35 : 1,
+                  }}
+                  resizeMode="contain"
+                />
+
+                {locked && (
+                  <Lock
+                    size={20}
+                    color="rgba(255,255,255,0.9)"
+                    strokeWidth={2.5}
+                    style={{ position: "absolute" }}
+                  />
+                )}
+
+                {isBoss && !locked && (
+                  <View style={styles.crownBadge}>
+                    <Crown
+                      size={11}
+                      color="#f9ca24"
+                      strokeWidth={2}
+                      fill="#f9ca24"
+                    />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {activeRun && !locked && (
+                <View
+                  style={[
+                    styles.runCard,
+                    {
+                      left: cardLeft,
+                      top: cardTop,
+                      width: CARD_W,
+                      height: CARD_H,
+                    },
+                  ]}
+                >
+                  {champImg && (
+                    <Image
+                      source={champImg}
+                      style={styles.runCardChampImg}
+                      resizeMode="contain"
+                    />
+                  )}
+                  <View style={styles.runCardInfo}>
+                    <CountdownTimer
+                      endsAt={activeRun.ends_at}
+                      style={styles.runCardTimer}
+                      onExpire={() => {}}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {!locked && (
+                <View
+                  style={{
+                    position: "absolute",
+                    left: pos.x - nodeSize / 2,
+                    top: pos.y + nodeSize / 2 + 5,
+                    width: nodeSize,
+                    alignItems: "center",
+                  }}
+                >
+                  <StarsRow stars={stars} />
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+
+  function renderLevelSeparator(level: number, locked: boolean) {
+    return (
+      <View key={`sep-${level}`} style={styles.levelSeparator}>
+        <View style={styles.levelSeparatorLine} />
+        <View
+          style={[
+            styles.levelSeparatorBadge,
+            locked && styles.levelSeparatorBadgeLocked,
+          ]}
+        >
+          {locked && (
+            <Lock size={11} color="#c8a96e" strokeWidth={2.5} style={{ marginRight: 4 }} />
+          )}
+          <Text style={styles.levelSeparatorText}>LEVEL {level}</Text>
+        </View>
+        <View style={styles.levelSeparatorLine} />
+      </View>
+    );
+  }
+
+  const totalScrollHeight =
+    [level1Dungeons, level2Dungeons, level3Dungeons].reduce(
+      (sum, arr) =>
+        arr.length > 0
+          ? sum + 44 + arr.length * NODE_SPACING + 80
+          : sum,
+      0,
+    ) +
+    2 * LEVEL_SEPARATOR_H;
 
   return (
     <View style={styles.container}>
@@ -277,198 +570,19 @@ export default function AdventureTab({
         </View>
       )}
 
-      {/* Map */}
+      {/* Map — 3 level sections */}
       <ScrollView
         contentContainerStyle={[
           styles.mapContainer,
-          { height: totalMapHeight },
+          { height: totalScrollHeight },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* S-shaped dotted connectors */}
-        {dungeons.slice(0, -1).map((_, i) => {
-          const from = nodePositions[i];
-          const to = nodePositions[i + 1];
-          const prevProg = getProgress(dungeons[i].id);
-          const isCleared = prevProg && prevProg.best_stars > 0;
-          const dotColor = isCleared ? "#6aaa4a" : "#8a7a60";
-          return renderSConnector(from, to, dotColor, i);
-        })}
-
-        {/* Nodes */}
-        {dungeons.map((dungeon, i) => {
-          const locked = isLocked(i);
-          const prog = getProgress(dungeon.id);
-          const stars = prog?.best_stars ?? 0;
-          const isBoss = dungeon.is_boss_stage;
-          const activeRun = getRunForDungeon(dungeon.id);
-          const nodeSize = isBoss ? BOSS_NODE_SIZE : NODE_SIZE;
-          const pos = nodePositions[i];
-
-          // Node background tint based on state
-          let nodeBg = "#6a5a48"; // locked/default: muted brown
-          let nodeBorder = "#4a3a28";
-          if (!locked) {
-            if (stars === 3) {
-              nodeBg = "#b8820a";
-              nodeBorder = "#f9ca24";
-            } else if (stars === 2) {
-              nodeBg = "#5a7888";
-              nodeBorder = "#8ab8cc";
-            } else if (stars === 1) {
-              nodeBg = "#7a4e20";
-              nodeBorder = "#cd7f32";
-            } else {
-              // available, not yet cleared
-              nodeBg = "#3a6a30";
-              nodeBorder = "#6aaa4a";
-            }
-          }
-
-          // Floating indicator side: if node is on right half → indicator on left, else on right
-          const indicatorOnLeft = pos.x > width / 2;
-          const CARD_W = 110;
-          const CARD_H = 52;
-          const cardLeft = indicatorOnLeft
-            ? pos.x - nodeSize / 2 - CARD_W - 10
-            : pos.x + nodeSize / 2 + 10;
-          const cardTop = pos.y - CARD_H / 2;
-          const champImg = championClass ? CHAMP_IMAGES[championClass] : null;
-
-          const pulseScale = pulseAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1, 1.55],
-          });
-          const pulseOpacity = pulseAnim.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0.7, 0.4, 0],
-          });
-
-          return (
-            <View key={dungeon.id}>
-              {/* Pulse ring */}
-              {activeRun && !locked && (
-                <Animated.View
-                  style={{
-                    position: "absolute",
-                    left: pos.x - nodeSize / 2,
-                    top: pos.y - nodeSize / 2,
-                    width: nodeSize,
-                    height: nodeSize,
-                    borderRadius: nodeSize / 2,
-                    borderWidth: 3,
-                    borderColor: "#5352ed",
-                    transform: [{ scale: pulseScale }],
-                    opacity: pulseOpacity,
-                  }}
-                  pointerEvents="none"
-                />
-              )}
-
-              <TouchableOpacity
-                style={[
-                  styles.node,
-                  {
-                    width: nodeSize,
-                    height: nodeSize,
-                    borderRadius: nodeSize / 2,
-                    left: pos.x - nodeSize / 2,
-                    top: pos.y - nodeSize / 2,
-                    backgroundColor: nodeBg,
-                    borderColor: activeRun
-                      ? "#5352ed"
-                      : isBoss
-                        ? "#f9ca24"
-                        : nodeBorder,
-                    borderWidth: isBoss ? 3 : 2.5,
-                    opacity: locked ? 0.45 : 1,
-                  },
-                ]}
-                onPress={() => !locked && setSelectedDungeon(dungeon)}
-                disabled={locked}
-                activeOpacity={0.75}
-              >
-                {/* Paw — fills the circle */}
-                <Image
-                  source={CAT_PAWN}
-                  style={{
-                    width: nodeSize * 0.72,
-                    height: nodeSize * 0.72,
-                    opacity: locked ? 0.35 : 1,
-                  }}
-                  resizeMode="contain"
-                />
-
-                {/* Lock overlay */}
-                {locked && (
-                  <Lock
-                    size={20}
-                    color="rgba(255,255,255,0.9)"
-                    strokeWidth={2.5}
-                    style={{ position: "absolute" }}
-                  />
-                )}
-
-                {/* Boss crown badge */}
-                {isBoss && !locked && (
-                  <View style={styles.crownBadge}>
-                    <Crown
-                      size={11}
-                      color="#f9ca24"
-                      strokeWidth={2}
-                      fill="#f9ca24"
-                    />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Floating active-run card */}
-              {activeRun && !locked && (
-                <View
-                  style={[
-                    styles.runCard,
-                    {
-                      left: cardLeft,
-                      top: cardTop,
-                      width: CARD_W,
-                      height: CARD_H,
-                    },
-                  ]}
-                >
-                  {champImg && (
-                    <Image
-                      source={champImg}
-                      style={styles.runCardChampImg}
-                      resizeMode="contain"
-                    />
-                  )}
-                  <View style={styles.runCardInfo}>
-                    <CountdownTimer
-                      endsAt={activeRun.ends_at}
-                      style={styles.runCardTimer}
-                      onExpire={() => {}}
-                    />
-                  </View>
-                </View>
-              )}
-
-              {/* Stars row — outside the circle, centered below */}
-              {!locked && (
-                <View
-                  style={{
-                    position: "absolute",
-                    left: pos.x - nodeSize / 2,
-                    top: pos.y + nodeSize / 2 + 5,
-                    width: nodeSize,
-                    alignItems: "center",
-                  }}
-                >
-                  <StarsRow stars={stars} />
-                </View>
-              )}
-            </View>
-          );
-        })}
+        {renderMapSection(level1Dungeons, false, "1")}
+        {renderLevelSeparator(2, level2Locked)}
+        {renderMapSection(level2Dungeons, level2Locked, "2")}
+        {renderLevelSeparator(3, level3Locked)}
+        {renderMapSection(level3Dungeons, level3Locked, "3")}
       </ScrollView>
 
       {/* Stage detail modal */}
@@ -590,7 +704,7 @@ export default function AdventureTab({
                     {isCleared && (
                       <View style={styles.alreadyClearedBadge}>
                         <Text style={styles.alreadyClearedText}>
-                          ✓ Zaten Kazanıldı — Tekrar ödüller azaltıldı
+                          ✓ Zaten Kazanildi — Tekrar oduller azaltildi
                         </Text>
                       </View>
                     )}
@@ -648,13 +762,13 @@ export default function AdventureTab({
                                   styles.rewardStrikethrough,
                                 ]}
                               >
-                                ×{selectedDungeon.reward_amount}
+                                x{selectedDungeon.reward_amount}
                               </Text>
                               <Text style={styles.rewardReducedVal}>→ 1</Text>
                             </View>
                           ) : (
                             <Text style={styles.rewardPillText}>
-                              ×{selectedDungeon.reward_amount}
+                              x{selectedDungeon.reward_amount}
                             </Text>
                           )}
                         </View>
@@ -664,36 +778,33 @@ export default function AdventureTab({
                 );
               })()}
 
-              {/* Gear drop info */}
+              {/* Gear drop info — level-aware */}
               <View style={styles.gearDropInfo}>
                 <Text style={styles.gearDropInfoTitle}>⚔️ Gear Drops</Text>
                 {(() => {
                   const isBoss = selectedDungeon.is_boss_stage;
                   const stage = selectedDungeon.stage_number;
+                  const level = selectedDungeon.dungeon_level ?? 1;
                   const isFirstStage = stage === 1;
                   const dropChance = isFirstStage
                     ? "100%"
                     : isBoss
                       ? "28%"
-                      : "12%";
-                  const tierLabel = isFirstStage
-                    ? "T1"
-                    : isBoss
-                      ? (stage ?? 0) <= 5
-                        ? "T1 or T2"
-                        : (stage ?? 0) <= 10
-                          ? "T2 or T3"
-                          : "T3"
-                      : (stage ?? 0) <= 5
-                        ? "T1"
-                        : (stage ?? 0) <= 10
-                          ? "T2"
-                          : "T3";
+                      : level === 1
+                        ? "10%"
+                        : level === 2
+                          ? "8%"
+                          : "6%";
+                  const tierLabel = `T${level}`;
                   const rarities = isFirstStage
                     ? "Weapon + Charm guaranteed"
                     : isBoss
-                      ? "Common 50% · Rare 35% · Epic 15%"
-                      : "Common 80% · Rare 18% · Epic 2%";
+                      ? "Common 30% · Rare 50% · Epic 20%"
+                      : level === 1
+                        ? "Common 75% · Rare 20% · Epic 5%"
+                        : level === 2
+                          ? "Common 55% · Rare 35% · Epic 10%"
+                          : "Common 35% · Rare 45% · Epic 20%";
                   return (
                     <>
                       <View style={styles.gearDropRow}>
@@ -716,6 +827,54 @@ export default function AdventureTab({
                   );
                 })()}
               </View>
+
+              {/* Boss — 2nd champion selector */}
+              {selectedDungeon.is_boss_stage && (
+                <View style={styles.bossSection}>
+                  <Text style={styles.bossSectionTitle}>
+                    ⚔️ BOSS — 2 Champion Required
+                  </Text>
+                  <Text style={styles.bossSectionSub}>
+                    Primary: {championClass ?? "—"}
+                  </Text>
+                  {loadingChampions ? (
+                    <ActivityIndicator color="#7a5a30" style={{ marginTop: 8 }} />
+                  ) : availableChampions.length === 0 ? (
+                    <Text style={styles.noChampText}>
+                      No available champions. All others are deployed or defending.
+                    </Text>
+                  ) : (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{ marginTop: 6 }}
+                    >
+                      {availableChampions.map((c) => (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={[
+                            styles.champ2Card,
+                            selectedChampion2?.id === c.id &&
+                              styles.champ2CardSelected,
+                          ]}
+                          onPress={() => setSelectedChampion2(c)}
+                        >
+                          <Image
+                            source={CHAMP_IMAGES[c.class] ?? CAT_PAWN}
+                            style={styles.champ2Img}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.champ2Name}>{c.name}</Text>
+                          <Text style={styles.champ2Stats}>
+                            ATK {c.attack + (c.gear_attack ?? 0)}  DEF {c.defense + (c.gear_defense ?? 0)}
+                          </Text>
+                          <Text style={styles.champ2Lv}>LV {c.level}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
 
               {/* Action */}
               {(() => {
@@ -746,17 +905,23 @@ export default function AdventureTab({
                     </View>
                   );
                 }
+                const bossNeedsChamp2 =
+                  selectedDungeon.is_boss_stage && !selectedChampion2;
                 return (
                   <CustomButton
                     btnImage={DUNGEON_IMG}
                     text="ENTER DUNGEON"
                     onClick={() => {
-                      onEnter(selectedDungeon);
+                      onEnter(
+                        selectedDungeon,
+                        selectedDungeon.is_boss_stage ? selectedChampion2?.id : undefined,
+                        selectedDungeon.is_boss_stage ? selectedChampion2?.class : undefined,
+                      );
                       setSelectedDungeon(null);
                     }}
                     bgColor="#4a7c3f"
                     borderColor="#2d5a24"
-                    disabled={championIsBusy}
+                    disabled={championIsBusy || bossNeedsChamp2}
                     style={{ width: "100%", marginTop: 8 }}
                   />
                 );
@@ -849,6 +1014,38 @@ const styles = StyleSheet.create({
   mapContainer: {
     position: "relative",
   },
+  levelSeparator: {
+    height: LEVEL_SEPARATOR_H,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  levelSeparatorLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: "rgba(200,169,110,0.35)",
+  },
+  levelSeparatorBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(30,20,10,0.75)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1.5,
+    borderColor: "#c8a96e",
+  },
+  levelSeparatorBadgeLocked: {
+    borderColor: "#6a5a48",
+    backgroundColor: "rgba(30,20,10,0.5)",
+  },
+  levelSeparatorText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#c8a96e",
+    letterSpacing: 1,
+  },
   node: {
     position: "absolute",
     alignItems: "center",
@@ -859,21 +1056,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 5,
     elevation: 6,
-  },
-  stageBadge: {
-    position: "absolute",
-    bottom: 5,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  stageBadgeText: {
-    fontWeight: "800",
-    color: "#fff",
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   crownBadge: {
     position: "absolute",
@@ -931,6 +1113,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderTopWidth: 2,
     borderColor: "#c8a96e",
+    maxHeight: "90%",
   },
   sheetHeader: {
     flexDirection: "row",
@@ -1063,6 +1246,67 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#9a7040",
+  },
+  bossSection: {
+    backgroundColor: "rgba(80,20,0,0.08)",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#f39c12",
+    padding: 12,
+    gap: 4,
+  },
+  bossSectionTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#c0392b",
+    letterSpacing: 0.3,
+  },
+  bossSectionSub: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7a5a30",
+  },
+  noChampText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9a6040",
+    marginTop: 6,
+  },
+  champ2Card: {
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.07)",
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#c8a96e",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginRight: 8,
+    minWidth: 80,
+  },
+  champ2CardSelected: {
+    borderColor: "#f39c12",
+    backgroundColor: "rgba(243,156,18,0.15)",
+  },
+  champ2Img: {
+    width: 40,
+    height: 40,
+  },
+  champ2Name: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#2d2010",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  champ2Stats: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#7a5a30",
+  },
+  champ2Lv: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#4a7c3f",
   },
   onMissionBlock: {
     backgroundColor: "#30336b",

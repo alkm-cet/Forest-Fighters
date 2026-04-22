@@ -98,14 +98,18 @@ function LevelBadge({ level }: { level: number }) {
 }
 
 // ── Stat row ───────────────────────────────────────────────────────────────────
-function StatRow({ gear, t }: { gear: PlayerGear; t: (key: TranslationKeys) => string }) {
+function StatRow({ gear, champion, t }: { gear: PlayerGear; champion?: Champion | null; t: (key: TranslationKeys) => string }) {
+  const isEquippedHere = champion != null && gear.equipped_champion_id === champion.id;
+  const atkVal = isEquippedHere ? Math.min(gear.attack_bonus, Math.floor(champion.attack * 0.5)) : gear.attack_bonus;
+  const defVal = isEquippedHere ? Math.min(gear.defense_bonus, Math.floor(champion.defense * 0.5)) : gear.defense_bonus;
+  const chaVal = isEquippedHere ? Math.min(gear.chance_bonus, Math.floor(champion.chance * 0.5)) : gear.chance_bonus;
   const stat =
-    gear.attack_bonus > 0
-      ? { label: t("gearStatAttack"), value: gear.attack_bonus, icon: <Swords size={13} color="#c0392b" strokeWidth={2.5} />, color: "#c0392b", bg: "#fce8e4" }
-      : gear.defense_bonus > 0
-        ? { label: t("gearStatDefense"), value: gear.defense_bonus, icon: <Shield size={13} color="#1565c0" strokeWidth={2.5} />, color: "#1565c0", bg: "#e3eeff" }
-        : gear.chance_bonus > 0
-          ? { label: t("gearStatChance"), value: gear.chance_bonus, icon: <Zap size={13} color="#2e7d32" strokeWidth={2.5} />, color: "#2e7d32", bg: "#e8f5e9" }
+    atkVal > 0
+      ? { label: t("gearStatAttack"), value: atkVal, icon: <Swords size={13} color="#c0392b" strokeWidth={2.5} />, color: "#c0392b", bg: "#fce8e4" }
+      : defVal > 0
+        ? { label: t("gearStatDefense"), value: defVal, icon: <Shield size={13} color="#1565c0" strokeWidth={2.5} />, color: "#1565c0", bg: "#e3eeff" }
+        : chaVal > 0
+          ? { label: t("gearStatChance"), value: chaVal, icon: <Zap size={13} color="#2e7d32" strokeWidth={2.5} />, color: "#2e7d32", bg: "#e8f5e9" }
           : null;
   if (!stat) return null;
   return (
@@ -158,6 +162,7 @@ function DismissableCard({
 function GearCard({
   gear,
   mode,
+  champion,
   onPrimary,
   onUpgrade,
   forgeStones,
@@ -166,6 +171,7 @@ function GearCard({
 }: {
   gear: PlayerGear;
   mode: "equip" | "unequip";
+  champion?: Champion | null;
   onPrimary: () => void;
   onUpgrade?: (stoneIds: string[]) => void;
   forgeStones: PlayerFood[];
@@ -218,7 +224,7 @@ function GearCard({
         </View>
 
         {/* Stat row */}
-        <StatRow gear={gear} t={t} />
+        <StatRow gear={gear} champion={champion} t={t} />
 
         {/* Bottom row: stone/upgrade slot + primary action */}
         <View style={cardStyles.bottomRow}>
@@ -601,6 +607,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                 <GearCard
                   gear={equippedWeapon}
                   mode="unequip"
+                  champion={champion}
                   onPrimary={() => handleUnequip(equippedWeapon)}
                   onUpgrade={(ids) => handleUpgrade(equippedWeapon, ids)}
                   forgeStones={forgeStones}
@@ -621,6 +628,7 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
                 <GearCard
                   gear={equippedCharm}
                   mode="unequip"
+                  champion={champion}
                   onPrimary={() => handleUnequip(equippedCharm)}
                   onUpgrade={(ids) => handleUpgrade(equippedCharm, ids)}
                   forgeStones={forgeStones}

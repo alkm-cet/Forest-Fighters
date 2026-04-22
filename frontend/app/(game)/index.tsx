@@ -129,7 +129,10 @@ export default function MainScreen() {
   const runMap = useMemo(() => {
     const m: Record<string, DungeonRun> = {};
     for (const r of dungeonRuns) {
-      if (r.status === "active") m[r.champion_id] = r;
+      if (r.status === "active") {
+        m[r.champion_id] = r;
+        if (r.champion_id_2) m[r.champion_id_2] = r;
+      }
     }
     return m;
   }, [dungeonRuns]);
@@ -163,7 +166,7 @@ export default function MainScreen() {
     emoji: string;
   } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
-  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string } | null>(null);
+  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string; champion2Name?: string; champion2Class?: string } | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
@@ -997,7 +1000,7 @@ export default function MainScreen() {
         }}
         onClaim={async (run) => {
           setSelectedChampion(null);
-          setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior" });
+          setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior", champion2Name: run.champion2_name ?? undefined, champion2Class: run.champion2_class ?? undefined });
           setExpiredRunChampions((prev) => {
             const next = new Set(prev);
             next.delete(run.champion_id);
@@ -1279,6 +1282,8 @@ export default function MainScreen() {
         result={claimResult!}
         championName={claimingRun?.name ?? ""}
         championClass={claimingRun?.class ?? "Warrior"}
+        champion2Name={claimingRun?.champion2Name}
+        champion2Class={claimingRun?.champion2Class}
       />
 
       <BattleHistoryDrawer

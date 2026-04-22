@@ -124,6 +124,7 @@ export type Dungeon = {
   // Adventure
   stage_number?: number | null;
   is_boss_stage?: boolean;
+  dungeon_level?: number | null;
   // Event
   event_starts_at?: string | null;
   event_ends_at?: string | null;
@@ -150,6 +151,10 @@ export type DungeonRun = {
   dungeon_type?: DungeonType;
   reward_resource_2?: string | null;
   reward_amount_2?: number | null;
+  champion_id_2?: string | null;
+  champion2_name?: string | null;
+  champion2_class?: string | null;
+  is_boss_stage?: boolean;
 };
 
 export type AdventureProgress = {
@@ -232,6 +237,17 @@ export type ClaimResult = {
   gearDrops?: PlayerGear[];
   championGear?: GearSnapshot;
   extraRewards?: Array<{ resource: string; amount: number }>;
+  // Boss battle extras
+  isBossBattle?: boolean;
+  champion2Name?: string;
+  champion2Class?: string;
+  champion2HpLeft?: number;
+  champion2XpGained?: number;
+  champion2LevelsGained?: number;
+  champion2NewLevel?: number;
+  c1StartStats?: { attack: number; defense: number; chance: number; hp: number };
+  c2StartStats?: { attack: number; defense: number; chance: number; hp: number };
+  bossStartStats?: { attack: number; defense: number; chance: number; hp: number };
 };
 
 export type PvpStatus = {
@@ -351,6 +367,7 @@ export type PvpBattle = {
   defender_champion_name: string;
   defender_champion_class: string;
   combat_log: any[];
+  battle_log?: { attacker?: { attack: number; defense: number; chance: number; hp: number }; defender?: { attack: number; defense: number; chance: number; hp: number } } | null;
   fought_at: string;
   result_available_at: string;
   status: "pending" | "resolved";

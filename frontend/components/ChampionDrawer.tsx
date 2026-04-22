@@ -48,6 +48,7 @@ import { useLanguage } from "../lib/i18n";
 
 import PvpBattleButton from "./PvpBattleButton";
 import EnterDungeonButton from "./EnterDungeonButton";
+import { useRouter } from "expo-router";
 import CustomButton from "./CustomButton";
 import CountdownTimer from "./CountdownTimer";
 import { useCoinConfirm } from "../lib/coin-confirm-context";
@@ -58,8 +59,9 @@ import GearDrawer, { GEAR_IMAGES } from "./GearDrawer";
 import { RARITY_META } from "../constants/resources";
 import { useGearInventoryQuery } from "../lib/query/queries";
 
-const REVIVE_MILK_COST = 4;
-const REVIVE_WOOL_COST = 4;
+function getReviveCost(level: number) {
+  return 5 + level;
+}
 const COIN_REVIVE_COST = 15;
 const HEAL_MILK_COST = 5;
 const HEAL_EGG_COST = 5;
@@ -131,7 +133,9 @@ function StatRow({
   const total = value + (boost ?? 0) + (gearBonus ?? 0);
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label} <Text style={styles.statLabelTotal}>({total})</Text></Text>
+      <Text style={styles.statLabel}>
+        {label} <Text style={styles.statLabelTotal}>({total})</Text>
+      </Text>
       <View style={styles.statBarLine}>
         <View style={styles.barTrack}>
           <View
@@ -144,7 +148,9 @@ function StatRow({
         <View style={styles.statValueRow}>
           <Text style={styles.statValue}>{value}</Text>
           {(boost ?? 0) > 0 && <Text style={styles.statBoost}> +{boost}</Text>}
-          {(gearBonus ?? 0) > 0 && <Text style={styles.statGearBonus}> +{gearBonus}</Text>}
+          {(gearBonus ?? 0) > 0 && (
+            <Text style={styles.statGearBonus}> +{gearBonus}</Text>
+          )}
         </View>
         {canUpgrade && (
           <TouchableOpacity
@@ -198,6 +204,7 @@ export default function ChampionDrawer({
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const translateY = useRef(new Animated.Value(0)).current;
   const contentScrollY = useRef(0);
   const [pendingStat, setPendingStat] = useState<StatKey | null>(null);
@@ -687,10 +694,14 @@ export default function ChampionDrawer({
                   {/* Gear slots below image frame */}
                   {(() => {
                     const equippedWeapon = allGear.find(
-                      (g) => g.equipped_champion_id === champion.id && g.equipped_slot === 'weapon'
+                      (g) =>
+                        g.equipped_champion_id === champion.id &&
+                        g.equipped_slot === "weapon",
                     );
                     const equippedCharm = allGear.find(
-                      (g) => g.equipped_champion_id === champion.id && g.equipped_slot === 'charm'
+                      (g) =>
+                        g.equipped_champion_id === champion.id &&
+                        g.equipped_slot === "charm",
                     );
                     return (
                       <View style={styles.gearSlotsRow}>
@@ -698,19 +709,44 @@ export default function ChampionDrawer({
                           style={[
                             styles.gearSlot,
                             equippedWeapon
-                              ? { borderColor: RARITY_META[equippedWeapon.rarity].borderColor }
+                              ? {
+                                  borderColor:
+                                    RARITY_META[equippedWeapon.rarity]
+                                      .borderColor,
+                                }
                               : styles.gearSlotEmpty,
                           ]}
                           onPress={() => setGearDrawerOpen(true)}
                           activeOpacity={0.75}
                         >
-                          {equippedWeapon && GEAR_IMAGES[equippedWeapon.definition.id]
-                            ? <Image source={GEAR_IMAGES[equippedWeapon.definition.id]} style={styles.gearSlotImg} resizeMode="contain" />
-                            : <Text style={styles.gearSlotEmoji}>{equippedWeapon ? equippedWeapon.definition.emoji : '⚔️'}</Text>
-                          }
+                          {equippedWeapon &&
+                          GEAR_IMAGES[equippedWeapon.definition.id] ? (
+                            <Image
+                              source={GEAR_IMAGES[equippedWeapon.definition.id]}
+                              style={styles.gearSlotImg}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <Text style={styles.gearSlotEmoji}>
+                              {equippedWeapon
+                                ? equippedWeapon.definition.emoji
+                                : "⚔️"}
+                            </Text>
+                          )}
                           {equippedWeapon && (
-                            <View style={[styles.gearSlotLvBadge, { backgroundColor: RARITY_META[equippedWeapon.rarity].borderColor }]}>
-                              <Text style={styles.gearSlotLvText}>Lv{equippedWeapon.level}</Text>
+                            <View
+                              style={[
+                                styles.gearSlotLvBadge,
+                                {
+                                  backgroundColor:
+                                    RARITY_META[equippedWeapon.rarity]
+                                      .borderColor,
+                                },
+                              ]}
+                            >
+                              <Text style={styles.gearSlotLvText}>
+                                Lv{equippedWeapon.level}
+                              </Text>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -718,19 +754,44 @@ export default function ChampionDrawer({
                           style={[
                             styles.gearSlot,
                             equippedCharm
-                              ? { borderColor: RARITY_META[equippedCharm.rarity].borderColor }
+                              ? {
+                                  borderColor:
+                                    RARITY_META[equippedCharm.rarity]
+                                      .borderColor,
+                                }
                               : styles.gearSlotEmpty,
                           ]}
                           onPress={() => setGearDrawerOpen(true)}
                           activeOpacity={0.75}
                         >
-                          {equippedCharm && GEAR_IMAGES[equippedCharm.definition.id]
-                            ? <Image source={GEAR_IMAGES[equippedCharm.definition.id]} style={styles.gearSlotImg} resizeMode="contain" />
-                            : <Text style={styles.gearSlotEmoji}>{equippedCharm ? equippedCharm.definition.emoji : '🍀'}</Text>
-                          }
+                          {equippedCharm &&
+                          GEAR_IMAGES[equippedCharm.definition.id] ? (
+                            <Image
+                              source={GEAR_IMAGES[equippedCharm.definition.id]}
+                              style={styles.gearSlotImg}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <Text style={styles.gearSlotEmoji}>
+                              {equippedCharm
+                                ? equippedCharm.definition.emoji
+                                : "🍀"}
+                            </Text>
+                          )}
                           {equippedCharm && (
-                            <View style={[styles.gearSlotLvBadge, { backgroundColor: RARITY_META[equippedCharm.rarity].borderColor }]}>
-                              <Text style={styles.gearSlotLvText}>Lv{equippedCharm.level}</Text>
+                            <View
+                              style={[
+                                styles.gearSlotLvBadge,
+                                {
+                                  backgroundColor:
+                                    RARITY_META[equippedCharm.rarity]
+                                      .borderColor,
+                                },
+                              ]}
+                            >
+                              <Text style={styles.gearSlotLvText}>
+                                Lv{equippedCharm.level}
+                              </Text>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -780,7 +841,6 @@ export default function ChampionDrawer({
                   />
                 </View>
               </View>
-
 
               {/* HP Bar */}
               {(() => {
@@ -857,7 +917,9 @@ export default function ChampionDrawer({
                           activeOpacity={foodLocked ? 1 : 0.75}
                           disabled={foodLocked}
                           onPress={() =>
-                            filled ? setRemoveSlot(slot) : openFoodInventory(slot)
+                            filled
+                              ? setRemoveSlot(slot)
+                              : openFoodInventory(slot)
                           }
                         >
                           <View
@@ -867,17 +929,28 @@ export default function ChampionDrawer({
                             ]}
                           >
                             {foodLocked && !filled ? (
-                              <Lock size={14} color="#b8a070" strokeWidth={2.5} />
+                              <Lock
+                                size={14}
+                                color="#b8a070"
+                                strokeWidth={2.5}
+                              />
                             ) : filled ? (
                               <Text style={styles.foodSlotEmoji}>{emoji}</Text>
                             ) : (
-                              <Plus size={16} color="#9a7040" strokeWidth={2.5} />
+                              <Plus
+                                size={16}
+                                color="#9a7040"
+                                strokeWidth={2.5}
+                              />
                             )}
                           </View>
                           <View style={styles.foodSlotInfo}>
                             {filled ? (
                               <>
-                                <Text style={styles.foodSlotName} numberOfLines={1}>
+                                <Text
+                                  style={styles.foodSlotName}
+                                  numberOfLines={1}
+                                >
                                   {filled.recipe.name}
                                 </Text>
                                 {countdown ? (
@@ -891,9 +964,16 @@ export default function ChampionDrawer({
                                 )}
                               </>
                             ) : (
-                              <Text style={[styles.addFoodText, foodLocked && styles.addFoodTextLocked]}>
+                              <Text
+                                style={[
+                                  styles.addFoodText,
+                                  foodLocked && styles.addFoodTextLocked,
+                                ]}
+                              >
                                 {foodLocked
-                                  ? (isOnMission ? t("foodLockedOnMission") : t("foodLockedInBattle"))
+                                  ? isOnMission
+                                    ? t("foodLockedOnMission")
+                                    : t("foodLockedInBattle")
                                   : t("addFood")}
                               </Text>
                             )}
@@ -991,21 +1071,25 @@ export default function ChampionDrawer({
                           style={styles.costIcon}
                           resizeMode="contain"
                         />
-                        <Text style={styles.costText}>×{REVIVE_MILK_COST}</Text>
+                        <Text style={styles.costText}>
+                          ×{getReviveCost(champion.level)}
+                        </Text>
                         <Image
                           source={WOOL_IMG}
                           style={styles.costIcon}
                           resizeMode="contain"
                         />
-                        <Text style={styles.costText}>×{REVIVE_WOOL_COST}</Text>
+                        <Text style={styles.costText}>
+                          ×{getReviveCost(champion.level)}
+                        </Text>
                       </View>
                     }
                     onClick={() => onRevive?.(champion)}
                     bgColor="#7a3a9a"
                     borderColor="#5a2d78"
                     disabled={
-                      (resources?.milk ?? 0) < REVIVE_MILK_COST ||
-                      (resources?.wool ?? 0) < REVIVE_WOOL_COST
+                      (resources?.milk ?? 0) < getReviveCost(champion.level) ||
+                      (resources?.wool ?? 0) < getReviveCost(champion.level)
                     }
                     style={styles.btnFlex}
                   />
@@ -1026,7 +1110,10 @@ export default function ChampionDrawer({
                       triggerCoinConfirm({
                         transactionCost: COIN_REVIVE_COST,
                         transactionTitle: t("coinRevive"),
-                        transactionDesc: t("coinReviveDescPre") + champion.name + t("coinReviveDescPost"),
+                        transactionDesc:
+                          t("coinReviveDescPre") +
+                          champion.name +
+                          t("coinReviveDescPost"),
                         onConfirm: () => onCoinRevive?.(champion),
                       })
                     }
@@ -1049,22 +1136,38 @@ export default function ChampionDrawer({
                           activeOpacity={0.8}
                         >
                           <Swords size={16} color="#fff" strokeWidth={2} />
-                          <Text style={styles.claimBtnText}>{t("viewResult")}</Text>
+                          <Text style={styles.claimBtnText}>
+                            {t("viewResult")}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     ) : (
                       // Battle in progress — countdown + skip button
                       <View style={[styles.btnRow, { marginTop: 20 }]}>
-                        <View style={[styles.onMissionBtn, styles.btnFlex, styles.pvpBattleBtn]}>
+                        <View
+                          style={[
+                            styles.onMissionBtn,
+                            styles.btnFlex,
+                            styles.pvpBattleBtn,
+                          ]}
+                        >
                           <Swords size={16} color="#8a5cc7" strokeWidth={2} />
                           <View style={styles.onMissionInner}>
-                            <Text style={[styles.onMissionText, { color: "#8a5cc7" }]}>
+                            <Text
+                              style={[
+                                styles.onMissionText,
+                                { color: "#8a5cc7" },
+                              ]}
+                            >
                               {t("champInBattle")}
                             </Text>
                             {pvpBattleEndsAt && (
                               <CountdownTimer
                                 endsAt={pvpBattleEndsAt}
-                                style={[styles.onMissionTimer, { color: "#6a3ca7" }]}
+                                style={[
+                                  styles.onMissionTimer,
+                                  { color: "#6a3ca7" },
+                                ]}
                                 onExpire={() => setPvpBattleExpired(true)}
                               />
                             )}
@@ -1072,27 +1175,48 @@ export default function ChampionDrawer({
                         </View>
                         {pvpBattleEndsAt &&
                           (() => {
-                            const secsLeft = Math.max(0, (new Date(pvpBattleEndsAt).getTime() - Date.now()) / 1000);
-                            const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
+                            const secsLeft = Math.max(
+                              0,
+                              (new Date(pvpBattleEndsAt).getTime() -
+                                Date.now()) /
+                                1000,
+                            );
+                            const skipCost = Math.max(
+                              1,
+                              Math.ceil(secsLeft / 60),
+                            );
                             const canSkip = coins >= skipCost;
                             return (
                               <TouchableOpacity
-                                style={[styles.missionSkipBtn, styles.btnFlex, !canSkip && styles.btnDisabled]}
+                                style={[
+                                  styles.missionSkipBtn,
+                                  styles.btnFlex,
+                                  !canSkip && styles.btnDisabled,
+                                ]}
                                 onPress={() =>
                                   canSkip &&
                                   triggerCoinConfirm({
                                     transactionCost: skipCost,
                                     transactionTitle: t("skipCooldown"),
-                                    transactionDesc: champion.name + t("skipBattleDescPost"),
+                                    transactionDesc:
+                                      champion.name + t("skipBattleDescPost"),
                                     onConfirm: () => onSkipPvp?.(),
                                   })
                                 }
                                 activeOpacity={0.8}
                               >
-                                <Text style={styles.missionSkipLabel}>{t("skipBattleNow")}</Text>
+                                <Text style={styles.missionSkipLabel}>
+                                  {t("skipBattleNow")}
+                                </Text>
                                 <View style={styles.missionSkipRow}>
-                                  <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
-                                  <Text style={styles.missionSkipCost}>×{skipCost}</Text>
+                                  <Image
+                                    source={COIN_IMG}
+                                    style={styles.skipCoinImg}
+                                    resizeMode="contain"
+                                  />
+                                  <Text style={styles.missionSkipCost}>
+                                    ×{skipCost}
+                                  </Text>
                                 </View>
                               </TouchableOpacity>
                             );
@@ -1103,11 +1227,18 @@ export default function ChampionDrawer({
                     <>
                       {/* === Normal button row === */}
                       <View style={styles.btnRow}>
-                        {!isOnMission && !claimableRun && (
-                          playerHasPendingBattle && !isPvpBattle ? (
+                        {!isOnMission &&
+                          !claimableRun &&
+                          (playerHasPendingBattle && !isPvpBattle ? (
                             <View style={[styles.btnFlex, styles.pvpLockedBtn]}>
-                              <Swords size={14} color="#b8a070" strokeWidth={2} />
-                              <Text style={styles.pvpLockedText}>{t("pvpLockedWaiting")}</Text>
+                              <Swords
+                                size={14}
+                                color="#b8a070"
+                                strokeWidth={2}
+                              />
+                              <Text style={styles.pvpLockedText}>
+                                {t("pvpLockedWaiting")}
+                              </Text>
                             </View>
                           ) : (
                             <View
@@ -1125,8 +1256,7 @@ export default function ChampionDrawer({
                                 style={styles.btnFlex}
                               />
                             </View>
-                          )
-                        )}
+                          ))}
                         {claimableRun ? (
                           <TouchableOpacity
                             style={[styles.claimBtn, styles.btnFlex]}
@@ -1141,7 +1271,11 @@ export default function ChampionDrawer({
                         ) : isOnMission ? (
                           <>
                             <View style={[styles.onMissionBtn, styles.btnFlex]}>
-                              <MapPin size={16} color="#4a7c3f" strokeWidth={2} />
+                              <MapPin
+                                size={16}
+                                color="#4a7c3f"
+                                strokeWidth={2}
+                              />
                               <View style={styles.onMissionInner}>
                                 <Text style={styles.onMissionText}>
                                   {t("onMission")}
@@ -1157,27 +1291,50 @@ export default function ChampionDrawer({
                             </View>
                             {activeRunEndsAt &&
                               (() => {
-                                const secsLeft = Math.max(0, (new Date(activeRunEndsAt).getTime() - Date.now()) / 1000);
-                                const skipCost = Math.max(1, Math.ceil(secsLeft / 60));
+                                const secsLeft = Math.max(
+                                  0,
+                                  (new Date(activeRunEndsAt).getTime() -
+                                    Date.now()) /
+                                    1000,
+                                );
+                                const skipCost = Math.max(
+                                  1,
+                                  Math.ceil(secsLeft / 60),
+                                );
                                 const canSkip = coins >= skipCost;
                                 return (
                                   <TouchableOpacity
-                                    style={[styles.missionSkipBtn, styles.btnFlex, !canSkip && styles.btnDisabled]}
+                                    style={[
+                                      styles.missionSkipBtn,
+                                      styles.btnFlex,
+                                      !canSkip && styles.btnDisabled,
+                                    ]}
                                     onPress={() =>
                                       canSkip &&
                                       triggerCoinConfirm({
                                         transactionCost: skipCost,
                                         transactionTitle: t("skipCooldown"),
-                                        transactionDesc: champion.name + t("skipMissionDescPost"),
-                                        onConfirm: () => onSkipMission?.(champion),
+                                        transactionDesc:
+                                          champion.name +
+                                          t("skipMissionDescPost"),
+                                        onConfirm: () =>
+                                          onSkipMission?.(champion),
                                       })
                                     }
                                     activeOpacity={0.8}
                                   >
-                                    <Text style={styles.missionSkipLabel}>{t("skipMissionNow")}</Text>
+                                    <Text style={styles.missionSkipLabel}>
+                                      {t("skipMissionNow")}
+                                    </Text>
                                     <View style={styles.missionSkipRow}>
-                                      <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
-                                      <Text style={styles.missionSkipCost}>×{skipCost}</Text>
+                                      <Image
+                                        source={COIN_IMG}
+                                        style={styles.skipCoinImg}
+                                        resizeMode="contain"
+                                      />
+                                      <Text style={styles.missionSkipCost}>
+                                        ×{skipCost}
+                                      </Text>
                                     </View>
                                   </TouchableOpacity>
                                 );
@@ -1268,7 +1425,8 @@ export default function ChampionDrawer({
                                   triggerCoinConfirm({
                                     transactionCost: coinHealCost,
                                     transactionTitle: t("heal"),
-                                    transactionDesc: champion.name + t("coinHealDescPost"),
+                                    transactionDesc:
+                                      champion.name + t("coinHealDescPost"),
                                     onConfirm: () => onCoinHeal?.(champion),
                                   })
                                 }
@@ -1345,7 +1503,9 @@ export default function ChampionDrawer({
                   }}
                 >
                   <Shield size={20} color="#4a7c3f" strokeWidth={2.5} />
-                  <Text style={styles.confirmTitle}>{t("champDefenderTitle")}</Text>
+                  <Text style={styles.confirmTitle}>
+                    {t("champDefenderTitle")}
+                  </Text>
                 </View>
                 <Text style={styles.confirmSubtitle}>
                   {t("champDefenderWarning")}
@@ -1382,6 +1542,11 @@ export default function ChampionDrawer({
           onUseFood={handleUseFood}
           context="fighter"
           coins={coins}
+          onGoToKitchen={() => {
+            setFoodInventoryOpen(false);
+            onClose?.();
+            router.push("/(game)/kitchen");
+          }}
           onInstantCook={(foodId, coinCost) =>
             triggerCoinConfirm({
               transactionCost: coinCost,
@@ -1391,13 +1556,19 @@ export default function ChampionDrawer({
                 try {
                   const res = await api.post(`/api/kitchen/instant/${foodId}`);
                   // Refresh kitchen inventory and player coins
-                  queryClient.invalidateQueries({ queryKey: queryKeys.kitchenInventory() });
-                  queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.kitchenInventory(),
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: queryKeys.player(),
+                  });
                   // Reload the food list
                   const r = await api.get("/api/kitchen/inventory");
                   setPlayerFoods(r.data);
                 } catch (err: any) {
-                  alert(err.response?.data?.error ?? t("champInstantCookFailed"));
+                  alert(
+                    err.response?.data?.error ?? t("champInstantCookFailed"),
+                  );
                 }
               },
             })
@@ -1430,7 +1601,9 @@ export default function ChampionDrawer({
                   </Text>
                   {hasCountdown && (
                     <View style={styles.removeFoodTimerRow}>
-                      <Text style={styles.removeFoodTimerLabel}>{t("foodRemainingLabel")}</Text>
+                      <Text style={styles.removeFoodTimerLabel}>
+                        {t("foodRemainingLabel")}
+                      </Text>
                       <Text style={styles.removeFoodTimer}>
                         {formatCountdown(food.expires_at_ms!)}
                       </Text>
@@ -1442,7 +1615,9 @@ export default function ChampionDrawer({
                       activeOpacity={0.75}
                       onPress={() => setRemoveSlot(null)}
                     >
-                      <Text style={styles.removeFoodKeepText}>{t("foodKeepBtn")}</Text>
+                      <Text style={styles.removeFoodKeepText}>
+                        {t("foodKeepBtn")}
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.removeFoodRemoveBtn}

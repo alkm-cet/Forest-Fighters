@@ -24,6 +24,7 @@ import { FOOD_EMOJIS, describeEffect } from "./FoodCard";
 import api from "../lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/query/queryKeys";
+import { useRouter } from "expo-router";
 
 // Cross-resource upgrade costs
 const UPGRADE_RESOURCES: Record<string, [string, string]> = {
@@ -73,6 +74,7 @@ export default function FarmerDrawer({
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const translateY = useRef(new Animated.Value(0)).current;
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -636,6 +638,11 @@ export default function FarmerDrawer({
           onClose={() => setFoodInventoryOpen(false)}
           onUseFood={handleUseFood}
           context="farmer"
+          onGoToKitchen={() => {
+            setFoodInventoryOpen(false);
+            onClose();
+            router.push("/(game)/kitchen");
+          }}
         />
 
         {/* Remove food popup */}

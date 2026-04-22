@@ -649,9 +649,10 @@ export function useCoinHealChampionMutation() {
     },
 
     onSuccess: (data, championId) => {
-      // Settle with authoritative data from server
       queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
-        (old ?? []).map((c) => (c.id === championId ? { ...c, ...data.champion } : c)),
+        (old ?? []).map((c) =>
+          c.id === championId ? { ...c, current_hp: data.champion.current_hp } : c,
+        ),
       );
     },
 

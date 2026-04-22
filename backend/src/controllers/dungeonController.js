@@ -1,5 +1,5 @@
 const { query } = require('../db');
-const { simulateCombat } = require('../combat');
+const { simulateCombat, simulateBossCombat } = require('../combat');
 const { incrementQuestProgress } = require('../quests');
 const { getChampionGearBonuses, getChampionEquippedGearSnapshot, rollGearDrop } = require('../routes/gear');
 
@@ -115,7 +115,28 @@ async function enterDungeon(req, res) {
       }
     }
 
-    // Adventure: stage lock check
+    // Adventure: level gate — entering any dungeon in level N requires boss of level N-1 cleared
+    if (dungeon.dungeon_type === 'adventure' && dungeon.dungeon_level > 1) {
+      const prevBossStageNum = (dungeon.dungeon_level - 1) * 10;
+      const prevBossRows = await query(
+        `SELECT d.id FROM dungeons d WHERE d.dungeon_type = 'adventure' AND d.stage_number = $1`,
+        [prevBossStageNum]
+      );
+      if (prevBossRows.length > 0) {
+        const cleared = await query(
+          `SELECT 1 FROM adventure_progress WHERE player_id = $1 AND dungeon_id = $2 AND best_stars > 0`,
+          [playerId, prevBossRows[0].id]
+        );
+        if (cleared.length === 0) {
+          return res.status(400).json({
+            error: `Seviye ${dungeon.dungeon_level}'e geçmek için önceki seviyenin boss savaşını kazanmalısınız.`,
+            required_boss_stage: prevBossStageNum,
+          });
+        }
+      }
+    }
+
+    // Adventure: stage sequence lock (must clear stage N-1 before entering stage N)
     if (dungeon.dungeon_type === 'adventure' && dungeon.stage_number > 1) {
       const prevStage = await query(
         `SELECT ap.id FROM dungeons d
@@ -125,6 +146,27 @@ async function enterDungeon(req, res) {
       );
       if (prevStage.length === 0) {
         return res.status(400).json({ error: 'Complete the previous stage first' });
+      }
+    }
+
+    // Boss: require and validate second champion
+    if (dungeon.is_boss_stage) {
+      const { champion_id_2 } = req.body;
+      if (!champion_id_2) {
+        return res.status(400).json({ error: 'Boss savaşı için ikinci bir şampiyon seçmelisiniz.' });
+      }
+      if (champion_id_2 === champion_id) {
+        return res.status(400).json({ error: 'Aynı şampiyonu iki kez seçemezsiniz.' });
+      }
+      const champ2Rows = await query(
+        'SELECT id, is_deployed, last_defender FROM champions WHERE id = $1 AND player_id = $2',
+        [champion_id_2, playerId]
+      );
+      if (champ2Rows.length === 0) {
+        return res.status(404).json({ error: 'İkinci şampiyon bulunamadı.' });
+      }
+      if (champ2Rows[0].is_deployed) {
+        return res.status(400).json({ error: 'İkinci şampiyon başka bir görevde.' });
       }
     }
 
@@ -144,13 +186,17 @@ async function enterDungeon(req, res) {
       : dungeon.duration_minutes * 60 * 1000;
     const endsAt = new Date(Date.now() + durationMs);
 
+    const { champion_id_2 } = req.body;
     const runRows = await query(
-      `INSERT INTO dungeon_runs (player_id, champion_id, dungeon_id, ends_at)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [playerId, champion_id, dungeonId, endsAt]
+      `INSERT INTO dungeon_runs (player_id, champion_id, dungeon_id, ends_at, champion_id_2)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [playerId, champion_id, dungeonId, endsAt, dungeon.is_boss_stage ? (champion_id_2 ?? null) : null]
     );
 
     await query('UPDATE champions SET is_deployed = TRUE WHERE id = $1', [champion_id]);
+    if (dungeon.is_boss_stage && champion_id_2) {
+      await query('UPDATE champions SET is_deployed = TRUE WHERE id = $1', [champion_id_2]);
+    }
 
     // Quest progress — entering an adventure dungeon
     if (dungeon.dungeon_type === 'adventure') {
@@ -187,10 +233,13 @@ async function getActiveRuns(req, res) {
       `SELECT dr.*, c.name AS champion_name, c.class AS champion_class, c.attack, c.defense, c.chance, c.max_hp,
               d.name AS dungeon_name, d.enemy_name, d.enemy_attack, d.enemy_defense,
               d.enemy_chance, d.enemy_hp, d.reward_resource, d.reward_amount,
-              d.dungeon_type, d.reward_resource_2, d.reward_amount_2
+              d.dungeon_type, d.reward_resource_2, d.reward_amount_2, d.is_boss_stage,
+              c2.name AS champion2_name,
+              c2.class AS champion2_class
        FROM dungeon_runs dr
        JOIN champions c ON c.id = dr.champion_id
        JOIN dungeons d ON d.id = dr.dungeon_id
+       LEFT JOIN champions c2 ON c2.id = dr.champion_id_2
        WHERE dr.player_id = $1 AND dr.status IN ('active', 'completed')
        ORDER BY dr.started_at DESC`,
       [playerId]
@@ -212,7 +261,7 @@ async function claimRun(req, res) {
               d.name AS dungeon_name, d.enemy_name, d.enemy_attack, d.enemy_defense, d.enemy_chance, d.enemy_hp,
               d.reward_resource, d.reward_amount, d.xp_reward,
               d.dungeon_type, d.coin_reward, d.reward_resource_2, d.reward_amount_2,
-              d.reward_multiplier, d.stage_number, d.is_boss_stage,
+              d.reward_multiplier, d.stage_number, d.is_boss_stage, d.dungeon_level,
               d.extra_rewards, d.min_champion_level
        FROM dungeon_runs dr
        JOIN champions c ON c.id = dr.champion_id
@@ -250,9 +299,41 @@ async function claimRun(req, res) {
       current_hp: run.current_hp + (run.boost_hp || 0),
     };
     const defender = { attack: run.enemy_attack, defense: run.enemy_defense, chance: run.enemy_chance, max_hp: run.enemy_hp };
-    const result = simulateCombat(attacker, defender);
 
-    const winner = result.winner === 'attacker' ? 'champion' : 'enemy';
+    const isBossBattle = !!run.champion_id_2;
+    let result;
+    let winner;
+    let champ2 = null;
+    let attacker2 = null;
+    let champ2FinalHp = null;
+    let champ2XpGained = 0;
+    let champ2LevelsGained = 0;
+    let champ2NewLevel = null;
+
+    if (isBossBattle) {
+      // Fetch champion 2 stats + gear bonuses
+      const champ2Rows = await query('SELECT * FROM champions WHERE id = $1', [run.champion_id_2]);
+      if (champ2Rows.length === 0) throw new Error('Champion 2 not found for boss battle');
+      champ2 = champ2Rows[0];
+      const rawGear2 = await getChampionGearBonuses(champ2.id);
+      const gearBonuses2 = {
+        attack:  Math.min(rawGear2.attack,  Math.floor(champ2.attack  * 0.5)),
+        defense: Math.min(rawGear2.defense, Math.floor(champ2.defense * 0.5)),
+        chance:  Math.min(rawGear2.chance,  Math.floor(champ2.chance  * 0.5)),
+      };
+      attacker2 = {
+        attack:  champ2.attack  + (champ2.boost_attack  || 0) + gearBonuses2.attack,
+        defense: champ2.defense + (champ2.boost_defense || 0) + gearBonuses2.defense,
+        chance:  champ2.chance  + (champ2.boost_chance  || 0) + gearBonuses2.chance,
+        max_hp:  champ2.max_hp  + (champ2.boost_hp      || 0),
+        current_hp: champ2.current_hp + (champ2.boost_hp || 0),
+      };
+      result = simulateBossCombat(attacker, attacker2, defender);
+      winner = result.winner === 'attacker' ? 'champion' : 'enemy';
+    } else {
+      result = simulateCombat(attacker, defender);
+      winner = result.winner === 'attacker' ? 'champion' : 'enemy';
+    }
 
     // Check if this adventure dungeon was already cleared before (for reward reduction)
     let alreadyCleared = false;
@@ -275,11 +356,18 @@ async function claimRun(req, res) {
       : Math.floor((run.reward_amount_2 || 0) * multiplier);
     const coinReward = winner === 'champion' && run.dungeon_type === 'adventure' && !alreadyCleared ? (run.coin_reward || 0) : 0;
 
-    // Calculate stars (adventure only)
+    // Calculate stars (adventure only) — boss uses combined HP of both champions
     let starsEarned = null;
     if (run.dungeon_type === 'adventure') {
       if (winner === 'champion') {
-        const hpPct = result.attackerHpLeft / (run.max_hp + (run.boost_hp || 0));
+        let hpPct;
+        if (isBossBattle && champ2) {
+          const combinedHpLeft = result.attackerHpLeft + (result.attacker2HpLeft || 0);
+          const combinedMaxHp = (run.max_hp + (run.boost_hp || 0)) + (champ2.max_hp + (champ2.boost_hp || 0));
+          hpPct = combinedHpLeft / combinedMaxHp;
+        } else {
+          hpPct = result.attackerHpLeft / (run.max_hp + (run.boost_hp || 0));
+        }
         starsEarned = hpPct >= 0.9 ? 3 : hpPct > 0.5 ? 2 : 1;
       } else {
         starsEarned = 0;
@@ -321,18 +409,50 @@ async function claimRun(req, res) {
       }
     }
 
-    // Update champion: HP + XP + level + stat points + clear legacy boost columns
-    const finalHp = Math.min(result.attackerHpLeft, run.max_hp);
+    // Update champion 1: HP + XP + level + stat points + restore timed boosts (zero one-shots)
+    const finalHp = Math.round(Math.min(result.attackerHpLeft, run.max_hp));
     await query(
-      'UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5, boost_hp = 0, boost_defense = 0, boost_chance = 0, boost_attack = 0 WHERE id = $6',
+      `UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5,
+        boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
+        boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
+        boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
+        boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
+       WHERE id = $6`,
       [finalHp, newXp, newLevel, newXpToNext, levelsGained, run.champion_id]
     );
 
-    // Delete one-shot food boosts for this champion (consumed by the battle)
-    await query(
-      `DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`,
-      [run.champion_id]
-    );
+    // Delete one-shot food boosts for champion 1
+    await query(`DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`, [run.champion_id]);
+
+    // Champion 2 post-battle (boss runs only)
+    if (isBossBattle && champ2) {
+      champ2FinalHp = Math.round(Math.min(result.attacker2HpLeft || 0, champ2.max_hp));
+      const xpReward2 = winner === 'champion' && run.xp_reward > 0 ? (alreadyCleared ? 1 : run.xp_reward) : 0;
+      champ2XpGained = xpReward2;
+      let c2NewXp = champ2.xp + xpReward2;
+      let c2NewLevel = champ2.level;
+      let c2NewXpToNext = champ2.xp_to_next_level;
+      while (c2NewXp >= c2NewXpToNext) {
+        c2NewXp -= c2NewXpToNext;
+        c2NewLevel++;
+        c2NewXpToNext = c2NewLevel * 100;
+        champ2LevelsGained++;
+      }
+      champ2NewLevel = c2NewLevel;
+      await query(
+        `UPDATE champions SET is_deployed = FALSE, current_hp = $1, xp = $2, level = $3, xp_to_next_level = $4, stat_points = stat_points + $5,
+          boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
+          boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
+          boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
+          boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $6 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
+         WHERE id = $6`,
+        [champ2FinalHp, c2NewXp, c2NewLevel, c2NewXpToNext, champ2LevelsGained, champ2.id]
+      );
+      await query(`DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`, [champ2.id]);
+      if (c2NewLevel >= 3) {
+        await query('UPDATE players SET pvp_unlocked = TRUE WHERE id = $1 AND pvp_unlocked = FALSE', [playerId]);
+      }
+    }
 
     // Unlock PvP for this player if any champion reached level 3
     if (newLevel >= 3) {
@@ -430,6 +550,18 @@ async function claimRun(req, res) {
       gearDrops,
       championGear,
       extraRewards: extraRewards.length > 0 ? extraRewards : undefined,
+      // Boss battle extras
+      isBossBattle: isBossBattle || undefined,
+      champion2Name: champ2?.name || undefined,
+      champion2Class: champ2?.class || undefined,
+      champion2HpLeft: champ2FinalHp ?? undefined,
+      champion2XpGained: champ2XpGained || undefined,
+      champion2LevelsGained: champ2LevelsGained || undefined,
+      champion2NewLevel: champ2NewLevel ?? undefined,
+      // Starting stats for battle history display
+      c1StartStats: isBossBattle ? { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.current_hp } : undefined,
+      c2StartStats: isBossBattle && champ2 ? { attack: attacker2.attack, defense: attacker2.defense, chance: attacker2.chance, hp: attacker2.current_hp } : undefined,
+      bossStartStats: isBossBattle ? { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.max_hp } : undefined,
     });
   } catch (err) {
     console.error(err);

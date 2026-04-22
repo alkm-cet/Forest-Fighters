@@ -107,7 +107,8 @@ export default function DungeonsScreen() {
   const [milestones, setMilestones] = useState<AdventureMilestone[]>([]);
   const [totalStars, setTotalStars] = useState(0);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
-  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string } | null>(null);
+  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string; champion2Name?: string; champion2Class?: string } | null>(null);
+  const [pendingChampion2Class, setPendingChampion2Class] = useState<string | undefined>(undefined);
 
   useFocusEffect(
     useCallback(() => {
@@ -155,15 +156,20 @@ export default function DungeonsScreen() {
     return harvestCooldowns.find((c) => c.dungeon_id === dungeonId);
   }
 
-  async function handleEnter(dungeon: Dungeon) {
+  async function handleEnter(dungeon: Dungeon, champion2Id?: string, champion2Class?: string) {
+    if (dungeon.is_boss_stage && champion2Class) {
+      setPendingChampion2Class(champion2Class);
+    }
     if (!championId) {
       Alert.alert("No champion selected");
       return;
     }
     try {
-      const res = await api.post(`/api/dungeons/${dungeon.id}/enter`, {
-        champion_id: championId,
-      });
+      const body: Record<string, string> = { champion_id: championId };
+      if (dungeon.is_boss_stage && champion2Id) {
+        body.champion_id_2 = champion2Id;
+      }
+      const res = await api.post(`/api/dungeons/${dungeon.id}/enter`, body);
       // Immediately put the new run in the cache so that when loadData() triggers
       // a re-render with fresh cooldown data, getRunForDungeon already finds it.
       // Without this, there's a flicker: cooldown block shows briefly before the
@@ -180,7 +186,12 @@ export default function DungeonsScreen() {
   }
 
   async function handleClaim(run: DungeonRun) {
-    setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior" });
+    setClaimingRun({
+      name: run.champion_name,
+      class: run.champion_class ?? "Warrior",
+      champion2Name: run.champion2_name ?? undefined,
+      champion2Class: run.champion2_class ?? (run.champion_id_2 ? pendingChampion2Class : undefined),
+    });
     try {
       const res = await api.post(`/api/dungeons/runs/${run.id}/claim`);
       await loadData();
@@ -495,11 +506,13 @@ export default function DungeonsScreen() {
 
         <BattleHistoryDrawer
           visible={claimResult !== null}
-          onClose={() => { setClaimResult(null); setClaimingRun(null); }}
+          onClose={() => { setClaimResult(null); setClaimingRun(null); setPendingChampion2Class(undefined); }}
           mode="pve"
           result={claimResult!}
           championName={claimingRun?.name ?? ""}
           championClass={claimingRun?.class ?? "Warrior"}
+          champion2Name={claimingRun?.champion2Name}
+          champion2Class={claimingRun?.champion2Class}
         />
       </SafeAreaView>
     </ImageBackground>

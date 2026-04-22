@@ -297,7 +297,7 @@ async function attackPvp(req, res) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [playerId, opponent.id, champion_id, defChamp.id, winnerId,
-       JSON.stringify(result.log), JSON.stringify(result.log),
+       JSON.stringify({ attacker: { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.max_hp }, defender: { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.max_hp } }), JSON.stringify(result.log),
        resultAvailableAt, attDelta, defDelta,
        transfers.strawberry, transfers.pinecone, transfers.blueberry,
        JSON.stringify(gearSnapshot)]
@@ -470,15 +470,15 @@ async function getBattles(req, res) {
         );
       }
 
-      // Free attacker champion and consume their legacy boost columns
+      // Free attacker champion; restore timed boosts, zero one-shots
       await query(
         `UPDATE champions SET
-           is_deployed  = FALSE,
-           boost_hp      = 0,
-           boost_defense = 0,
-           boost_chance  = 0,
-           boost_attack  = 0,
-           current_hp    = LEAST(current_hp, max_hp)
+           is_deployed   = FALSE,
+           current_hp    = LEAST(current_hp, max_hp),
+           boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
          WHERE id = $1`,
         [b.attacker_champion_id]
       );
@@ -489,15 +489,20 @@ async function getBattles(req, res) {
         [b.attacker_champion_id]
       );
 
-      // Consume defender's legacy boost columns (battle consumed them regardless of outcome)
+      // Restore defender's timed boosts, zero one-shots
       await query(
         `UPDATE champions SET
-           boost_hp      = 0,
-           boost_defense = 0,
-           boost_chance  = 0,
-           boost_attack  = 0,
-           current_hp    = LEAST(current_hp, max_hp)
+           current_hp    = LEAST(current_hp, max_hp),
+           boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
+           boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
          WHERE id = $1`,
+        [b.defender_champion_id]
+      );
+      // Delete one-shot food boosts for the defender champion
+      await query(
+        `DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`,
         [b.defender_champion_id]
       );
     }
