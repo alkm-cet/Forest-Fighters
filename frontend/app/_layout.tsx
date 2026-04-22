@@ -11,8 +11,16 @@ import { AuthProvider, useAuth } from "../lib/auth-context";
 import { GameDataProvider } from "../lib/game-data-context";
 import { CoinConfirmProvider } from "../lib/coin-confirm-context";
 import { queryClient } from "../lib/query/queryClient";
+import { useAppStateRefresh } from "../lib/query/useAppStateRefresh";
 
 SplashScreen.preventAutoHideAsync();
+
+// Hard-reloads all active queries when the app returns from background/inactive.
+// Must be rendered inside QueryClientProvider so useQueryClient() works.
+function AppStateRefreshBridge() {
+  useAppStateRefresh();
+  return null;
+}
 
 // Handles redirect logic — must be inside AuthProvider to use useAuth()
 function AuthGuard() {
@@ -68,6 +76,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AppStateRefreshBridge />
       <SafeAreaProvider>
         <LanguageProvider>
           <AuthProvider>

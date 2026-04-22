@@ -308,34 +308,17 @@ export default function MainScreen() {
   }, [pvpBattleEndsAt]);
   // ────────────────────────────────────────────────────────────────────────
 
-  // ── Refetch only stale queries on screen focus ────────────────────────
-  // refetchOnWindowFocus (AppState) handles app background→foreground.
-  // This handles screen navigation within the app (e.g. returning from dungeons).
-  // refetchType:'active' means only queries with mounted subscribers are touched.
+  // ── Refetch stale queries on in-app navigation focus ─────────────────
+  // Handles screen navigation within the app (e.g. returning from dungeons).
+  // App background→foreground hard-reload is handled globally by useAppStateRefresh.
+  // stale:true means only queries past their staleTime are touched.
   useFocusEffect(
     useCallback(() => {
-      queryClient.refetchQueries({
-        queryKey: queryKeys.resources(),
-        type: "active",
-        stale: true,
-      });
-      queryClient.refetchQueries({
-        queryKey: queryKeys.farmers(),
-        type: "active",
-        stale: true,
-      });
-      queryClient.refetchQueries({
-        queryKey: queryKeys.farms(),
-        type: "active",
-      });
-      queryClient.refetchQueries({
-        queryKey: queryKeys.dungeonRuns(),
-        type: "active",
-      });
-      queryClient.refetchQueries({
-        queryKey: queryKeys.pvpStatus(),
-        type: "active",
-      });
+      queryClient.refetchQueries({ queryKey: queryKeys.resources(),   type: "active", stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.farmers(),     type: "active", stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: "active", stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.dungeonRuns(), type: "active", stale: true });
+      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: "active", stale: true });
     }, [queryClient]),
   );
 
