@@ -250,6 +250,7 @@ const translations = {
     gearDiscardCancel: "Cancel",
     gearDiscardConfirm: "Discard",
     gearDiscardFailed: "Could not discard gear",
+    gearDiscardBtn: "Discard",
 
     // Food slot UI (shared)
     foodOneShotLabel: "one-shot",
@@ -585,6 +586,7 @@ const translations = {
     gearDiscardCancel: "Vazgeç",
     gearDiscardConfirm: "At",
     gearDiscardFailed: "Eşya atılamadı",
+    gearDiscardBtn: "Parçala",
 
     // Food slot UI (shared)
     foodOneShotLabel: "tek seferlik",

@@ -1,18 +1,7 @@
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-} from "react-native";
+import { View, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { useState } from "react";
 import { Text } from "./StyledText";
-import {
-  Swords,
-  Shield,
-  Zap,
-  HeartPulse,
-  Lock,
-} from "lucide-react-native";
+import { Swords, Shield, Zap, HeartPulse, Lock } from "lucide-react-native";
 import { Dungeon, DungeonRun } from "../types";
 import { RESOURCE_META } from "../constants/resources";
 import { useLanguage } from "../lib/i18n";
@@ -89,12 +78,14 @@ export default function DungeonCard({
   const reward2Meta = rewardResource2 ? RESOURCE_META[rewardResource2] : null;
   const enemyKey = dungeon.enemy_name?.toLowerCase() ?? "";
   const enemyImg = ENEMY_IMAGES[enemyKey] ?? null;
-  const extraRewards: Array<{ resource: string; amount: number }> = dungeon.extra_rewards ?? [];
+  const extraRewards: Array<{ resource: string; amount: number }> =
+    dungeon.extra_rewards ?? [];
   const minLv = dungeon.min_champion_level ?? null;
   const levelLocked = minLv !== null && championLevel < minLv;
 
   const isActive = activeRun?.status === "active";
-  const isExpired = isActive && activeRun && new Date(activeRun.ends_at) <= new Date();
+  const isExpired =
+    isActive && activeRun && new Date(activeRun.ends_at) <= new Date();
 
   return (
     <View style={styles.card}>
@@ -116,14 +107,20 @@ export default function DungeonCard({
           ) : null}
         </View>
         <View style={styles.durationPill}>
-          <Text style={styles.durationText}>⏱ {formatDuration(dungeon.duration_minutes)}</Text>
+          <Text style={styles.durationText}>
+            ⏱ {formatDuration(dungeon.duration_minutes)}
+          </Text>
         </View>
       </View>
 
       {/* Enemy block */}
       <View style={styles.enemyBlock}>
         {enemyImg && (
-          <Image source={enemyImg} style={styles.enemyImg} resizeMode="contain" />
+          <Image
+            source={enemyImg}
+            style={styles.enemyImg}
+            resizeMode="contain"
+          />
         )}
         <View style={styles.enemyInfo}>
           <Text style={styles.enemyName}>{dungeon.enemy_name}</Text>
@@ -150,7 +147,9 @@ export default function DungeonCard({
 
       {/* Level requirement badge */}
       {minLv !== null && (
-        <View style={[styles.levelBadge, levelLocked && styles.levelBadgeLocked]}>
+        <View
+          style={[styles.levelBadge, levelLocked && styles.levelBadgeLocked]}
+        >
           {levelLocked && <Lock size={11} color="#fff" strokeWidth={2.5} />}
           <Text style={styles.levelBadgeText}>
             {levelLocked
@@ -164,13 +163,21 @@ export default function DungeonCard({
       <View style={styles.rewardRowWrap}>
         {rewardMeta && (
           <View style={styles.rewardPill}>
-            <Image source={rewardMeta.image} style={styles.rewardIcon} resizeMode="contain" />
+            <Image
+              source={rewardMeta.image}
+              style={styles.rewardIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.rewardPillText}>×{dungeon.reward_amount}</Text>
           </View>
         )}
         {reward2Meta && (rewardAmount2 ?? 0) > 0 && (
           <View style={styles.rewardPill}>
-            <Image source={reward2Meta.image} style={styles.rewardIcon} resizeMode="contain" />
+            <Image
+              source={reward2Meta.image}
+              style={styles.rewardIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.rewardPillText}>×{rewardAmount2}</Text>
           </View>
         )}
@@ -179,7 +186,11 @@ export default function DungeonCard({
           if (!meta) return null;
           return (
             <View key={i} style={styles.rewardPill}>
-              <Image source={meta.image} style={styles.rewardIcon} resizeMode="contain" />
+              <Image
+                source={meta.image}
+                style={styles.rewardIcon}
+                resizeMode="contain"
+              />
               <Text style={styles.rewardPillText}>×{er.amount}</Text>
             </View>
           );
@@ -188,8 +199,15 @@ export default function DungeonCard({
 
       {/* Daily limit row */}
       {dailyRunLimit != null && (
-        <View style={[styles.dailyRow, isDailyLimitReached && styles.dailyRowFull]}>
-          <Text style={[styles.dailyText, isDailyLimitReached && styles.dailyTextFull]}>
+        <View
+          style={[styles.dailyRow, isDailyLimitReached && styles.dailyRowFull]}
+        >
+          <Text
+            style={[
+              styles.dailyText,
+              isDailyLimitReached && styles.dailyTextFull,
+            ]}
+          >
             📅 Günlük: {runsToday ?? 0}/{dailyRunLimit} giriş
             {isDailyLimitReached ? " — Doldu" : ""}
           </Text>
@@ -204,30 +222,47 @@ export default function DungeonCard({
             <CountdownTimer
               endsAt={activeRun!.ends_at}
               style={styles.countdownText}
-              onExpire={() => forceUpdate(n => n + 1)}
+              onExpire={() => forceUpdate((n) => n + 1)}
             />
           </View>
-          {onSkipMission && (() => {
-            const secsLeft = Math.max(0, Math.ceil((new Date(activeRun!.ends_at).getTime() - Date.now()) / 1000));
-            const cost = Math.max(1, Math.ceil(secsLeft / 60));
-            const canAfford = (coins ?? 0) >= cost;
-            return (
-              <TouchableOpacity
-                style={[styles.skipBtn, styles.missionFlex, !canAfford && styles.skipBtnDisabled]}
-                onPress={() => canAfford && onSkipMission(activeRun!)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.skipLabel}>{t("skipMissionNow")}</Text>
-                <View style={styles.skipCostRow}>
-                  <Image source={COIN_IMG} style={styles.skipCoinImg} resizeMode="contain" />
-                  <Text style={styles.skipCost}>×{cost}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })()}
+          {onSkipMission &&
+            (() => {
+              const secsLeft = Math.max(
+                0,
+                Math.ceil(
+                  (new Date(activeRun!.ends_at).getTime() - Date.now()) / 1000,
+                ),
+              );
+              const cost = Math.max(1, Math.ceil(secsLeft / 60));
+              const canAfford = (coins ?? 0) >= cost;
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.skipBtn,
+                    styles.missionFlex,
+                    !canAfford && styles.skipBtnDisabled,
+                  ]}
+                  onPress={() => canAfford && onSkipMission(activeRun!)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.skipLabel}>{t("skipMissionNow")}</Text>
+                  <View style={styles.skipCostRow}>
+                    <Image
+                      source={COIN_IMG}
+                      style={styles.skipCoinImg}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.skipCost}>×{cost}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })()}
         </View>
       ) : isExpired ? (
-        <TouchableOpacity style={styles.claimBtn} onPress={() => onClaim(activeRun!)}>
+        <TouchableOpacity
+          style={styles.claimBtn}
+          onPress={() => onClaim(activeRun!)}
+        >
           <Image
             source={require("../assets/icons/gift.webp")}
             style={styles.rewardIcon}
@@ -239,16 +274,22 @@ export default function DungeonCard({
         <View style={styles.cooldownBlock}>
           <Text style={styles.cooldownLabel}>⏳ Bekleme Süresi</Text>
           <CountdownTimer
-            endsAt={new Date(Date.now() + remainingCooldownSeconds * 1000).toISOString()}
+            endsAt={new Date(
+              Date.now() + remainingCooldownSeconds * 1000,
+            ).toISOString()}
             style={styles.countdownText}
             onExpire={() => {}}
           />
         </View>
       ) : isDailyLimitReached && remainingDailyResetSeconds != null ? (
         <View style={styles.dailyLimitBlock}>
-          <Text style={styles.dailyLimitLabel}>📅 Günlük Limit Doldu — Yarın Sıfırlanır</Text>
+          <Text style={styles.dailyLimitLabel}>
+            📅 Günlük Limit Doldu — Gece Yarısı Sıfırlanır.
+          </Text>
           <CountdownTimer
-            endsAt={new Date(Date.now() + remainingDailyResetSeconds * 1000).toISOString()}
+            endsAt={new Date(
+              Date.now() + remainingDailyResetSeconds * 1000,
+            ).toISOString()}
             style={styles.dailyCountdownText}
             onExpire={() => {}}
           />

@@ -253,6 +253,23 @@ export default function ChampionDrawer({
     return () => clearInterval(id);
   }, []);
 
+  // When a timed boost expires mid-session, refresh slots and champion cache
+  useEffect(() => {
+    if (!champion) return;
+    const now = Date.now();
+    const anyExpired = slotFoods.some(
+      (f) =>
+        f != null &&
+        f.expires_at_ms != null &&
+        f.recipe.effect_duration_minutes != null &&
+        f.expires_at_ms <= now,
+    );
+    if (anyExpired) {
+      loadActiveSlots(champion.id);
+      queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
+    }
+  }, [tick]);
+
   function formatCountdown(expiresAtMs: number): string {
     const remaining = Math.max(
       0,

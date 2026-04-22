@@ -7,10 +7,22 @@ const { getChampionGearBonuses } = require("./gear");
 const CHAMPION_FIELDS =
   "id, name, class, level, xp, xp_to_next_level, attack, defense, chance, max_hp, current_hp, is_deployed, stat_points, boost_hp, boost_defense, boost_chance, boost_attack, last_defender";
 
+// Boost columns computed live from active_boosts so expired timed boosts return 0 immediately.
+const CHAMPION_LIVE_SELECT = `
+  SELECT c.id, c.name, c.class, c.level, c.xp, c.xp_to_next_level,
+         c.attack, c.defense, c.chance, c.max_hp, c.current_hp,
+         c.is_deployed, c.stat_points, c.last_defender,
+    (SELECT COALESCE(SUM(boost_value),0)::int FROM active_boosts WHERE entity_id = c.id AND boost_type = 'boost_hp'      AND expires_at > NOW()) AS boost_hp,
+    (SELECT COALESCE(SUM(boost_value),0)::int FROM active_boosts WHERE entity_id = c.id AND boost_type = 'boost_defense' AND expires_at > NOW()) AS boost_defense,
+    (SELECT COALESCE(SUM(boost_value),0)::int FROM active_boosts WHERE entity_id = c.id AND boost_type = 'boost_chance'  AND expires_at > NOW()) AS boost_chance,
+    (SELECT COALESCE(SUM(boost_value),0)::int FROM active_boosts WHERE entity_id = c.id AND boost_type = 'boost_attack'  AND expires_at > NOW()) AS boost_attack
+  FROM champions c
+`;
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     let rows = await query(
-      `SELECT ${CHAMPION_FIELDS} FROM champions WHERE player_id = $1 ORDER BY created_at ASC`,
+      `${CHAMPION_LIVE_SELECT} WHERE c.player_id = $1 ORDER BY c.created_at ASC`,
       [req.player.id],
     );
 
@@ -27,7 +39,7 @@ router.get("/", authMiddleware, async (req, res) => {
         );
       }
       rows = await query(
-        `SELECT ${CHAMPION_FIELDS} FROM champions WHERE player_id = $1 ORDER BY created_at ASC`,
+        `${CHAMPION_LIVE_SELECT} WHERE c.player_id = $1 ORDER BY c.created_at ASC`,
         [req.player.id],
       );
     }
