@@ -109,6 +109,8 @@ type Props = {
   onFoodUsed?: (updatedChampion: Champion) => void;
   /** Player's own ID — used to determine perspective in PvP history display */
   myPlayerId?: string;
+  /** Navigate to a specific adventure dungeon from the item encyclopedia */
+  onNavigateToDungeon?: (champion: Champion, dungeonId: string) => void;
 };
 
 const STAT_MAX = 100;
@@ -200,6 +202,7 @@ export default function ChampionDrawer({
   onFoodUsed,
   playerHasPendingBattle,
   myPlayerId,
+  onNavigateToDungeon,
 }: Props) {
   const { t } = useLanguage();
   const { triggerCoinConfirm } = useCoinConfirm();
@@ -1597,6 +1600,12 @@ export default function ChampionDrawer({
           champion={champion}
           visible={gearDrawerOpen}
           onClose={() => setGearDrawerOpen(false)}
+          onNavigateToDungeon={onNavigateToDungeon
+            ? (champ, dungeonId) => {
+                setGearDrawerOpen(false);
+                onNavigateToDungeon(champ, dungeonId);
+              }
+            : undefined}
         />
 
         {/* Remove food popup */}

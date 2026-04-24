@@ -90,8 +90,34 @@ async function insertGearDrop(playerId, definitionId, rarity) {
  * Returns an array of PlayerGear rows (empty = no drop).
  * Special stage 99 = "Test Chamber": always drops both weapon and charm (T1 epic).
  */
+/**
+ * Returns a definition_id from gear_loot_tables for a specific dungeon,
+ * applying weighted random selection. Returns null if no entries exist
+ * for this dungeon+gearType+tier+class combination (triggers tier-based fallback).
+ */
+async function rollFromLootTable(dungeonId, gearType, champClass, tier) {
+  const rows = await query(
+    `SELECT glt.definition_id, glt.weight
+     FROM gear_loot_tables glt
+     JOIN gear_definitions gd ON gd.id = glt.definition_id
+     WHERE glt.dungeon_id = $1
+       AND gd.gear_type = $2
+       AND gd.tier = $3
+       AND (gd.class_restriction IS NULL OR gd.class_restriction = $4)`,
+    [dungeonId, gearType, tier, champClass]
+  );
+  if (rows.length === 0) return null;
+  const totalWeight = rows.reduce((sum, r) => sum + r.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const row of rows) {
+    roll -= row.weight;
+    if (roll < 0) return row.definition_id;
+  }
+  return rows[rows.length - 1].definition_id;
+}
+
 async function rollGearDrop(run, playerId) {
-  const { dungeon_type, is_boss_stage, stage_number, dungeon_level, champion_id } = run;
+  const { dungeon_type, is_boss_stage, stage_number, dungeon_level, champion_id, dungeon_id } = run;
   const level = dungeon_level ?? (stage_number <= 10 ? 1 : stage_number <= 20 ? 2 : 3);
 
   if (dungeon_type === 'harvest') return [];
@@ -160,28 +186,85 @@ async function rollGearDrop(run, playerId) {
   }
 
   // Determine gear type (60% weapon for champion's class, 40% charm)
+  const champRows = await query('SELECT class FROM champions WHERE id = $1', [champion_id]);
+  if (champRows.length === 0) return [];
+  const champClass = champRows[0].class;
+
   let definitionId;
   if (Math.random() < 0.6) {
-    const champRows = await query('SELECT class FROM champions WHERE id = $1', [champion_id]);
-    if (champRows.length === 0) return [];
-    const champClass = champRows[0].class;
-    const weaponRows = await query(
-      `SELECT id FROM gear_definitions WHERE gear_type = 'weapon' AND class_restriction = $1 AND tier = $2`,
-      [champClass, tier]
-    );
-    if (weaponRows.length === 0) return [];
-    definitionId = weaponRows[Math.floor(Math.random() * weaponRows.length)].id;
+    // 1. Dungeon-specific loot table (weighted) → 2. Tier-based fallback
+    definitionId = await rollFromLootTable(dungeon_id, 'weapon', champClass, tier);
+    if (!definitionId) {
+      const weaponRows = await query(
+        `SELECT id FROM gear_definitions WHERE gear_type = 'weapon' AND class_restriction = $1 AND tier = $2`,
+        [champClass, tier]
+      );
+      if (weaponRows.length === 0) return [];
+      definitionId = weaponRows[Math.floor(Math.random() * weaponRows.length)].id;
+    }
   } else {
-    const charmRows = await query(
-      `SELECT id FROM gear_definitions WHERE gear_type = 'charm' AND class_restriction IS NULL AND tier = $1`,
-      [tier]
-    );
-    if (charmRows.length === 0) return [];
-    definitionId = charmRows[Math.floor(Math.random() * charmRows.length)].id;
+    // 1. Dungeon-specific loot table (weighted) → 2. Tier-based fallback
+    definitionId = await rollFromLootTable(dungeon_id, 'charm', champClass, tier);
+    if (!definitionId) {
+      const charmRows = await query(
+        `SELECT id FROM gear_definitions WHERE gear_type = 'charm' AND class_restriction IS NULL AND tier = $1`,
+        [tier]
+      );
+      if (charmRows.length === 0) return [];
+      definitionId = charmRows[Math.floor(Math.random() * charmRows.length)].id;
+    }
   }
 
   return [await insertGearDrop(playerId, definitionId, rarity)];
 }
+
+// ── GET /api/gear/definitions ────────────────────────────────────────────────
+router.get('/definitions', authMiddleware, async (req, res) => {
+  try {
+    const rows = await query(
+      `SELECT * FROM gear_definitions ORDER BY class_restriction NULLS LAST, tier, name`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch gear definitions' });
+  }
+});
+
+// ── GET /api/gear/definitions/:definitionId/dungeons ──────────────────────────
+router.get('/definitions/:definitionId/dungeons', authMiddleware, async (req, res) => {
+  const { definitionId } = req.params;
+  try {
+    const defRows = await query('SELECT tier FROM gear_definitions WHERE id = $1', [definitionId]);
+    if (!defRows.length) return res.status(404).json({ error: 'Gear definition not found' });
+    const tier = defRows[0].tier;
+
+    const dungeons = await query(`
+      WITH eff AS (
+        SELECT *,
+          COALESCE(dungeon_level,
+            CASE WHEN stage_number <= 10 THEN 1
+                 WHEN stage_number <= 20 THEN 2
+                 ELSE 3 END) AS effective_level
+        FROM dungeons
+        WHERE dungeon_type = 'adventure'
+      )
+      SELECT eff.*
+      FROM eff
+      WHERE
+        EXISTS (SELECT 1 FROM gear_loot_tables glt
+                WHERE glt.dungeon_id = eff.id AND glt.definition_id = $1)
+        OR (NOT eff.is_boss_stage AND eff.effective_level = $2)
+        OR (eff.is_boss_stage
+            AND eff.effective_level >= $2 - 1
+            AND eff.effective_level <= $2)
+      ORDER BY eff.stage_number
+    `, [definitionId, tier]);
+
+    res.json(dungeons);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch dungeons for gear' });
+  }
+});
 
 // ── GET /api/gear/inventory ───────────────────────────────────────────────────
 router.get('/inventory', authMiddleware, async (req, res) => {

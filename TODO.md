@@ -1,0 +1,28 @@
+- Add TODO.md to gitignore later
+- DONE / Missions, daily and weekly quests.
+- DONE / Rank sistemi, rank puanları
+- DONE / Belki koyun keçi vs gibi source lar ?
+- backend i render da yayına al.
+- chest sistemini ekle.
+- DONE / in game coin.
+- DONE / hem animals hem de farmers kartlarının sağ üstünde dakikada verdikleri ürün sayısı bilgisi olsun örneğin ÜRT başlığı altında 1/6.6s gibi. ayrıca fighters kartlara lv bilgisi de ekle.
+- Ekstra bot oyuncular eklensin çeşit çeşit.
+- DONE AMA TEST ET / Gerçek oyuncular PvP de çıkmıyor, incelenmeli ve düzeltilmeli.
+- Gear sistem genişletilecek.
+- DONE / kitchen screende seçilen tab için alt filtreler getirilecek.
+- DONE / savaş günlüğü kısmında ekipmanların görselleri emoji, ama related iamges olamlı.
+- DONE / Savaş ara ekranında savaşcının atack def ve chc değerleri, boost + item combinasyonu olarak değil base değer olarak gösteriliyor sadece, düzeltilmeli.
+- Kitchen animals için de kulanılabilir olacak.
+- DONE / Zaten kazanılmış adventure dungeonlar artık 1 1 kaynak ve xp versin. yani aslında 10 egg 11 milk 100xp veriyor ise, bir kere kazanıldıysa, artık 1 egg 1 milk 1xp versin, böylece oyuncuların kazanılmış dungeonları tekrar tekrar oynamaması teşvik edilmiş olur.
+- DONE / Macera dungeonlarını genişlet, level sistemi ekle ekranın en solunda onlar olsun, sağda da haritayı tutmaya devam et. Levellar için champioon level requirement da eklenebilir.
+- Stripe eklenecek, onun için deoyun içi satın alma sayfası koymamız gerek.
+- Tüm oyun matematiğinin yazılı olduğu bir md dosyası oluşturulmalı. Tüm resources getirileri ve harcamaları vs. sonrasında bunun üzerinden iyileştirmeler yapılacak.
+- gear sistemini genişletelim, daha fazla item koyalım.
+- kitchen screen de +5 kapasite gibi özellikler veren yemekler var, bunlar düzeltilmeli. ayrıca farm ve hayvanlar için daha çok yemek eklenmeli.
+- tüm yazıların i18 den kullanıldığına emin olunmalı.
+- backend js den ts e çevrilmeli.
+- Championlara pasifler ekle, can çalma, savuşturma, kritik vuruş gibi.
+- DONE / revive 4 süt 4 yün, base 5 + champ.level yapalım, böylece revive etmek daha değerli olsun.
+- item upgradelerde tier muhabbeti var ama o incelenmeli, level ve tier karıştırılıyor mu bakılmalı.
+- DONE / süreli boostların süresi bitmemesine rağmen etkileri bitiyor. Ayrıca champion Ölürse bu boostların süreleri devam etse bile silinmeli. Uı da varlar ama etkileri yok şu anda, bu düzeltilmeli.
+- DONE / Uygulama blurdan sonra onfocus olunca tüm verileri yeniden çekmek için biz splash ekranına yönlendirelim.

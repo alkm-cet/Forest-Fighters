@@ -43,39 +43,7 @@ const CHAMP_IMAGES: Record<string, ReturnType<typeof require>> = {
 const STAR_IMG = require("../../assets/icons/icon-star.webp");
 const DUNGEON_IMG = require("../../assets/icons/icon-dungeon.webp");
 
-const ENEMY_IMAGES: Record<string, ReturnType<typeof require>> = {
-  skeleton: require("../../assets/dungeon/skeleton.webp"),
-  orc: require("../../assets/dungeon/orc.webp"),
-  troll: require("../../assets/dungeon/troll.webp"),
-  slime: require("../../assets/dungeon/slime.webp"),
-  goblin: require("../../assets/dungeon/goblin.webp"),
-  "dark mage": require("../../assets/dungeon/dark-mage.webp"),
-  "mushroom golem": require("../../assets/dungeon/goblin.webp"),
-  "bandit chief": require("../../assets/dungeon/orc.webp"),
-  "ice witch": require("../../assets/dungeon/dark-mage.webp"),
-  "fire imp": require("../../assets/dungeon/slime.webp"),
-  "lava titan": require("../../assets/dungeon/troll.webp"),
-  banshee: require("../../assets/dungeon/dark-mage.webp"),
-  "shadow knight": require("../../assets/dungeon/skeleton.webp"),
-  "mummy lord": require("../../assets/dungeon/skeleton.webp"),
-  wyvern: require("../../assets/dungeon/troll.webp"),
-  "void lich": require("../../assets/dungeon/dark-mage.webp"),
-  // Level 2–3 enemies mapped to existing assets
-  "shadow wolf": require("../../assets/dungeon/skeleton.webp"),
-  "thunder eagle": require("../../assets/dungeon/goblin.webp"),
-  "frost golem": require("../../assets/dungeon/troll.webp"),
-  "fire salamander": require("../../assets/dungeon/slime.webp"),
-  "demon warlord": require("../../assets/dungeon/orc.webp"),
-  "shade specter": require("../../assets/dungeon/dark-mage.webp"),
-  "stone colossus": require("../../assets/dungeon/troll.webp"),
-  "void crawler": require("../../assets/dungeon/slime.webp"),
-  "fallen paladin": require("../../assets/dungeon/skeleton.webp"),
-  "cursed knight": require("../../assets/dungeon/skeleton.webp"),
-  "stone titan": require("../../assets/dungeon/troll.webp"),
-  "inferno djinn": require("../../assets/dungeon/dark-mage.webp"),
-  "void archon": require("../../assets/dungeon/dark-mage.webp"),
-  "ancient dragon": require("../../assets/dungeon/orc.webp"),
-};
+import { ENEMY_IMAGES } from "../../constants/dungeonImages";
 
 const NODE_SIZE = 62;
 const BOSS_NODE_SIZE = 78;
@@ -94,6 +62,7 @@ interface Props {
   championId: string | undefined;
   championClass: string | undefined;
   championIsBusy: boolean;
+  initialDungeonId?: string;
   onEnter: (dungeon: Dungeon, champion2Id?: string, champion2Class?: string) => void;
   onClaim: (run: DungeonRun) => void;
   onMilestoneClaim: (requiredStars: number) => void;
@@ -190,6 +159,7 @@ export default function AdventureTab({
   championId,
   championClass,
   championIsBusy,
+  initialDungeonId,
   onEnter,
   onClaim,
   onMilestoneClaim,
@@ -200,6 +170,21 @@ export default function AdventureTab({
   const [selectedChampion2, setSelectedChampion2] = useState<Champion | null>(null);
   const [availableChampions, setAvailableChampions] = useState<Champion[]>([]);
   const [loadingChampions, setLoadingChampions] = useState(false);
+  const lastAutoOpenedId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      initialDungeonId &&
+      dungeons.length > 0 &&
+      lastAutoOpenedId.current !== initialDungeonId
+    ) {
+      const target = dungeons.find((d) => d.id === initialDungeonId);
+      if (target) {
+        setSelectedDungeon(target);
+        lastAutoOpenedId.current = initialDungeonId;
+      }
+    }
+  }, [initialDungeonId, dungeons]);
 
   const pulseAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {

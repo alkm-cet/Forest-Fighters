@@ -11,8 +11,9 @@ import {
   Image,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Sparkles, Trash2, Swords, Shield, Zap } from "lucide-react-native";
+import { X, Sparkles, Trash2, Swords, Shield, Zap, BookOpen } from "lucide-react-native";
 import { Champion, PlayerGear, GearRarity, PlayerFood } from "../types";
+import ItemEncyclopedia from "./ItemEncyclopedia";
 import { RARITY_META, CLASS_META } from "../constants/resources";
 import {
   useGearInventoryQuery,
@@ -77,6 +78,7 @@ type Props = {
   champion: Champion | null;
   visible: boolean;
   onClose: () => void;
+  onNavigateToDungeon?: (champion: Champion, dungeonId: string) => void;
 };
 
 // ── Minimal badge helpers (used in discard modal) ──────────────────────────────
@@ -284,7 +286,7 @@ function GearCard({
                 resizeMode="contain"
               />
             ) : (
-              <Text style={cardStyles.itemEmoji}>{gear.definition.emoji}</Text>
+              <Text style={cardStyles.itemEmoji}>{gear.definition.emoji || '❓'}</Text>
             )}
           </View>
           <View style={cardStyles.infoCol}>
@@ -446,12 +448,13 @@ function InventoryCard({
 }
 
 // ── Main drawer ────────────────────────────────────────────────────────────────
-export default function GearDrawer({ champion, visible, onClose }: Props) {
+export default function GearDrawer({ champion, visible, onClose, onNavigateToDungeon }: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<"weapon" | "charm">("weapon");
   const [discardTarget, setDiscardTarget] = useState<PlayerGear | null>(null);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [showEncyclopedia, setShowEncyclopedia] = useState(false);
 
   const { data: allGear = [] } = useGearInventoryQuery();
   const { data: kitchenItems = [] } = useKitchenInventoryQuery();
@@ -701,6 +704,27 @@ export default function GearDrawer({ champion, visible, onClose }: Props) {
         </View>
 
         <View style={styles.headerDivider} />
+
+        <TouchableOpacity
+          style={styles.encyclopediaBtn}
+          onPress={() => setShowEncyclopedia(true)}
+          activeOpacity={0.7}
+        >
+          <BookOpen size={13} color="#7a5230" strokeWidth={2} />
+          <Text style={styles.encyclopediaBtnText}>{t("encyclopediaSeeAllItems")}</Text>
+        </TouchableOpacity>
+
+        <ItemEncyclopedia
+          visible={showEncyclopedia}
+          onClose={() => setShowEncyclopedia(false)}
+          ownedGear={allGear}
+          onNavigateToDungeon={onNavigateToDungeon && champion
+            ? (dungeonId) => {
+                setShowEncyclopedia(false);
+                onNavigateToDungeon(champion, dungeonId);
+              }
+            : undefined}
+        />
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* ── Equipped section ── */}
@@ -977,6 +1001,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#d4b896",
     marginHorizontal: 14,
     marginBottom: 4,
+  },
+  encyclopediaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginHorizontal: 14,
+    marginTop: 6,
+    marginBottom: 2,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#c8a870",
+    backgroundColor: "#fff8ee",
+  },
+  encyclopediaBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#7a5230",
   },
   scroll: { paddingHorizontal: 14 },
 

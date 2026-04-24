@@ -73,6 +73,8 @@ export default function DungeonsScreen() {
     championMaxHp,
     championBoostHp,
     championLevel,
+    tab,
+    openDungeonId,
   } = useLocalSearchParams<{
     championId: string;
     championName: string;
@@ -90,6 +92,8 @@ export default function DungeonsScreen() {
     championMaxHp: string;
     championBoostHp: string;
     championLevel: string;
+    tab: string;
+    openDungeonId: string;
   }>();
 
   const { data: runs = [] } = useDungeonRunsQuery();
@@ -98,7 +102,9 @@ export default function DungeonsScreen() {
   const skipMissionMut = useSkipMissionMutation();
   const { triggerCoinConfirm } = useCoinConfirm();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("adventure");
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    (tab === 'harvest' || tab === 'adventure' || tab === 'event') ? tab : 'adventure'
+  );
   const [harvestDungeons, setHarvestDungeons] = useState<HarvestDungeon[]>([]);
   const [adventureDungeons, setAdventureDungeons] = useState<AdventureDungeon[]>([]);
   const [eventDungeons, setEventDungeons] = useState<EventDungeon[]>([]);
@@ -447,6 +453,7 @@ export default function DungeonsScreen() {
             championId={championId}
             championClass={championClass}
             championIsBusy={championIsBusy}
+            initialDungeonId={openDungeonId}
             onEnter={handleEnter}
             onClaim={handleClaim}
             onMilestoneClaim={handleMilestoneClaim}

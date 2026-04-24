@@ -12,7 +12,9 @@ export const queryKeys = {
   kitchenRecipes:   () => ['kitchen', 'recipes']   as const,
   kitchenInventory: () => ['kitchen', 'inventory'] as const,
   quests:           () => ['quests']               as const,
-  gearInventory:    () => ['gear', 'inventory']    as const,
+  gearInventory:    () => ['gear', 'inventory']                    as const,
+  gearDefinitions:  () => ['gear', 'definitions']                  as const,
+  itemDropDungeons: (defId: string) => ['gear', 'drop-dungeons', defId] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;

@@ -320,6 +320,19 @@ const translations = {
     forgeStoneT2Desc: "Upgrades Tier 2 gear by 1 level",
     forgeStoneAnyDesc: "Upgrades any tier gear by 1 level",
 
+    // Item Encyclopedia
+    encyclopediaSeeAllItems: "See All Items",
+    encyclopediaTitle: "All Items",
+    encyclopediaFilterWarrior: "⚔️ Warrior",
+    encyclopediaFilterMage: "🪄 Mage",
+    encyclopediaFilterArcher: "🏹 Archer",
+    encyclopediaFilterCharms: "🍀 Charms",
+    encyclopediaNoDungeons: "No dungeons found",
+    encyclopediaGetItem: "Get this item",
+    encyclopediaSeeDungeon: "See",
+    encyclopediaStage: "Stage",
+    encyclopediaClassAll: "All",
+
     // Fire Screen (Kitchen)
     fireScreen: "Fire Screen",
     forgeTab: "Forge",
@@ -655,6 +668,19 @@ const translations = {
     battleDefeat: "💀  BOZGUN",
     battleCombatLog: "SAVAŞ GÜNLÜĞÜ",
     battleClose: "Kapat",
+
+    // Item Encyclopedia
+    encyclopediaSeeAllItems: "Tüm Eşyalar",
+    encyclopediaTitle: "Tüm Eşyalar",
+    encyclopediaFilterWarrior: "⚔️ Savaşçı",
+    encyclopediaFilterMage: "🪄 Büyücü",
+    encyclopediaFilterArcher: "🏹 Okçu",
+    encyclopediaFilterCharms: "🍀 Tılsımlar",
+    encyclopediaNoDungeons: "Zindan bulunamadı",
+    encyclopediaGetItem: "Bu eşyayı bul",
+    encyclopediaSeeDungeon: "Gör",
+    encyclopediaStage: "Bölüm",
+    encyclopediaClassAll: "Tümü",
 
     // Fire Screen (Kitchen)
     fireScreen: "Ateş",

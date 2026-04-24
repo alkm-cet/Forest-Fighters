@@ -199,6 +199,34 @@ async function seed() {
       { id: 'forest_charm',  name: 'Forest Charm',  gear_type: 'charm',  class_restriction: null,      tier: 1, base_attack: 0,  atk_increment: 0, base_defense: 4, def_increment: 2, base_chance: 0, chance_increment: 0, emoji: '🍀' },
       { id: 'silver_charm',  name: 'Silver Charm',  gear_type: 'charm',  class_restriction: null,      tier: 2, base_attack: 0,  atk_increment: 0, base_defense: 7, def_increment: 3, base_chance: 3, chance_increment: 1, emoji: '🪙' },
       { id: 'dragon_charm',  name: 'Dragon Charm',  gear_type: 'charm',  class_restriction: null,      tier: 3, base_attack: 0,  atk_increment: 0, base_defense: 10, def_increment: 4, base_chance: 6, chance_increment: 2, emoji: '🐉' },
+      // ── New Warrior weapons ───────────────────────────────────────────────────
+      { id: 'war_hammer',     name: 'War Hammer',     gear_type: 'weapon', class_restriction: 'Warrior', tier: 1, base_attack: 7,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🔨' },
+      { id: 'shield_sword',   name: 'Shield Sword',   gear_type: 'weapon', class_restriction: 'Warrior', tier: 1, base_attack: 3,  atk_increment: 1, base_defense: 3, def_increment: 1, base_chance: 0,  chance_increment: 0, emoji: '🛡️' },
+      { id: 'great_axe',      name: 'Great Axe',      gear_type: 'weapon', class_restriction: 'Warrior', tier: 2, base_attack: 11, atk_increment: 4, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '⚒️' },
+      { id: 'tower_shield',   name: 'Tower Shield',   gear_type: 'weapon', class_restriction: 'Warrior', tier: 2, base_attack: 5,  atk_increment: 2, base_defense: 5, def_increment: 2, base_chance: 0,  chance_increment: 0, emoji: '🔰' },
+      { id: 'blood_cleaver',  name: 'Blood Cleaver',  gear_type: 'weapon', class_restriction: 'Warrior', tier: 3, base_attack: 16, atk_increment: 6, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '⚔️' },
+      { id: 'fortress_blade', name: 'Fortress Blade', gear_type: 'weapon', class_restriction: 'Warrior', tier: 3, base_attack: 8,  atk_increment: 3, base_defense: 7, def_increment: 3, base_chance: 0,  chance_increment: 0, emoji: '🗡️' },
+      // ── New Mage weapons ──────────────────────────────────────────────────────
+      { id: 'ember_wand',     name: 'Ember Wand',     gear_type: 'weapon', class_restriction: 'Mage',    tier: 1, base_attack: 7,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🔥' },
+      { id: 'moon_focus',     name: 'Moon Focus',     gear_type: 'weapon', class_restriction: 'Mage',    tier: 1, base_attack: 2,  atk_increment: 1, base_defense: 0, def_increment: 0, base_chance: 5,  chance_increment: 2, emoji: '🌕' },
+      { id: 'flame_staff',    name: 'Flame Staff',    gear_type: 'weapon', class_restriction: 'Mage',    tier: 2, base_attack: 11, atk_increment: 4, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🌋' },
+      { id: 'void_lens',      name: 'Void Lens',      gear_type: 'weapon', class_restriction: 'Mage',    tier: 2, base_attack: 4,  atk_increment: 1, base_defense: 0, def_increment: 0, base_chance: 7,  chance_increment: 3, emoji: '🔭' },
+      { id: 'inferno_orb',    name: 'Inferno Orb',    gear_type: 'weapon', class_restriction: 'Mage',    tier: 3, base_attack: 16, atk_increment: 6, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🔮' },
+      { id: 'eclipse_staff',  name: 'Eclipse Staff',  gear_type: 'weapon', class_restriction: 'Mage',    tier: 3, base_attack: 6,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 10, chance_increment: 4, emoji: '🌑' },
+      // ── New Archer weapons ────────────────────────────────────────────────────
+      { id: 'sharp_arrow',    name: 'Sharp Arrow',    gear_type: 'weapon', class_restriction: 'Archer',  tier: 1, base_attack: 7,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🏹' },
+      { id: 'swift_bow',      name: 'Swift Bow',      gear_type: 'weapon', class_restriction: 'Archer',  tier: 1, base_attack: 2,  atk_increment: 1, base_defense: 0, def_increment: 0, base_chance: 5,  chance_increment: 2, emoji: '💨' },
+      { id: 'storm_bow',      name: 'Storm Bow',      gear_type: 'weapon', class_restriction: 'Archer',  tier: 2, base_attack: 11, atk_increment: 4, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '⛈️' },
+      { id: 'phantom_quiver', name: 'Phantom Quiver', gear_type: 'weapon', class_restriction: 'Archer',  tier: 2, base_attack: 4,  atk_increment: 1, base_defense: 0, def_increment: 0, base_chance: 7,  chance_increment: 3, emoji: '👻' },
+      { id: 'death_arrow',    name: 'Death Arrow',    gear_type: 'weapon', class_restriction: 'Archer',  tier: 3, base_attack: 16, atk_increment: 6, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '☠️' },
+      { id: 'ghost_bow',      name: 'Ghost Bow',      gear_type: 'weapon', class_restriction: 'Archer',  tier: 3, base_attack: 6,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 10, chance_increment: 4, emoji: '👁️' },
+      // ── New universal charms ──────────────────────────────────────────────────
+      { id: 'bone_charm',     name: 'Bone Charm',     gear_type: 'charm',  class_restriction: null,      tier: 1, base_attack: 0,  atk_increment: 0, base_defense: 2, def_increment: 1, base_chance: 2,  chance_increment: 1, emoji: '🦴' },
+      { id: 'ember_charm',    name: 'Ember Charm',    gear_type: 'charm',  class_restriction: null,      tier: 1, base_attack: 3,  atk_increment: 1, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🌿' },
+      { id: 'storm_charm',    name: 'Storm Charm',    gear_type: 'charm',  class_restriction: null,      tier: 2, base_attack: 0,  atk_increment: 0, base_defense: 4, def_increment: 2, base_chance: 4,  chance_increment: 2, emoji: '⚡' },
+      { id: 'war_charm',      name: 'War Charm',      gear_type: 'charm',  class_restriction: null,      tier: 2, base_attack: 5,  atk_increment: 2, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🪬' },
+      { id: 'void_charm',     name: 'Void Charm',     gear_type: 'charm',  class_restriction: null,      tier: 3, base_attack: 0,  atk_increment: 0, base_defense: 6, def_increment: 2, base_chance: 6,  chance_increment: 3, emoji: '🌌' },
+      { id: 'titan_charm',    name: 'Titan Charm',    gear_type: 'charm',  class_restriction: null,      tier: 3, base_attack: 8,  atk_increment: 3, base_defense: 0, def_increment: 0, base_chance: 0,  chance_increment: 0, emoji: '🗿' },
     ];
     for (const g of gearDefs) {
       await query(

@@ -1008,6 +1008,32 @@ export default function MainScreen() {
             });
           }
         }}
+        onNavigateToDungeon={(champion, dungeonId) => {
+          setSelectedChampion(null);
+          router.push({
+            pathname: "/(game)/dungeons",
+            params: {
+              tab: "adventure",
+              openDungeonId: dungeonId,
+              championId: champion.id,
+              championName: champion.name,
+              championClass: champion.class,
+              championAttack: String(champion.attack),
+              championDefense: String(champion.defense),
+              championChance: String(champion.chance),
+              championBoostAttack: String(champion.boost_attack ?? 0),
+              championBoostDefense: String(champion.boost_defense ?? 0),
+              championBoostChance: String(champion.boost_chance ?? 0),
+              championGearAttack: String(champion.gear_attack ?? 0),
+              championGearDefense: String(champion.gear_defense ?? 0),
+              championGearChance: String(champion.gear_chance ?? 0),
+              championCurrentHp: String(champion.current_hp ?? 0),
+              championMaxHp: String(champion.max_hp ?? 0),
+              championBoostHp: String(champion.boost_hp ?? 0),
+              championLevel: String(champion.level ?? 1),
+            },
+          });
+        }}
       />
 
       <FarmerDrawer

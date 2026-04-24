@@ -706,6 +706,22 @@ async function migrate() {
     `);
     console.log('Created table: player_gear');
 
+    // Gear loot tables — optional dungeon-specific item pools (weighted)
+    await query(`
+      CREATE TABLE IF NOT EXISTS gear_loot_tables (
+        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        dungeon_id    UUID NOT NULL REFERENCES dungeons(id) ON DELETE CASCADE,
+        definition_id VARCHAR(50) NOT NULL REFERENCES gear_definitions(id),
+        weight        INT NOT NULL DEFAULT 1,
+        UNIQUE (dungeon_id, definition_id)
+      )
+    `);
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_gear_loot_tables_dungeon
+        ON gear_loot_tables (dungeon_id)
+    `);
+    console.log('Created table: gear_loot_tables');
+
     // gear_upgrade_tier on recipes — which tier of gear a forge stone upgrades
     await query(`ALTER TABLE recipes ADD COLUMN IF NOT EXISTS gear_upgrade_tier INT`);
     console.log('Ensured recipes.gear_upgrade_tier column');

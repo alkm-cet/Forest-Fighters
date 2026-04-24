@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api';
 import { queryKeys } from './queryKeys';
 import { STALE_TIMES } from './queryConfig';
-import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood, QuestsResponse, PlayerGear } from '../../types';
+import type { Player, Resources, Champion, Farmer, Farm, DungeonRun, PvpStatus, Recipe, PlayerFood, QuestsResponse, PlayerGear, GearDefinition, AdventureDungeon } from '../../types';
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +111,25 @@ export function useGearInventoryQuery() {
   return useQuery({
     queryKey: queryKeys.gearInventory(),
     queryFn: () => api.get<PlayerGear[]>('/api/gear/inventory').then((r) => r.data),
+  });
+}
+
+// ─── Gear Definitions ─────────────────────────────────────────────────────────
+
+export function useGearDefinitionsQuery() {
+  return useQuery({
+    queryKey: queryKeys.gearDefinitions(),
+    queryFn: () => api.get<GearDefinition[]>('/api/gear/definitions').then((r) => r.data),
+    staleTime: Infinity,
+  });
+}
+
+export function useItemDropDungeonsQuery(definitionId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.itemDropDungeons(definitionId ?? ''),
+    queryFn: () => api.get<AdventureDungeon[]>(`/api/gear/definitions/${definitionId}/dungeons`).then((r) => r.data),
+    enabled: !!definitionId,
+    staleTime: Infinity,
   });
 }
 
