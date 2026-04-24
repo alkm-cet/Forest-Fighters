@@ -97,7 +97,6 @@ export default function PvpScreen() {
 
   const [phase, setPhase] = useState<Phase>("searching");
   const [opponent, setOpponent] = useState<OpponentInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [activeDot, setActiveDot] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -118,7 +117,6 @@ export default function PvpScreen() {
   async function doSearch() {
     setPhase("searching");
     setOpponent(null);
-    setError(null);
     const searchStart = Date.now();
     try {
       const res = await api.get(
@@ -129,9 +127,9 @@ export default function PvpScreen() {
       if (remaining > 0) await sleep(remaining);
       setOpponent(res.data);
       setPhase("found");
-    } catch (err: any) {
-      setError(err.response?.data?.error ?? "Rakip bulunamadı");
-      setPhase("found");
+    } catch {
+      // No opponent available — keep the searching state.
+      // User can exit via the back button.
     }
   }
 
@@ -290,12 +288,7 @@ export default function PvpScreen() {
                 contentContainerStyle={styles.foundContainer}
                 showsVerticalScrollIndicator={false}
               >
-                {error ? (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                ) : (
-                  opponent && (
+                {opponent && (
                     <>
                       {/* Rewards card — top */}
                       <View style={styles.lootCard}>
@@ -409,7 +402,6 @@ export default function PvpScreen() {
                         />
                       </View>
                     </>
-                  )
                 )}
               </ScrollView>
             )}
@@ -841,13 +833,6 @@ const styles = StyleSheet.create({
   reSearchBtnStyle: { flex: 1 },
   fightBtnStyle: { flex: 1 },
 
-  errorBox: {
-    backgroundColor: "#2c3347",
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-  },
-  errorText: { fontSize: 14, color: "#ef9a9a", textAlign: "center" },
 
   // Fighting phase
   fightingOverlay: {
