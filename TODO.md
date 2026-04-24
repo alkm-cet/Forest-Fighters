@@ -17,7 +17,7 @@
 - DONE / Macera dungeonlarını genişlet, level sistemi ekle ekranın en solunda onlar olsun, sağda da haritayı tutmaya devam et. Levellar için champioon level requirement da eklenebilir.
 - Stripe eklenecek, onun için deoyun içi satın alma sayfası koymamız gerek.
 - Tüm oyun matematiğinin yazılı olduğu bir md dosyası oluşturulmalı. Tüm resources getirileri ve harcamaları vs. sonrasında bunun üzerinden iyileştirmeler yapılacak.
-- gear sistemini genişletelim, daha fazla item koyalım.
+- DONE / gear sistemini genişletelim, daha fazla item koyalım.
 - kitchen screen de +5 kapasite gibi özellikler veren yemekler var, bunlar düzeltilmeli. ayrıca farm ve hayvanlar için daha çok yemek eklenmeli.
 - tüm yazıların i18 den kullanıldığına emin olunmalı.
 - backend js den ts e çevrilmeli.
