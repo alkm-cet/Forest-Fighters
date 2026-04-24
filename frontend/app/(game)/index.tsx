@@ -958,6 +958,8 @@ export default function MainScreen() {
           if (!battleId) return;
           try {
             await skipPvpMut.mutateAsync(battleId);
+            // DB has committed result_available_at = NOW — fetch the result immediately
+            handleViewPvpResult();
           } catch (err: any) {
             alert(err.response?.data?.error ?? "Skip başarısız");
           }

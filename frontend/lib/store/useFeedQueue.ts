@@ -82,8 +82,9 @@ async function _flush(
       }));
     });
 
-    // Invalidate resources and quests to get authoritative data from server
-    queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+    // Refetch resources immediately so the resource bar reflects the cost right away.
+    // Use refetch (not invalidate) to force a network request regardless of mount state.
+    queryClient.refetchQueries({ queryKey: queryKeys.resources() });
     queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
   } catch {
     // On network failure: rollback optimistic feed increment, let server state win

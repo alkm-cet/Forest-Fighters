@@ -66,7 +66,8 @@ router.get('/', authMiddleware, async (req, res) => {
       ];
       for (const [name, type] of starters) {
         await query(
-          'INSERT INTO farmers (player_id, name, resource_type) VALUES ($1, $2, $3)',
+          `INSERT INTO farmers (player_id, name, resource_type, last_collected_at)
+           VALUES ($1, $2, $3, NOW() - INTERVAL '24 hours')`,
           [req.player.id, name, type]
         );
       }
@@ -267,8 +268,13 @@ router.post('/:id/upgrade', authMiddleware, async (req, res) => {
       [farmerId]
     );
     const f = updatedFarmer[0];
+    const intervalMinutes = getIntervalByType(f.resource_type, f.level);
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const elapsed = Date.now() - new Date(f.last_collected_at).getTime();
+    const partialMs = elapsed % intervalMs;
+    const nextReadyInSeconds = Math.ceil((intervalMs - partialMs) / 1000);
     res.json({
-      farmer: { ...f, interval_minutes: getIntervalByType(f.resource_type, f.level), pending: calcPending(f.last_collected_at, f.level, f.resource_type) },
+      farmer: { ...f, interval_minutes: intervalMinutes, pending: calcPending(f.last_collected_at, f.level, f.resource_type), next_ready_in_seconds: nextReadyInSeconds },
       resources: updatedRes[0],
     });
   } catch (err) {

@@ -159,9 +159,13 @@ router.get('/', authMiddleware, async (req, res) => {
         [farm.id]
       );
       if (parseInt(countRows[0].count) === 0) {
+        const INITIAL_FUEL    = { chicken: 50, sheep: 80, cow: 100 };
+        const initialFuel     = INITIAL_FUEL[farm.farm_type] ?? 50;
+        const initialPending  = getMaxCapacity(1);
         await query(
-          `INSERT INTO player_animals (player_id, animal_type, last_computed_ms, farm_id) VALUES ($1, $2, $3, $4)`,
-          [playerId, farm.farm_type, nowMs, farm.id]
+          `INSERT INTO player_animals (player_id, animal_type, last_computed_ms, farm_id, fuel_remaining_minutes, pending_production)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [playerId, farm.farm_type, nowMs, farm.id, initialFuel, initialPending]
         );
       }
 

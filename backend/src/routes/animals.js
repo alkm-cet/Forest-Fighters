@@ -157,11 +157,14 @@ router.get('/', authMiddleware, async (req, res) => {
     );
     if (rows.length === 0) {
       const nowMs = Date.now();
+      // Start animals fully fed (max_feed = 10 at level 1) and with max pending production
+      const INITIAL_FUEL = { chicken: 50, sheep: 80, cow: 100 };
+      const INITIAL_PENDING = getMaxCapacity(1);
       for (const animalType of ['chicken', 'cow', 'sheep']) {
         await query(
-          `INSERT INTO player_animals (player_id, animal_type, last_computed_ms)
-           VALUES ($1, $2, $3)`,
-          [playerId, animalType, nowMs]
+          `INSERT INTO player_animals (player_id, animal_type, last_computed_ms, fuel_remaining_minutes, pending_production)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [playerId, animalType, nowMs, INITIAL_FUEL[animalType], INITIAL_PENDING]
         );
       }
       rows = await query(

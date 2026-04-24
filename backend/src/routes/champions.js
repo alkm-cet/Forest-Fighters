@@ -27,15 +27,21 @@ router.get("/", authMiddleware, async (req, res) => {
     );
 
     if (rows.length === 0) {
+      const CLASS_STATS = {
+        Warrior: { attack: 14, defense:  8, chance:  8, max_hp: 120 },
+        Mage:    { attack:  8, defense:  6, chance: 14, max_hp:  80 },
+        Archer:  { attack: 10, defense: 10, chance: 12, max_hp: 100 },
+      };
       const starters = [
         ["Oak Warrior", "Warrior"],
         ["Forest Mage", "Mage"],
         ["Pine Archer", "Archer"],
       ];
       for (const [name, cls] of starters) {
+        const s = CLASS_STATS[cls];
         await query(
-          "INSERT INTO champions (player_id, name, class, max_hp, current_hp) VALUES ($1, $2, $3, 100, 100)",
-          [req.player.id, name, cls],
+          "INSERT INTO champions (player_id, name, class, attack, defense, chance, max_hp, current_hp) VALUES ($1, $2, $3, $4, $5, $6, $7, $7)",
+          [req.player.id, name, cls, s.attack, s.defense, s.chance, s.max_hp],
         );
       }
       rows = await query(

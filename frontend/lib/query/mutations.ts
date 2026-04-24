@@ -127,6 +127,7 @@ export function useUpgradeFarmerMutation() {
         (old ?? []).map((f) => (f.id === farmerId ? fresh : f)),
       );
       queryClient.invalidateQueries({ queryKey: queryKeys.resources() });
+      queryClient.refetchQueries({ queryKey: queryKeys.farmers() });
     },
 
     onSettled: (_data, _err, farmerId) => {
@@ -717,7 +718,7 @@ export function useSkipPvpMutation() {
         };
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.player() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.pvpStatus() });
+      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus() });
     },
   });
 }

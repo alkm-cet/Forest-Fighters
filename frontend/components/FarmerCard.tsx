@@ -185,7 +185,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 2,
   },
-  statCell: { flex: 1, alignItems: "center" },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+  },
   statDivider: { width: 1, height: 20, backgroundColor: "#c8aa82" },
   statLabel: {
     fontSize: 9,
@@ -194,7 +197,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
-  statValue: { fontSize: 13, fontWeight: "800", color: "#3a2a10" },
+  statValue: { fontSize: 12, fontWeight: "800", color: "#3a2a10" },
 
   imageWrapper: {
     width: "100%",

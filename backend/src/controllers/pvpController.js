@@ -27,10 +27,8 @@ function getLeague(trophies) {
 }
 
 function getTrophyChange(trophies) {
-  for (const tier of LEAGUE_TIERS) {
-    if (trophies >= tier.min) return { win: tier.win, lose: tier.lose };
-  }
-  return { win: 30, lose: 25 };
+  const delta = Math.max(2, Math.round(trophies * 0.17));
+  return { win: delta, lose: delta };
 }
 
 // Loot is calculated from the loser's pvp_storage (snapshot at battle creation).
@@ -54,6 +52,12 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
   const realBaseCondition = `
     id != $1 AND is_bot = FALSE
     AND defender_champion_id IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM champions dc
+      WHERE dc.id = players.defender_champion_id
+        AND dc.current_hp > 0
+        AND dc.is_deployed = FALSE
+    )
     AND EXISTS (SELECT 1 FROM champions WHERE player_id = players.id AND level >= 3)
     AND (defense_shield_until IS NULL OR defense_shield_until <= NOW())
   `;
@@ -81,7 +85,15 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
 
   // Bot fallback
   const bots = await query(
-    `SELECT * FROM players WHERE is_bot = TRUE AND defender_champion_id IS NOT NULL`
+    `SELECT * FROM players
+     WHERE is_bot = TRUE
+       AND defender_champion_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM champions dc
+         WHERE dc.id = defender_champion_id
+           AND dc.current_hp > 0
+           AND dc.is_deployed = FALSE
+       )`
   );
   if (bots.length) return bots[Math.floor(Math.random() * bots.length)];
 
@@ -233,16 +245,18 @@ async function attackPvp(req, res) {
       console.warn('gear snapshot failed (non-fatal):', snapErr?.message);
     }
     const attacker = {
-      attack:  attChamp.attack  + (attChamp.boost_attack || 0) + Math.min(attRaw.attack,  Math.floor(attChamp.attack  * 0.5)),
-      defense: attChamp.defense + (attChamp.boost_defense || 0) + Math.min(attRaw.defense, Math.floor(attChamp.defense * 0.5)),
-      chance:  attChamp.chance  + (attChamp.boost_chance  || 0) + Math.min(attRaw.chance,  Math.floor(attChamp.chance  * 0.5)),
-      max_hp:  attChamp.max_hp  + (attChamp.boost_hp      || 0),
+      attack:     attChamp.attack  + (attChamp.boost_attack || 0) + Math.min(attRaw.attack,  Math.floor(attChamp.attack  * 0.5)),
+      defense:    attChamp.defense + (attChamp.boost_defense || 0) + Math.min(attRaw.defense, Math.floor(attChamp.defense * 0.5)),
+      chance:     attChamp.chance  + (attChamp.boost_chance  || 0) + Math.min(attRaw.chance,  Math.floor(attChamp.chance  * 0.5)),
+      max_hp:     attChamp.max_hp  + (attChamp.boost_hp      || 0),
+      current_hp: attChamp.current_hp,
     };
     const defender = {
-      attack:  defChamp.attack  + (defChamp.boost_attack || 0) + Math.min(defRaw.attack,  Math.floor(defChamp.attack  * 0.5)),
-      defense: defChamp.defense + (defChamp.boost_defense || 0) + Math.min(defRaw.defense, Math.floor(defChamp.defense * 0.5)),
-      chance:  defChamp.chance  + (defChamp.boost_chance  || 0) + Math.min(defRaw.chance,  Math.floor(defChamp.chance  * 0.5)),
-      max_hp:  defChamp.max_hp  + (defChamp.boost_hp      || 0),
+      attack:     defChamp.attack  + (defChamp.boost_attack || 0) + Math.min(defRaw.attack,  Math.floor(defChamp.attack  * 0.5)),
+      defense:    defChamp.defense + (defChamp.boost_defense || 0) + Math.min(defRaw.defense, Math.floor(defChamp.defense * 0.5)),
+      chance:     defChamp.chance  + (defChamp.boost_chance  || 0) + Math.min(defRaw.chance,  Math.floor(defChamp.chance  * 0.5)),
+      max_hp:     defChamp.max_hp  + (defChamp.boost_hp      || 0),
+      current_hp: defChamp.current_hp,
     };
     const result = simulateCombat(attacker, defender);
 
@@ -250,12 +264,14 @@ async function attackPvp(req, res) {
     const winnerId = attackerWon ? playerId : opponent.id;
     const loserId  = attackerWon ? opponent.id : playerId;
 
-    // Trophy change is based on each player's current league at battle time
+    // Trophy change is based on each player's current league at battle time.
+    // No trophy change when fighting a bot — bots are fill opponents only.
     const defTrophies = opponent.trophies ?? 10;
+    const isBot = !!opponent.is_bot;
     const attChange = getTrophyChange(attTrophies);
     const defChange = getTrophyChange(defTrophies);
-    const attDelta = attackerWon ?  attChange.win : -attChange.lose;
-    const defDelta = attackerWon ? -defChange.lose : defChange.win;
+    const attDelta = isBot ? 0 : (attackerWon ?  attChange.win : -attChange.lose);
+    const defDelta = isBot ? 0 : (attackerWon ? -defChange.lose :  defChange.win);
 
     // ── Snapshot loot from loser's pvp_storage ─────────────────────────────────
     // Trophies and resources are NOT applied here — they are applied when the
@@ -297,7 +313,7 @@ async function attackPvp(req, res) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [playerId, opponent.id, champion_id, defChamp.id, winnerId,
-       JSON.stringify({ attacker: { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.max_hp }, defender: { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.max_hp } }), JSON.stringify(result.log),
+       JSON.stringify({ attacker: { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.current_hp ?? attacker.max_hp }, defender: { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.current_hp ?? defender.max_hp }, attackerFinalHp: result.attackerHpLeft, defenderFinalHp: result.defenderHpLeft }), JSON.stringify(result.log),
        resultAvailableAt, attDelta, defDelta,
        transfers.strawberry, transfers.pinecone, transfers.blueberry,
        JSON.stringify(gearSnapshot)]
@@ -470,17 +486,21 @@ async function getBattles(req, res) {
         );
       }
 
-      // Free attacker champion; restore timed boosts, zero one-shots
+      // Final HP from combat simulation stored in battle_log; fall back to max_hp for old battles
+      const attFinalHp = b.battle_log?.attackerFinalHp != null ? Math.max(0, b.battle_log.attackerFinalHp) : null;
+      const defFinalHp = b.battle_log?.defenderFinalHp != null ? Math.max(0, b.battle_log.defenderFinalHp) : null;
+
+      // Free attacker champion; persist battle damage, restore timed boosts, zero one-shots
       await query(
         `UPDATE champions SET
            is_deployed   = FALSE,
-           current_hp    = LEAST(current_hp, max_hp),
+           current_hp    = LEAST(COALESCE($2, max_hp), max_hp),
            boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
          WHERE id = $1`,
-        [b.attacker_champion_id]
+        [b.attacker_champion_id, attFinalHp]
       );
 
       // Delete one-shot food boosts for the attacker champion
@@ -489,22 +509,51 @@ async function getBattles(req, res) {
         [b.attacker_champion_id]
       );
 
-      // Restore defender's timed boosts, zero one-shots
+      // Restore defender's timed boosts, persist battle damage, zero one-shots
       await query(
         `UPDATE champions SET
-           current_hp    = LEAST(current_hp, max_hp),
+           current_hp    = LEAST(COALESCE($2, max_hp), max_hp),
            boost_hp      = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_hp'      AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_defense = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_defense' AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_chance  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_chance'  AND is_one_shot = FALSE AND expires_at > NOW()),
            boost_attack  = (SELECT COALESCE(SUM(boost_value),0) FROM active_boosts WHERE entity_id = $1 AND boost_type = 'boost_attack'  AND is_one_shot = FALSE AND expires_at > NOW())
          WHERE id = $1`,
-        [b.defender_champion_id]
+        [b.defender_champion_id, defFinalHp]
       );
       // Delete one-shot food boosts for the defender champion
       await query(
         `DELETE FROM active_boosts WHERE entity_id = $1 AND is_one_shot = TRUE`,
         [b.defender_champion_id]
       );
+
+      // Auto-select a new defender for any player whose defending champion is now dead
+      async function autoSelectDefender(playerId) {
+        const candidates = await query(
+          `SELECT id FROM champions
+           WHERE player_id = $1
+             AND current_hp > 0
+             AND is_deployed = FALSE
+             AND last_defender = FALSE
+           ORDER BY level DESC
+           LIMIT 1`,
+          [playerId]
+        );
+        const newId = candidates.length > 0 ? candidates[0].id : null;
+        await query('UPDATE players SET defender_champion_id = $1 WHERE id = $2', [newId, playerId]);
+      }
+
+      // Defending player: their defender champion just fought — auto-select if it died
+      if ((defFinalHp ?? 1) === 0) {
+        await autoSelectDefender(b.defender_id);
+      }
+
+      // Attacking player: if they used their own defender champion as the attacker and it died
+      if ((attFinalHp ?? 1) === 0) {
+        const attPlayer = await query('SELECT defender_champion_id FROM players WHERE id = $1', [b.attacker_id]);
+        if (attPlayer[0]?.defender_champion_id === b.attacker_champion_id) {
+          await autoSelectDefender(b.attacker_id);
+        }
+      }
     }
 
     res.json(battles);

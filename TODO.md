@@ -2,7 +2,7 @@
 - DONE / Missions, daily and weekly quests.
 - DONE / Rank sistemi, rank puanları
 - DONE / Belki koyun keçi vs gibi source lar ?
-- backend i render da yayına al.
+- DONE / backend i render da yayına al.
 - chest sistemini ekle.
 - DONE / in game coin.
 - DONE / hem animals hem de farmers kartlarının sağ üstünde dakikada verdikleri ürün sayısı bilgisi olsun örneğin ÜRT başlığı altında 1/6.6s gibi. ayrıca fighters kartlara lv bilgisi de ekle.
@@ -26,3 +26,16 @@
 - item upgradelerde tier muhabbeti var ama o incelenmeli, level ve tier karıştırılıyor mu bakılmalı.
 - DONE / süreli boostların süresi bitmemesine rağmen etkileri bitiyor. Ayrıca champion Ölürse bu boostların süreleri devam etse bile silinmeli. Uı da varlar ama etkileri yok şu anda, bu düzeltilmeli.
 - DONE / Uygulama blurdan sonra onfocus olunca tüm verileri yeniden çekmek için biz splash ekranına yönlendirelim.
+- ANimals ların besleme sürelerindeki geri sayım hareket etmiyor, buglı, düzeltilmeli.
+
+NOTES:
+
+- PvP lv 3 de açılıyor. Defender herhangi bir champ seçilebiliyor, 1 lv olsa bile
+- REVIEW / Yenilgi sonrası -25 trophy ve -1pinecone -1blueberry kaybettim. resoureslar tamam gibi ama trophy çok fazla, ayrıca 10 throphy ile başlamıştım, ve trophylerim eksilmemiş. ama kazanınca 30 trophy geldi.
+- REVIEW / Farmers drawer içerisinde, toplam stock u göstermiyoruz, sadece kartta gösteriyoruz 0/5 şeklinde, ama bu ilk bakışta anlaşılması gerekn bir şey.
+- REVIEW / Bütün champlar 10/10/10 statla başladılar oyuna, değişitiilmeli.
+- PvP de ilk başta recursive ile eşleştim, fakat sonrasında sadece botlar gelmeye başladı, diğer gerçek oyuncular neden gelmiyor bakılmalı. Ya aralarında henüz 3 lv savaşcısı olmayan/defenderı olmayanlar var, yada eşleştirme sistemi trophty e göre bakılıyor ve yüksekle eşleştirilmiyor, ama bu doğrulanmalı.
+- PvP ekranında 2 tane bronz ve 10 thropysi olan düşman için galibiyette +30 trophy gibi aşırı bir trophy ödülü var, incelenmeli ve dengelenmeli.
+- ANimals ı besledim ve animals kısmında 0 strawberyy göründü, daha fazla besleyemedim, ama ana ekrana geldiğimde hala 1/15 görünüordu, update de sıkıntı var, uygulamayı güncelleyince anca düzeldi.
+- REVIEW / Oyun ilk açıldığında Farmers 0/5 ile başlıyor, ama full başlasın, ayrıca bu animals için de geçerli olsun.
+- REVIEW / Champion PvP de 3 hasar almış ama uygulamayı yenileyince bile canı 60/60

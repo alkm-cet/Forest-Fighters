@@ -177,7 +177,7 @@ export default function FarmerDrawer({
       setLivePending(pending);
       setTimeLeft(timeLeft);
     }
-  }, [farmer?.id, farmer?.last_collected_at]);
+  }, [farmer?.id, farmer?.last_collected_at, farmer?._fetched_at_ms]);
 
   // Keep ref in sync so interval can read latest value without recreating
   useEffect(() => {
@@ -490,17 +490,15 @@ export default function FarmerDrawer({
               {t("perMin").replace("/ ", "")}
             </Text>
           </View>
-          {livePending > 0 && (
-            <View
-              style={[styles.pendingBadge, { backgroundColor: meta.color }]}
-            >
-              <Package size={12} color="#fff" strokeWidth={2} />
-              <Text style={styles.pendingText}>
-                {livePending} / {getMaxCapacity(farmer.level)}{" "}
-                {t("pendingReady")}
-              </Text>
-            </View>
-          )}
+          <View
+            style={[styles.pendingBadge, { backgroundColor: meta.color, opacity: livePending === 0 ? 0.6 : 1 }]}
+          >
+            <Package size={12} color="#fff" strokeWidth={2} />
+            <Text style={styles.pendingText}>
+              {livePending} / {getMaxCapacity(farmer.level)}{" "}
+              {t("pendingReady")}
+            </Text>
+          </View>
         </View>
 
         {/* Next production countdown */}
