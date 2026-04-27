@@ -11,7 +11,15 @@ import {
   Image,
 } from "react-native";
 import { Text } from "./StyledText";
-import { X, Sparkles, Trash2, Swords, Shield, Zap, BookOpen } from "lucide-react-native";
+import {
+  X,
+  Sparkles,
+  Trash2,
+  Swords,
+  Shield,
+  Zap,
+  BookOpen,
+} from "lucide-react-native";
 import { Champion, PlayerGear, GearRarity, PlayerFood } from "../types";
 import ItemEncyclopedia from "./ItemEncyclopedia";
 import { RARITY_META, CLASS_META } from "../constants/resources";
@@ -62,7 +70,10 @@ const TIER_COLOR: Record<number, string> = {
 };
 
 // Level-based card visual style
-const LEVEL_CARD_STYLE: Record<number, { bg: string; border: string; lvBg: string }> = {
+const LEVEL_CARD_STYLE: Record<
+  number,
+  { bg: string; border: string; lvBg: string }
+> = {
   1: { bg: "#fdf5e4", border: "#c8a870", lvBg: "#2c2010" },
   2: { bg: "#f3e8ff", border: "#9c78d0", lvBg: "#5a3a8a" },
   3: { bg: "#ffe8e8", border: "#d07878", lvBg: "#8a2a2a" },
@@ -265,10 +276,16 @@ function GearCard({
   const isMaxLevel = gear.level >= 3;
   const primaryDisabled = isDeployed;
   const lvStyle = LEVEL_CARD_STYLE[gear.level] ?? LEVEL_CARD_STYLE[1];
-  const stoneImg = FORGE_STONE_IMGS[gear.definition.tier - 1] ?? FORGE_STONE_IMGS[0];
+  const stoneImg =
+    FORGE_STONE_IMGS[gear.definition.tier - 1] ?? FORGE_STONE_IMGS[0];
 
   return (
-    <View style={[cardStyles.card, { backgroundColor: lvStyle.bg, borderColor: lvStyle.border }]}>
+    <View
+      style={[
+        cardStyles.card,
+        { backgroundColor: lvStyle.bg, borderColor: lvStyle.border },
+      ]}
+    >
       {/* LV badge — absolute top-right */}
       <View style={[cardStyles.lvBadge, { backgroundColor: lvStyle.lvBg }]}>
         <Text style={cardStyles.lvText}>LV </Text>
@@ -286,7 +303,9 @@ function GearCard({
                 resizeMode="contain"
               />
             ) : (
-              <Text style={cardStyles.itemEmoji}>{gear.definition.emoji || '❓'}</Text>
+              <Text style={cardStyles.itemEmoji}>
+                {gear.definition.emoji || "❓"}
+              </Text>
             )}
           </View>
           <View style={cardStyles.infoCol}>
@@ -331,7 +350,11 @@ function GearCard({
               onPress={() => setUpgradeOpen((v) => !v)}
               activeOpacity={0.75}
             >
-              <Image source={stoneImg} style={cardStyles.stonePillImg} resizeMode="contain" />
+              <Image
+                source={stoneImg}
+                style={cardStyles.stonePillImg}
+                resizeMode="contain"
+              />
               <Sparkles size={10} color="#4a7c3f" strokeWidth={2.5} />
               <Text style={cardStyles.stonePillHasText}>
                 {t("gearUpgradeBtn")} ({stonesNeeded})
@@ -339,8 +362,14 @@ function GearCard({
             </TouchableOpacity>
           ) : (
             <View style={[cardStyles.stonePill, cardStyles.stonePillNone]}>
-              <Image source={stoneImg} style={[cardStyles.stonePillImg, { opacity: 0.6 }]} resizeMode="contain" />
-              <Text style={cardStyles.stonePillNoneReqText}>×{stonesNeeded}</Text>
+              <Image
+                source={stoneImg}
+                style={[cardStyles.stonePillImg, { opacity: 0.6 }]}
+                resizeMode="contain"
+              />
+              <Text style={cardStyles.stonePillNoneReqText}>
+                ×{stonesNeeded}
+              </Text>
               <Text style={cardStyles.stonePillNoneText}>
                 {t("gearNoStonesLabel")}
               </Text>
@@ -399,7 +428,9 @@ function GearCard({
             activeOpacity={0.75}
           >
             <Trash2 size={13} color="#c0392b" strokeWidth={2.5} />
-            <Text style={cardStyles.discardInlineBtnText}>{t("gearDiscardBtn")}</Text>
+            <Text style={cardStyles.discardInlineBtnText}>
+              {t("gearDiscardBtn")}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -448,7 +479,12 @@ function InventoryCard({
 }
 
 // ── Main drawer ────────────────────────────────────────────────────────────────
-export default function GearDrawer({ champion, visible, onClose, onNavigateToDungeon }: Props) {
+export default function GearDrawer({
+  champion,
+  visible,
+  onClose,
+  onNavigateToDungeon,
+}: Props) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<"weapon" | "charm">("weapon");
@@ -639,59 +675,59 @@ export default function GearDrawer({ champion, visible, onClose, onNavigateToDun
                   {champion.class}
                 </Text>
               </View>
-              <View style={styles.stoneCountRow}>
-                {stoneCountT1 > 0 && (
-                  <View
-                    style={[
-                      styles.stoneCountBadge,
-                      { backgroundColor: "#5a8a3c22", borderColor: "#5a8a3c" },
-                    ]}
-                  >
-                    <Image
-                      source={FORGE_STONE_IMGS[0]}
-                      style={styles.stoneCountImg}
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.stoneCountText, { color: "#5a8a3c" }]}>
-                      ×{stoneCountT1}
-                    </Text>
-                  </View>
-                )}
-                {stoneCountT2 > 0 && (
-                  <View
-                    style={[
-                      styles.stoneCountBadge,
-                      { backgroundColor: "#c8782022", borderColor: "#c87820" },
-                    ]}
-                  >
-                    <Image
-                      source={FORGE_STONE_IMGS[1]}
-                      style={styles.stoneCountImg}
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.stoneCountText, { color: "#c87820" }]}>
-                      ×{stoneCountT2}
-                    </Text>
-                  </View>
-                )}
-                {stoneCountT3 > 0 && (
-                  <View
-                    style={[
-                      styles.stoneCountBadge,
-                      { backgroundColor: "#8a4cc822", borderColor: "#8a4cc8" },
-                    ]}
-                  >
-                    <Image
-                      source={FORGE_STONE_IMGS[2]}
-                      style={styles.stoneCountImg}
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.stoneCountText, { color: "#8a4cc8" }]}>
-                      ×{stoneCountT3}
-                    </Text>
-                  </View>
-                )}
-              </View>
+            </View>
+            <View style={styles.stoneCountRow}>
+              {stoneCountT1 > 0 && (
+                <View
+                  style={[
+                    styles.stoneCountBadge,
+                    { backgroundColor: "#5a8a3c22", borderColor: "#5a8a3c" },
+                  ]}
+                >
+                  <Image
+                    source={FORGE_STONE_IMGS[0]}
+                    style={styles.stoneCountImg}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.stoneCountText, { color: "#5a8a3c" }]}>
+                    ×{stoneCountT1}
+                  </Text>
+                </View>
+              )}
+              {stoneCountT2 > 0 && (
+                <View
+                  style={[
+                    styles.stoneCountBadge,
+                    { backgroundColor: "#c8782022", borderColor: "#c87820" },
+                  ]}
+                >
+                  <Image
+                    source={FORGE_STONE_IMGS[1]}
+                    style={styles.stoneCountImg}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.stoneCountText, { color: "#c87820" }]}>
+                    ×{stoneCountT2}
+                  </Text>
+                </View>
+              )}
+              {stoneCountT3 > 0 && (
+                <View
+                  style={[
+                    styles.stoneCountBadge,
+                    { backgroundColor: "#8a4cc822", borderColor: "#8a4cc8" },
+                  ]}
+                >
+                  <Image
+                    source={FORGE_STONE_IMGS[2]}
+                    style={styles.stoneCountImg}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.stoneCountText, { color: "#8a4cc8" }]}>
+                    ×{stoneCountT3}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
           <TouchableOpacity
@@ -710,20 +746,24 @@ export default function GearDrawer({ champion, visible, onClose, onNavigateToDun
           onPress={() => setShowEncyclopedia(true)}
           activeOpacity={0.7}
         >
-          <BookOpen size={13} color="#7a5230" strokeWidth={2} />
-          <Text style={styles.encyclopediaBtnText}>{t("encyclopediaSeeAllItems")}</Text>
+          <BookOpen size={16} color="white" strokeWidth={2} />
+          <Text style={styles.encyclopediaBtnText}>
+            {t("encyclopediaSeeAllItems")}
+          </Text>
         </TouchableOpacity>
 
         <ItemEncyclopedia
           visible={showEncyclopedia}
           onClose={() => setShowEncyclopedia(false)}
           ownedGear={allGear}
-          onNavigateToDungeon={onNavigateToDungeon && champion
-            ? (dungeonId) => {
-                setShowEncyclopedia(false);
-                onNavigateToDungeon(champion, dungeonId);
-              }
-            : undefined}
+          onNavigateToDungeon={
+            onNavigateToDungeon && champion
+              ? (dungeonId) => {
+                  setShowEncyclopedia(false);
+                  onNavigateToDungeon(champion, dungeonId);
+                }
+              : undefined
+          }
         />
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -947,8 +987,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   champPortrait: {
-    width: 52,
-    height: 52,
+    width: 80,
+    height: 80,
     borderRadius: 14,
     backgroundColor: "#ede0c4",
     borderWidth: 2,
@@ -957,7 +997,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     flexShrink: 0,
   },
-  champPortraitImg: { width: 46, height: 46 },
+  champPortraitImg: { width: 60, height: 60 },
   headerMeta: { flex: 1, gap: 4 },
   headerTitle: { fontSize: 16, fontWeight: "900", color: "#3a1e00" },
   headerSubRow: {
@@ -973,7 +1013,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   classBadgeText: { fontSize: 10, fontWeight: "800" },
-  stoneCountRow: { flexDirection: "row", gap: 6 },
+  stoneCountRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
   stoneCountBadge: {
     borderRadius: 8,
     borderWidth: 1.5,
@@ -1009,17 +1052,17 @@ const styles = StyleSheet.create({
     gap: 5,
     marginHorizontal: 14,
     marginTop: 6,
-    marginBottom: 2,
-    paddingVertical: 7,
+    marginBottom: 8,
+    paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#c8a870",
-    backgroundColor: "#fff8ee",
+    borderColor: "black",
+    backgroundColor: "#9a7040",
   },
   encyclopediaBtnText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#7a5230",
+    color: "white",
   },
   scroll: { paddingHorizontal: 14 },
 

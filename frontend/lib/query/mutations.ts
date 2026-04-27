@@ -28,10 +28,14 @@ function updateAnimalInFarms(
   animalId: string,
   updater: (a: Animal) => Animal,
 ): Farm[] {
-  return (old ?? []).map((farm) => ({
-    ...farm,
-    animals: farm.animals.map((a) => (a.id === animalId ? updater(a) : a)),
-  }));
+  return (old ?? []).map((farm) => {
+    const animals = farm.animals.map((a) => (a.id === animalId ? updater(a) : a));
+    return {
+      ...farm,
+      animals,
+      total_pending: animals.reduce((s, a) => s + (a.pending ?? 0), 0),
+    };
+  });
 }
 
 // ─── Farmer mutations ─────────────────────────────────────────────────────────
@@ -352,6 +356,7 @@ export function useFillAnimalStorageMutation() {
     onSettled: (_data, _err, animalId) => {
       useUIStore.getState().setLock(animalId, false);
       queryClient.invalidateQueries({ queryKey: queryKeys.player() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.farms() });
     },
   });
 }

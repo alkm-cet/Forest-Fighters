@@ -435,11 +435,13 @@ export default function FarmScreen() {
       pending: maxCap,
       _fetched_at_ms: Date.now(),
     };
+    const optimisticAnimals = farm.animals.map((a) =>
+      a.id === selectedAnimal.id ? optimisticAnimal : a,
+    );
     const optimisticFarm = {
       ...farm,
-      animals: farm.animals.map((a) =>
-        a.id === selectedAnimal.id ? optimisticAnimal : a,
-      ),
+      animals: optimisticAnimals,
+      total_pending: optimisticAnimals.reduce((s, a) => s + (a.pending ?? 0), 0),
     };
     const prevFarm = farm;
     syncFarm(optimisticFarm);
@@ -463,11 +465,13 @@ export default function FarmScreen() {
       });
       setCoins(res.data.coins);
       const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
+      const confirmedAnimals = farm.animals.map((a) =>
+        a.id === selectedAnimal.id ? fresh : a,
+      );
       const confirmedFarm = {
         ...farm,
-        animals: farm.animals.map((a) =>
-          a.id === selectedAnimal.id ? fresh : a,
-        ),
+        animals: confirmedAnimals,
+        total_pending: confirmedAnimals.reduce((s, a) => s + (a.pending ?? 0), 0),
       };
       syncFarm(confirmedFarm);
       setFarm(confirmedFarm);
@@ -945,7 +949,14 @@ export default function FarmScreen() {
                 const currentPending = selectedLive?.pending ?? 0;
                 const fillCost = Math.max(0, maxCap - currentPending);
                 const isFull = fillCost === 0;
-                const canAfford = coins >= fillCost && !isFull;
+                const canAfford = coins >= fillCost;
+                if (isFull) {
+                  return (
+                    <View style={styles.depoFullBadge}>
+                      <Text style={styles.depoFullText}>✓ Depo Dolu</Text>
+                    </View>
+                  );
+                }
                 return (
                   <CustomButton
                     btnIcon={
@@ -955,39 +966,37 @@ export default function FarmScreen() {
                         resizeMode="contain"
                       />
                     }
-                    text={isFull ? "Depo Dolu" : `Depoyu Doldur`}
+                    text="Depoyu Doldur"
                     subContent={
-                      !isFull ? (
-                        <View style={styles.upgradeCostRow}>
-                          <Image
-                            source={COIN_IMG}
-                            style={styles.upgradeCostIcon}
-                            resizeMode="contain"
-                          />
-                          <Text
-                            style={[
-                              styles.upgradeCostText,
-                              !canAfford && { color: "#ffaaaa" },
-                            ]}
-                          >
-                            ×{fillCost}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.upgradeCostText,
-                              { color: canAfford ? "#e8c87a" : "#ffaaaa" },
-                            ]}
-                          >
-                            ({coins} mevcut)
-                          </Text>
-                        </View>
-                      ) : undefined
+                      <View style={styles.upgradeCostRow}>
+                        <Image
+                          source={COIN_IMG}
+                          style={styles.upgradeCostIcon}
+                          resizeMode="contain"
+                        />
+                        <Text
+                          style={[
+                            styles.upgradeCostText,
+                            !canAfford && { color: "#ffaaaa" },
+                          ]}
+                        >
+                          ×{fillCost}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.upgradeCostText,
+                            { color: canAfford ? "#e8c87a" : "#ffaaaa" },
+                          ]}
+                        >
+                          ({coins} mevcut)
+                        </Text>
+                      </View>
                     }
                     onClick={() => {
                       if (canAfford) setShowFillStorageConfirm(true);
                     }}
-                    bgColor={canAfford ? "#c87820" : "#9a7040"}
-                    borderColor={canAfford ? "#a05f10" : "#7a5030"}
+                    bgColor={canAfford ? "#e8920a" : "#9a7040"}
+                    borderColor={canAfford ? "#c07008" : "#7a5030"}
                     disabled={!canAfford}
                   />
                 );
@@ -1425,6 +1434,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "rgba(255,255,255,0.85)",
+  },
+  depoFullBadge: {
+    flex: 1,
+    height: 71,
+    borderRadius: 18,
+    backgroundColor: "#3a5c3a",
+    borderWidth: 2.5,
+    borderColor: "#2a4a2a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  depoFullText: {
+    fontSize: 15,
+    fontWeight: "800",
+    fontFamily: "Fredoka-Bold",
+    color: "#7ecf7e",
+    letterSpacing: 1,
   },
 
   // Bottom feed section
