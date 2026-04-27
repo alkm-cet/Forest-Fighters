@@ -1,0 +1,17 @@
+diff --git a/node_modules/react-native/.DS_Store b/node_modules/react-native/.DS_Store
+new file mode 100644
+index 0000000..13460a5
+Binary files /dev/null and b/node_modules/react-native/.DS_Store differ
+diff --git a/node_modules/react-native/scripts/cocoapods/helpers.rb b/node_modules/react-native/scripts/cocoapods/helpers.rb
+index cdb1e14..eb75555 100644
+--- a/node_modules/react-native/scripts/cocoapods/helpers.rb
++++ b/node_modules/react-native/scripts/cocoapods/helpers.rb
+@@ -85,7 +85,7 @@ module Helpers
+         end
+ 
+         def self.min_xcode_version_supported
+-            return '16.1'
++            return '16.0'
+         end
+ 
+         def self.folly_config

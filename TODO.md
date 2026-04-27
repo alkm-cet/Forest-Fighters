@@ -28,6 +28,7 @@
 - DONE / Uygulama blurdan sonra onfocus olunca tüm verileri yeniden çekmek için biz splash ekranına yönlendirelim.
 - ANimals ların besleme sürelerindeki geri sayım hareket etmiyor, buglı, düzeltilmeli.
 - ONBOARDING ekranı eklenmeli, oyunculara oyunu tanıtmak için.
+- Savaşı in game oinle bitirir bitirmez battlehistorydrawer otomatik açılıyo sonucu gör demeden.
 
 NOTES:
 
