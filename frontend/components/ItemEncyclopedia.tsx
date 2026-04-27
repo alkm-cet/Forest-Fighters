@@ -149,8 +149,8 @@ function EncyclopediaItemCard({
         </View>
       )}
 
-      {/* Top row */}
-      <View style={cardStyles.topRow}>
+      {/* Main row: icon | name+badges | stats */}
+      <View style={cardStyles.mainRow}>
         <View style={cardStyles.iconBox}>
           {GEAR_IMAGES[def.id] ? (
             <Image source={GEAR_IMAGES[def.id]} style={cardStyles.itemImg} resizeMode="contain" />
@@ -158,14 +158,13 @@ function EncyclopediaItemCard({
             <Text style={cardStyles.itemEmoji}>{def.emoji || "❓"}</Text>
           )}
         </View>
+
         <View style={cardStyles.infoCol}>
-          <Text style={cardStyles.itemName} numberOfLines={1}>{def.name}</Text>
+          <Text style={cardStyles.itemName} numberOfLines={2}>{def.name}</Text>
           <View style={cardStyles.badgeRow}>
-            {/* Tier badge */}
             <View style={[cardStyles.tierBadge, { backgroundColor: tierColor }]}>
               <Text style={cardStyles.tierText}>T{def.tier}</Text>
             </View>
-            {/* Class badge */}
             <View style={[cardStyles.classBadge, { borderColor: tierColor }]}>
               <Text style={[cardStyles.classBadgeText, { color: tierColor }]}>
                 {def.class_restriction ?? t("encyclopediaClassAll")}
@@ -173,31 +172,31 @@ function EncyclopediaItemCard({
             </View>
           </View>
         </View>
-      </View>
 
-      {/* Stats */}
-      {(hasAtk || hasDef || hasChc) && (
-        <View style={cardStyles.statsRow}>
-          {hasAtk && (
-            <View style={[cardStyles.statChip, { backgroundColor: "#fff3e0" }]}>
-              <Swords size={10} color="#d4530c" strokeWidth={2} />
-              <Text style={[cardStyles.statVal, { color: "#d4530c" }]}>+{def.base_attack}</Text>
-            </View>
-          )}
-          {hasDef && (
-            <View style={[cardStyles.statChip, { backgroundColor: "#e3f2fd" }]}>
-              <Shield size={10} color="#1976d2" strokeWidth={2} />
-              <Text style={[cardStyles.statVal, { color: "#1976d2" }]}>+{def.base_defense}</Text>
-            </View>
-          )}
-          {hasChc && (
-            <View style={[cardStyles.statChip, { backgroundColor: "#f3e5f5" }]}>
-              <Zap size={10} color="#7b1fa2" strokeWidth={2} />
-              <Text style={[cardStyles.statVal, { color: "#7b1fa2" }]}>+{def.base_chance}</Text>
-            </View>
-          )}
-        </View>
-      )}
+        {/* Stats column — right side, large and prominent */}
+        {(hasAtk || hasDef || hasChc) && (
+          <View style={cardStyles.statsCol}>
+            {hasAtk && (
+              <View style={[cardStyles.statBlock, { backgroundColor: "#fff3e0" }]}>
+                <Swords size={12} color="#d4530c" strokeWidth={2.5} />
+                <Text style={[cardStyles.statBigVal, { color: "#d4530c" }]}>+{def.base_attack}</Text>
+              </View>
+            )}
+            {hasDef && (
+              <View style={[cardStyles.statBlock, { backgroundColor: "#e3f2fd" }]}>
+                <Shield size={12} color="#1976d2" strokeWidth={2.5} />
+                <Text style={[cardStyles.statBigVal, { color: "#1976d2" }]}>+{def.base_defense}</Text>
+              </View>
+            )}
+            {hasChc && (
+              <View style={[cardStyles.statBlock, { backgroundColor: "#f3e5f5" }]}>
+                <Zap size={12} color="#7b1fa2" strokeWidth={2.5} />
+                <Text style={[cardStyles.statBigVal, { color: "#7b1fa2" }]}>+{def.base_chance}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
 
       {/* Get this item button */}
       <TouchableOpacity
@@ -431,35 +430,36 @@ const cardStyles = StyleSheet.create({
     right: 8,
     zIndex: 1,
   },
-  topRow: {
+  mainRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
     backgroundColor: "#fff8ee",
     borderWidth: 1,
     borderColor: "#e8d5b0",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   itemImg: {
-    width: 36,
-    height: 36,
+    width: 52,
+    height: 52,
   },
   itemEmoji: {
-    fontSize: 22,
+    fontSize: 32,
   },
   infoCol: {
     flex: 1,
-    gap: 4,
+    gap: 6,
   },
   itemName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     color: "#3a2010",
   },
@@ -488,23 +488,24 @@ const cardStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: 5,
-    flexWrap: "wrap",
-    marginBottom: 8,
+  statsCol: {
+    alignItems: "stretch",
+    gap: 4,
+    flexShrink: 0,
   },
-  statChip: {
+  statBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minWidth: 60,
+    justifyContent: "center",
   },
-  statVal: {
-    fontSize: 11,
-    fontWeight: "700",
+  statBigVal: {
+    fontSize: 17,
+    fontWeight: "800",
   },
   getBtn: {
     flexDirection: "row",
