@@ -66,16 +66,25 @@ export function useCollectFarmerMutation() {
         const delta = Math.min(estimated, cap - current);
 
         queryClient.setQueryData<Farmer[]>(queryKeys.farmers(), (old) =>
-          (old ?? []).map((f) =>
-            f.id === farmerId
-              ? {
-                  ...f,
-                  pending: 0,
-                  next_ready_in_seconds: f.interval_minutes * 60,
-                  _fetched_at_ms: Date.now(),
-                }
-              : f,
-          ),
+          (old ?? []).map((f) => {
+            if (f.id !== farmerId) return f;
+            // Preserve the real cycle position rather than resetting to a full cycle.
+            // The server tracks time continuously even while storage is full.
+            const elapsedSec = f._fetched_at_ms
+              ? (Date.now() - f._fetched_at_ms) / 1000
+              : 0;
+            const cycleSec = f.interval_minutes * 60;
+            const rawTL = (f.next_ready_in_seconds ?? 0) - elapsedSec;
+            const currentTL = rawTL > 0
+              ? Math.round(rawTL)
+              : Math.round(cycleSec - ((-rawTL) % cycleSec));
+            return {
+              ...f,
+              pending: 0,
+              next_ready_in_seconds: currentTL,
+              _fetched_at_ms: Date.now(),
+            };
+          }),
         );
         queryClient.setQueryData<Resources>(queryKeys.resources(), (old) =>
           old ? { ...old, [farmer.resource_type]: Math.min(current + delta, cap) } : old,
@@ -165,7 +174,9 @@ export function useFillFarmerStorageMutation() {
 
         queryClient.setQueryData<Farmer[]>(queryKeys.farmers(), (old) =>
           (old ?? []).map((f) =>
-            f.id === farmerId ? { ...f, pending: maxCap, _fetched_at_ms: Date.now() } : f,
+            // Only pending changes — leave _fetched_at_ms and next_ready_in_seconds
+            // intact so the drawer's interpolated countdown is not disrupted.
+            f.id === farmerId ? { ...f, pending: maxCap } : f,
           ),
         );
         queryClient.setQueryData<Player>(queryKeys.player(), (old) =>

@@ -92,6 +92,9 @@ export default function FarmerDrawer({
   const [timeLeft, setTimeLeft] = useState(0);
   const [timerRowWidth, setTimerRowWidth] = useState(0);
   const livePendingRef = useRef(0);
+  // Always-current interval_minutes for use inside the setInterval closure,
+  // which otherwise captures a stale value from when the effect first ran.
+  const intervalMinutesRef = useRef(farmer?.interval_minutes ?? 0);
 
   // Interpolate farmer snapshot forward to "now" using _fetched_at_ms.
   function interpolate(f: Farmer) {
@@ -179,10 +182,11 @@ export default function FarmerDrawer({
     }
   }, [farmer?.id, farmer?.last_collected_at, farmer?._fetched_at_ms]);
 
-  // Keep ref in sync so interval can read latest value without recreating
+  // Keep refs in sync so intervals can read latest values without recreating
   useEffect(() => {
     livePendingRef.current = livePending;
   }, [livePending]);
+  if (farmer) intervalMinutesRef.current = farmer.interval_minutes;
 
   // Tick every second; pause when farmer storage is full
   useEffect(() => {
@@ -195,7 +199,7 @@ export default function FarmerDrawer({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           setLivePending((p) => Math.min(p + 1, maxCap));
-          return farmer.interval_minutes * 60;
+          return intervalMinutesRef.current * 60;
         }
         return prev - 1;
       });
