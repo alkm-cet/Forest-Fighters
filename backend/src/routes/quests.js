@@ -3,6 +3,7 @@ const router  = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { getPeriodKey, ensureQuestsAssigned, maybeAwardDailyBonus } = require('../quests');
+const { DAILY_QUEST_COUNT, DAILY_BONUS_COINS, DAILY_BONUS_AMOUNT, DAILY_BONUS_RESOURCES } = require('../data/config/quest');
 
 // ─── GET /api/quests ──────────────────────────────────────────────────────────
 // Lazy-assigns quests for the current daily/weekly period if not yet done.
@@ -57,10 +58,10 @@ router.get('/', authMiddleware, async (req, res) => {
       weekly,
       dailyBonus: {
         claimed_count:   claimedCount,
-        total:           4,
-        bonus_coins:     8,
-        bonus_resource:  'egg/wool/milk (random)',
-        bonus_amount:    3,
+        total:           DAILY_QUEST_COUNT,
+        bonus_coins:     DAILY_BONUS_COINS,
+        bonus_resource:  DAILY_BONUS_RESOURCES.join('/') + ' (random)',
+        bonus_amount:    DAILY_BONUS_AMOUNT,
         already_claimed: alreadyClaimed,
       },
     });

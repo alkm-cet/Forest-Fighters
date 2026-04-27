@@ -2,17 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
-
-const LEAGUE_TIERS = [
-  { name: 'Challenger',  min: 1600 },
-  { name: 'Grandmaster', min: 1300 },
-  { name: 'Master',      min: 1000 },
-  { name: 'Elmas',       min: 750  },
-  { name: 'Platinium',   min: 500  },
-  { name: 'Altin',       min: 300  },
-  { name: 'Gumus',       min: 150  },
-  { name: 'Bronz',       min: 0    },
-];
+const { LEAGUE_TIERS } = require('../data/config/pvp');
 
 function getLeague(trophies) {
   for (const tier of LEAGUE_TIERS) {

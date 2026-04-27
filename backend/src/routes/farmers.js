@@ -3,46 +3,11 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { incrementQuestProgress } = require('../quests');
-
-const FARMER_MAX_LEVEL = 50;
-
-// Rate-based linear interpolation: interval = 60 / rate(level)
-// This gives large improvements early and smaller (but non-zero) improvements late.
-// At L1: strawberry=8min, pinecone=12min, blueberry=16min
-// At L50: strawberry=1min, pinecone=2min,  blueberry=3min
-function getIntervalByType(resourceType, level = 1) {
-  const L = Math.max(1, Math.min(FARMER_MAX_LEVEL, level));
-  let rate;
-  if (resourceType === 'strawberry') {
-    // baseRate=7.5/hr (8min), maxRate=60/hr (1min)
-    rate = 7.5 + 52.5 * (L - 1) / 49;
-  } else if (resourceType === 'pinecone') {
-    // baseRate=5/hr (12min), maxRate=30/hr (2min)
-    rate = 5 + 25 * (L - 1) / 49;
-  } else if (resourceType === 'blueberry') {
-    // baseRate=3.75/hr (16min), maxRate=20/hr (3min)
-    rate = 3.75 + 16.25 * (L - 1) / 49;
-  } else {
-    rate = 6 + 24 * (L - 1) / 49;
-  }
-  return 60 / rate;
-}
-
-// Cross-resource upgrade costs: resource_type → [costRes1, costRes2]
-const UPGRADE_RESOURCES = {
-  strawberry: ['strawberry', 'pinecone'],
-  pinecone:   ['pinecone',   'blueberry'],
-  blueberry:  ['blueberry',  'strawberry'],
-};
-
-// Upgrade cost per resource = current_level * 2
-function getUpgradeCost(level) {
-  return level * 2;
-}
-
-function getMaxCapacity(level) {
-  return 4 + level; // LV1=5, LV2=6, LV3=7, LV4=8, ...
-}
+const {
+  FARMER_MAX_LEVEL, UPGRADE_RESOURCES,
+  getIntervalMinutes: getIntervalByType,
+  getMaxCapacity, getUpgradeCost,
+} = require('../data/config/farmer');
 
 function calcPending(lastCollectedAt, level, resourceType) {
   const intervalMs = getIntervalByType(resourceType, level) * 60 * 1000;

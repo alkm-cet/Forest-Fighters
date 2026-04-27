@@ -163,10 +163,15 @@ export default function MainScreen() {
     cost2: number;
     costRes1: ResourceKey;
     costRes2: ResourceKey;
-    emoji: string;
+    image: ReturnType<typeof require> | null;
   } | null>(null);
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
-  const [claimingRun, setClaimingRun] = useState<{ name: string; class: string; champion2Name?: string; champion2Class?: string } | null>(null);
+  const [claimingRun, setClaimingRun] = useState<{
+    name: string;
+    class: string;
+    champion2Name?: string;
+    champion2Class?: string;
+  } | null>(null);
   const [selectedChampion, setSelectedChampion] = useState<Champion | null>(
     null,
   );
@@ -314,11 +319,31 @@ export default function MainScreen() {
   // stale:true means only queries past their staleTime are touched.
   useFocusEffect(
     useCallback(() => {
-      queryClient.refetchQueries({ queryKey: queryKeys.resources(),   type: "active", stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.farmers(),     type: "active", stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.farms(),       type: "active", stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.dungeonRuns(), type: "active", stale: true });
-      queryClient.refetchQueries({ queryKey: queryKeys.pvpStatus(),   type: "active", stale: true });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.resources(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.farmers(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.farms(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.dungeonRuns(),
+        type: "active",
+        stale: true,
+      });
+      queryClient.refetchQueries({
+        queryKey: queryKeys.pvpStatus(),
+        type: "active",
+        stale: true,
+      });
     }, [queryClient]),
   );
 
@@ -528,7 +553,7 @@ export default function MainScreen() {
                 res2: ResourceKey;
                 cost1: number;
                 cost2: number;
-                emoji: string;
+                image: ReturnType<typeof require> | null;
               }
             > = {
               egg: {
@@ -536,21 +561,21 @@ export default function MainScreen() {
                 res2: "pinecone",
                 cost1: 20,
                 cost2: 10,
-                emoji: "🥚",
+                image: require("../../assets/resource-images/egg.png"),
               },
               wool: {
                 res1: "pinecone",
                 res2: "blueberry",
                 cost1: 20,
                 cost2: 10,
-                emoji: "🧶",
+                image: require("../../assets/resource-images/wool.png"),
               },
               milk: {
                 res1: "blueberry",
                 res2: "strawberry",
                 cost1: 20,
                 cost2: 10,
-                emoji: "🥛",
+                image: require("../../assets/resource-images/milk.png"),
               },
             };
             const cfg = ADVANCED_COSTS[resource];
@@ -563,7 +588,7 @@ export default function MainScreen() {
               cost2: cfg.cost2,
               costRes1: cfg.res1,
               costRes2: cfg.res2,
-              emoji: cfg.emoji,
+              image: cfg.image,
             });
           }}
           onUpgrade={(resource) => {
@@ -985,7 +1010,12 @@ export default function MainScreen() {
         }}
         onClaim={async (run) => {
           setSelectedChampion(null);
-          setClaimingRun({ name: run.champion_name, class: run.champion_class ?? "Warrior", champion2Name: run.champion2_name ?? undefined, champion2Class: run.champion2_class ?? undefined });
+          setClaimingRun({
+            name: run.champion_name,
+            class: run.champion_class ?? "Warrior",
+            champion2Name: run.champion2_name ?? undefined,
+            champion2Class: run.champion2_class ?? undefined,
+          });
           setExpiredRunChampions((prev) => {
             const next = new Set(prev);
             next.delete(run.champion_id);
@@ -1288,7 +1318,10 @@ export default function MainScreen() {
 
       <BattleHistoryDrawer
         visible={claimResult !== null}
-        onClose={() => { setClaimResult(null); setClaimingRun(null); }}
+        onClose={() => {
+          setClaimResult(null);
+          setClaimingRun(null);
+        }}
         mode="pve"
         result={claimResult!}
         championName={claimingRun?.name ?? ""}

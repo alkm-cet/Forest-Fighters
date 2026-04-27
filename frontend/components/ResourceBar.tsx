@@ -1,4 +1,11 @@
-import { View, Image, Animated, StyleSheet, TouchableOpacity, Modal } from "react-native";
+import {
+  View,
+  Image,
+  Animated,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+} from "react-native";
 import { useState, useRef, useEffect } from "react";
 import { Text } from "./StyledText";
 import { Resources, ResourceKey, AdvancedResourceKey } from "../types";
@@ -30,14 +37,19 @@ type IconCellProps = {
   onViewRef?: (ref: View | null) => void;
 };
 
-function PulsingIcon({ source, isPulseTarget, pulseVersion, onViewRef }: IconCellProps) {
+function PulsingIcon({
+  source,
+  isPulseTarget,
+  pulseVersion,
+  onViewRef,
+}: IconCellProps) {
   const viewRef = useRef<View>(null);
-  const scale   = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   // Pass the ref up once on mount
   useEffect(() => {
     onViewRef?.(viewRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-trigger pulse whenever pulseVersion bumps AND this icon is the target
@@ -45,8 +57,17 @@ function PulsingIcon({ source, isPulseTarget, pulseVersion, onViewRef }: IconCel
     if (!isPulseTarget || pulseVersion === 0) return;
     scale.setValue(1);
     Animated.sequence([
-      Animated.timing(scale, { toValue: 1.65, duration: 110, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 230, friction: 6 }),
+      Animated.timing(scale, {
+        toValue: 1.65,
+        duration: 110,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 230,
+        friction: 6,
+      }),
     ]).start();
   }, [isPulseTarget, pulseVersion]);
 
@@ -144,7 +165,12 @@ export default function ResourceBar({
                         onViewRef={(ref) => onIconRef?.(key, ref)}
                       />
                     )}
-                    <View style={[styles.amountBadge, amount >= cap && styles.amountBadgeFull]}>
+                    <View
+                      style={[
+                        styles.amountBadge,
+                        amount >= cap && styles.amountBadgeFull,
+                      ]}
+                    >
                       <Text style={styles.amountText}>
                         {amount}
                         <Text style={styles.capText}>/{cap}</Text>
@@ -218,12 +244,16 @@ export default function ResourceBar({
                         <Text style={styles.menuLevelArrow}>
                           {`${t("lv")}${level}`}
                           <Text style={styles.menuLevelSep}>{" → "}</Text>
-                          <Text style={styles.menuLevelArrowNext}>{`${t("lv")}${level + 1}`}</Text>
+                          <Text
+                            style={styles.menuLevelArrowNext}
+                          >{`${t("lv")}${level + 1}`}</Text>
                         </Text>
                         <Text style={styles.menuCapCur}>
                           {`cap${cap}`}
                           <Text style={styles.menuLevelSep}>{" → "}</Text>
-                          <Text style={styles.menuCapNext}>{`cap${cap + 2}`}</Text>
+                          <Text
+                            style={styles.menuCapNext}
+                          >{`cap${cap + 2}`}</Text>
                         </Text>
                       </View>
                     )}
@@ -312,12 +342,16 @@ export default function ResourceBar({
                         <Text style={styles.menuLevelArrow}>
                           {`${t("lv")}${level}`}
                           <Text style={styles.menuLevelSep}>{" → "}</Text>
-                          <Text style={styles.menuLevelArrowNext}>{`${t("lv")}${level + 1}`}</Text>
+                          <Text
+                            style={styles.menuLevelArrowNext}
+                          >{`${t("lv")}${level + 1}`}</Text>
                         </Text>
                         <Text style={styles.menuCapCur}>
                           {`cap${cap}`}
                           <Text style={styles.menuLevelSep}>{" → "}</Text>
-                          <Text style={styles.menuCapNext}>{`cap${cap + 2}`}</Text>
+                          <Text
+                            style={styles.menuCapNext}
+                          >{`cap${cap + 2}`}</Text>
                         </Text>
                       </View>
                     )}

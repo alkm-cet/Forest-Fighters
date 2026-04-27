@@ -3,9 +3,9 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { getChampionGearBonuses } = require('./gear');
-
-const COIN_REVIVE_COST = 15;
-const MAX_COINS = 999999;
+const { COIN_REVIVE_COST, MAX_COINS } = require('../data/config/coin');
+const { getIntervalMinutes, getMaxCapacity: getFarmerMaxCapacity } = require('../data/config/farmer');
+const { getProduceInterval, getMaxCapacity: getAnimalMaxCapacity } = require('../data/config/animal');
 
 // Helper: get current coin balance
 async function getCoins(playerId) {
@@ -41,21 +41,8 @@ router.post('/fill-farmer-storage', authMiddleware, async (req, res) => {
 
     const farmer = rows[0];
 
-    // Reproduce the same interval formula as farmers.js
-    const level = Math.max(1, Math.min(50, farmer.level));
-    let rate;
-    if (farmer.resource_type === 'strawberry') {
-      rate = 7.5 + 52.5 * (level - 1) / 49;
-    } else if (farmer.resource_type === 'pinecone') {
-      rate = 5 + 25 * (level - 1) / 49;
-    } else if (farmer.resource_type === 'blueberry') {
-      rate = 3.75 + 16.25 * (level - 1) / 49;
-    } else {
-      rate = 6 + 24 * (level - 1) / 49;
-    }
-    const intervalMs = (60 / rate) * 60 * 1000;
-
-    const maxCap = 4 + farmer.level;
+    const intervalMs = getIntervalMinutes(farmer.resource_type, farmer.level) * 60 * 1000;
+    const maxCap = getFarmerMaxCapacity(farmer.level);
     const elapsed = Date.now() - new Date(farmer.last_collected_at).getTime();
     const currentPending = Math.min(Math.floor(elapsed / intervalMs), maxCap);
     const missing = maxCap - currentPending;
@@ -232,7 +219,7 @@ router.post('/fill-animal-storage', authMiddleware, async (req, res) => {
 
     const animal = rows[0];
     const level = animal.level;
-    const maxCap = 9 + level;
+    const maxCap = getAnimalMaxCapacity(level);
     const nowMs = Date.now();
 
     // Compute current state to get live pending count
@@ -244,14 +231,7 @@ router.post('/fill-animal-storage', authMiddleware, async (req, res) => {
 
     const canRun = fuelRemaining > 0 && existingPending < maxCap;
     const actualRunMin = canRun ? Math.min(elapsedMin, fuelRemaining) : 0;
-    const intervalMin = (() => {
-      const base = { chicken: 20, sheep: 32, cow: 40 };
-      const min  = { chicken:  5, sheep:  8, cow: 10 };
-      const b = base[animal.animal_type];
-      const m = min[animal.animal_type];
-      const L = Math.max(1, Math.min(50, level));
-      return b - (b - m) * (L - 1) / 49;
-    })();
+    const intervalMin = getProduceInterval(animal.animal_type, level);
     const totalProgress = progressMin + actualRunMin;
     const newCycles = intervalMin > 0 ? Math.floor(totalProgress / intervalMin) : 0;
     const currentPending = Math.min(existingPending + newCycles, maxCap);

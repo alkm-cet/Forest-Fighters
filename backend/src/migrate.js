@@ -1,5 +1,7 @@
 require('dotenv').config();
 const { query } = require('./db');
+const { HARVEST_DUNGEONS, ADVENTURE_STAGES, RECIPES, FORGE_STONES, STAR_MILESTONES } = require('./data');
+const { resolveContent, getLocalizedField } = require('./data/helpers/i18n');
 
 async function migrate() {
   try {
@@ -347,11 +349,14 @@ async function migrate() {
         label           VARCHAR(100)
       )
     `);
-    await query(`
-      INSERT INTO adventure_star_milestones (required_stars, reward_coins, label)
-      VALUES (10, 50, 'First Explorer'), (25, 150, 'Dungeon Delver'), (45, 300, 'Champion')
-      ON CONFLICT (required_stars) DO NOTHING
-    `);
+    for (const m of STAR_MILESTONES) {
+      const mLabel = getLocalizedField(m.label, 'en');
+      await query(`
+        INSERT INTO adventure_star_milestones (required_stars, reward_coins, label)
+        VALUES ($1::INT, $2::INT, $3::VARCHAR)
+        ON CONFLICT (required_stars) DO NOTHING
+      `, [m.required_stars, m.reward_coins, mLabel]);
+    }
 
     await query(`
       CREATE TABLE IF NOT EXISTS adventure_milestone_claims (
@@ -365,40 +370,13 @@ async function migrate() {
     // Unique index on dungeon name — required for the upsert below
     await query(`CREATE UNIQUE INDEX IF NOT EXISTS dungeons_name_unique ON dungeons(name)`);
 
-    // Seed harvest dungeons — this array is the single source of truth.
+    // Seed harvest dungeons — imported from data/content/harvestDungeons.js.
     // ON CONFLICT DO UPDATE ensures the DB always matches these definitions.
     // duration_seconds is explicitly kept NULL for harvest dungeons.
-    const harvestDungeons = [
-      // ── Tier 1 — Easy (no level requirement) ─────────────────────────────────
-      { name: 'Berry Cave',         desc: 'A cozy cave filled with wild berries.',          enemy: 'Chipmunk',    atk: 6,  def: 3,  chc: 10, hp: 50,  dur: 15, res: 'strawberry', amt: 6,  res2: 'pinecone',    amt2: 4,  cooldown: 30,  limit: null, minLv: null, extra: [] },
-      { name: 'Pine Grove',         desc: 'Squirrels hoard pinecones in this quiet grove.',  enemy: 'Squirrel',    atk: 8,  def: 4,  chc: 10, hp: 55,  dur: 15, res: 'pinecone',   amt: 10, res2: null,          amt2: 0,  cooldown: 30,  limit: null, minLv: null, extra: [] },
-      { name: 'Blueberry Fields',   desc: 'Rolling fields thick with blueberry bushes.',     enemy: 'Rabbit',      atk: 7,  def: 3,  chc: 12, hp: 50,  dur: 15, res: 'blueberry',  amt: 8,  res2: null,          amt2: 0,  cooldown: 30,  limit: null, minLv: null, extra: [] },
-      { name: 'Strawberry Garden',  desc: 'A hidden garden overflowing with strawberries.',  enemy: 'Chipmunk',    atk: 9,  def: 5,  chc: 10, hp: 60,  dur: 20, res: 'strawberry', amt: 14, res2: null,          amt2: 0,  cooldown: 45,  limit: 4,    minLv: null, extra: [] },
-      // ── Tier 2 — Medium (no level requirement) ───────────────────────────────
-      { name: 'Chicken Nest',       desc: 'A fox guards a hidden nest of eggs.',             enemy: 'Fox',         atk: 10, def: 6,  chc: 15, hp: 65,  dur: 20, res: 'egg',        amt: 8,  res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
-      { name: 'Egg Ranch',          desc: 'A busy fox-guarded ranch full of egg-layers.',    enemy: 'Fox',         atk: 13, def: 8,  chc: 15, hp: 75,  dur: 20, res: 'egg',        amt: 14, res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
-      { name: 'Sheep Meadow',       desc: 'A peaceful meadow where wolves prowl.',           enemy: 'Wolf',        atk: 14, def: 8,  chc: 12, hp: 80,  dur: 25, res: 'wool',       amt: 8,  res2: null,          amt2: 0,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
-      { name: 'Wool Valley',        desc: 'A valley of wandering sheep watched by wolves.',  enemy: 'Wolf',        atk: 16, def: 10, chc: 12, hp: 85,  dur: 25, res: 'wool',       amt: 14, res2: null,          amt2: 0,  cooldown: 75,  limit: 3,    minLv: null, extra: [] },
-      { name: 'Milk Meadow',        desc: 'A lush meadow patrolled by a hungry bear.',       enemy: 'Bear',        atk: 18, def: 12, chc: 14, hp: 90,  dur: 25, res: 'milk',       amt: 10, res2: null,          amt2: 0,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
-      { name: 'Berry Twin',         desc: 'Two berry patches guarded by a cunning fox.',     enemy: 'Fox',         atk: 14, def: 9,  chc: 15, hp: 80,  dur: 25, res: 'strawberry', amt: 10, res2: 'blueberry',   amt2: 8,  cooldown: 60,  limit: 3,    minLv: null, extra: [] },
-      { name: 'Forest Bounty',      desc: 'Deep forest brimming with mixed harvests.',       enemy: 'Wolf',        atk: 20, def: 13, chc: 18, hp: 95,  dur: 30, res: 'pinecone',   amt: 12, res2: 'strawberry',  amt2: 8,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
-      { name: 'Cozy Ranch',         desc: 'A cozy ranch guarded by a bear.',                 enemy: 'Bear',        atk: 22, def: 14, chc: 16, hp: 100, dur: 30, res: 'milk',       amt: 8,  res2: 'wool',        amt2: 8,  cooldown: 90,  limit: 2,    minLv: null, extra: [] },
-      { name: 'Golden Farm',        desc: 'A prosperous farm guarded by bandits.',           enemy: 'Bandit',      atk: 20, def: 14, chc: 20, hp: 90,  dur: 30, res: 'milk',       amt: 5,  res2: 'egg',         amt2: 5,  cooldown: 120, limit: 2,    minLv: null, extra: [] },
-      // ── Tier 3 — Hard (min_champion_level 5-8) ───────────────────────────────
-      { name: 'Ancient Orchard',    desc: 'An orchard guarded by a terrible troll.',         enemy: 'Troll',       atk: 26, def: 16, chc: 20, hp: 115, dur: 30, res: 'egg',        amt: 22, res2: null,          amt2: 0,  cooldown: 120, limit: 2,    minLv: 5,    extra: [] },
-      { name: 'Cursed Barn',        desc: 'A barn haunted by restless skeletons.',           enemy: 'Skeleton',    atk: 24, def: 15, chc: 22, hp: 105, dur: 30, res: 'wool',       amt: 20, res2: null,          amt2: 0,  cooldown: 120, limit: 2,    minLv: 5,    extra: [] },
-      { name: 'Shadow Pasture',     desc: 'A pasture shrouded in dark magic.',               enemy: 'Dark Mage',   atk: 28, def: 12, chc: 30, hp: 105, dur: 35, res: 'blueberry',  amt: 16, res2: 'wool',        amt2: 10, cooldown: 120, limit: 2,    minLv: 6,    extra: [] },
-      { name: 'Dragon Dairy',       desc: 'An orc clan has seized this dairy farm.',         enemy: 'Orc',         atk: 30, def: 18, chc: 22, hp: 125, dur: 35, res: 'milk',       amt: 14, res2: 'egg',         amt2: 10, cooldown: 150, limit: 1,    minLv: 7,    extra: [] },
-      { name: 'Haunted Vineyard',   desc: 'A skeleton-infested vineyard of rare berries.',   enemy: 'Skeleton',    atk: 32, def: 16, chc: 25, hp: 120, dur: 35, res: 'strawberry', amt: 18, res2: 'blueberry',   amt2: 14, cooldown: 150, limit: 1,    minLv: 8,    extra: [] },
-      // ── Tier 4 — Very Hard (min_champion_level 9-12) ─────────────────────────
-      { name: 'Crystal Cave',       desc: 'A crystal-lined cave hoarded by orcs.',           enemy: 'Orc',         atk: 34, def: 20, chc: 25, hp: 140, dur: 40, res: 'pinecone',   amt: 22, res2: 'blueberry',   amt2: 12, cooldown: 180, limit: 1,    minLv: 9,    extra: [] },
-      { name: "Giant's Farm",       desc: 'A giant troll rules this massive farm.',          enemy: 'Troll',       atk: 36, def: 22, chc: 18, hp: 155, dur: 40, res: 'milk',       amt: 22, res2: null,          amt2: 0,  cooldown: 180, limit: 1,    minLv: 9,    extra: [] },
-      { name: 'Rainbow Harvest',    desc: 'A rainbow bounty guarded by orc warlords.',       enemy: 'Orc',         atk: 32, def: 19, chc: 24, hp: 135, dur: 40, res: 'egg',        amt: 10, res2: 'wool',        amt2: 10, cooldown: 180, limit: 1,    minLv: 10,   extra: [{resource:'blueberry',amount:8},{resource:'milk',amount:8}] },
-      { name: "Elder's Grove",      desc: 'An ancient grove guarded by a dark mage.',        enemy: 'Dark Mage',   atk: 38, def: 20, chc: 35, hp: 145, dur: 45, res: 'strawberry', amt: 14, res2: 'pinecone',    amt2: 14, cooldown: 200, limit: 1,    minLv: 12,   extra: [] },
-      // ── Tier 5 — Legendary (min_champion_level 15) ───────────────────────────
-      { name: 'Bountiful Lands',    desc: 'Legendary lands teeming with every resource.',    enemy: 'Bandit Chief', atk: 44, def: 26, chc: 28, hp: 170, dur: 45, res: 'strawberry', amt: 6,  res2: 'pinecone',   amt2: 6,  cooldown: 240, limit: 1,    minLv: 15,   extra: [{resource:'blueberry',amount:6},{resource:'egg',amount:6},{resource:'wool',amount:6},{resource:'milk',amount:6}] },
-    ];
-    for (const d of harvestDungeons) {
+    for (const d of HARVEST_DUNGEONS) {
+      const name      = getLocalizedField(d.name,  'en');
+      const desc      = getLocalizedField(d.desc,  'en');
+      const enemyName = getLocalizedField(d.enemy, 'en');
       await query(`
         INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
           duration_minutes, duration_seconds, reward_resource, reward_amount, reward_resource_2, reward_amount_2,
@@ -423,30 +401,22 @@ async function migrate() {
           daily_run_limit   = EXCLUDED.daily_run_limit,
           min_champion_level = EXCLUDED.min_champion_level,
           extra_rewards     = EXCLUDED.extra_rewards
-      `, [d.name, d.desc, d.enemy, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null, d.minLv ?? null, JSON.stringify(d.extra ?? [])]);
+      `, [name, desc, enemyName, d.atk, d.def, d.chc, d.hp, d.dur, d.res, d.amt, d.res2 ?? null, d.amt2, d.cooldown, d.limit ?? null, d.minLv ?? null, JSON.stringify(d.extra ?? [])]);
     }
 
-    // Seed adventure stages 6-15 (idempotent)
-    const adventureStages = [
-      { stage: 6,  name: 'Fungal Cavern',     desc: 'Mushrooms sprout from the walls of this damp cavern.', enemy: 'Mushroom Golem', atk: 30, def: 18, chc: 15, hp: 120, dur: 35, coins: 15, xp: 130, boss: false },
-      { stage: 7,  name: 'Bandit Hideout',    desc: 'A network of tunnels used by forest bandits.', enemy: 'Bandit Chief', atk: 32, def: 20, chc: 22, hp: 125, dur: 35, coins: 15, xp: 140, boss: false },
-      { stage: 8,  name: 'Frozen Tundra',     desc: 'A frozen wasteland where an ice witch lurks.', enemy: 'Ice Witch', atk: 34, def: 16, chc: 30, hp: 110, dur: 40, coins: 20, xp: 150, boss: false },
-      { stage: 9,  name: 'Lava Fields',       desc: 'Volcanic fields that burn with ancient fire.', enemy: 'Fire Imp', atk: 36, def: 22, chc: 18, hp: 130, dur: 40, coins: 20, xp: 160, boss: false },
-      { stage: 10, name: 'Magma Fortress',    desc: 'A fortress forged from volcanic rock, home to a mighty titan.', enemy: 'Lava Titan', atk: 44, def: 30, chc: 25, hp: 180, dur: 50, coins: 40, xp: 200, boss: true },
-      { stage: 11, name: 'Haunted Graveyard', desc: 'Ancient tombstones hide a wailing banshee.', enemy: 'Banshee', atk: 40, def: 18, chc: 40, hp: 130, dur: 50, coins: 25, xp: 210, boss: false },
-      { stage: 12, name: 'Shadow Realm',      desc: 'A realm of darkness where shadows take form.', enemy: 'Shadow Knight', atk: 44, def: 28, chc: 28, hp: 145, dur: 55, coins: 25, xp: 220, boss: false },
-      { stage: 13, name: 'Ancient Tomb',      desc: 'A buried tomb where an ancient mummy slumbers.', enemy: 'Mummy Lord', atk: 46, def: 32, chc: 22, hp: 155, dur: 55, coins: 30, xp: 230, boss: false },
-      { stage: 14, name: 'Dragon Lair',       desc: 'A mountain cave where a fearsome wyvern nests.', enemy: 'Wyvern', atk: 50, def: 28, chc: 32, hp: 160, dur: 60, coins: 30, xp: 240, boss: false },
-      { stage: 15, name: 'Void Gate',         desc: 'A tear in reality guarded by an ancient void lich.', enemy: 'Void Lich', atk: 60, def: 35, chc: 45, hp: 200, dur: 60, coins: 60, xp: 300, boss: true },
-    ];
-    for (const s of adventureStages) {
+    // Seed adventure stages 6-15 (idempotent) — imported from data/content/adventureStages.js
+    const adventureStages6to15 = ADVENTURE_STAGES.filter(s => s.stage >= 6 && s.stage <= 15);
+    for (const s of adventureStages6to15) {
+      const sName  = getLocalizedField(s.name,  'en');
+      const sDesc  = getLocalizedField(s.desc,  'en');
+      const sEnemy = getLocalizedField(s.enemy, 'en');
       await query(`
         INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
           duration_minutes, reward_resource, reward_amount, dungeon_type, stage_number, is_boss_stage, coin_reward, xp_reward)
         SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
                $8::INT, 'pinecone', 5, 'adventure', $9::INT, $10::BOOLEAN, $11::INT, $12::INT
         WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
-      `, [s.name, s.desc, s.enemy, s.atk, s.def, s.chc, s.hp, s.dur, s.stage, s.boss, s.coins, s.xp]);
+      `, [sName, sDesc, sEnemy, s.atk, s.def, s.chc, s.hp, s.dur, s.stage, s.boss, s.coins, s.xp]);
     }
 
     // Remove Test Chamber if it exists (was replaced by stage-1 100% drop)
@@ -512,34 +482,20 @@ async function migrate() {
     // If 'Ironbark Stew' doesn't exist the new recipes haven't been seeded yet.
     // Reset stale food state and seed the new 11 recipes.
     const ironbarkCheck = await query(`SELECT 1 FROM recipes WHERE name = 'Ironbark Stew' LIMIT 1`);
+    const WARRIOR_RECIPE_NAMES = new Set(['Forest Warrior Brew', 'Shield Bark Soup', 'Titanwood Feast']);
     if (!ironbarkCheck.length) {
       // Clear stale cooking/boost state so nothing references the old recipe UUIDs
       await query(`DELETE FROM active_boosts`);
       await query(`DELETE FROM player_food`);
       await query(`DELETE FROM recipes`);
 
-      const newRecipes = [
-        // T1 — cheap, quick, one-shot fighter boosts + basic farmer buff
-        { name: 'Forest Berry Jam',       target: 'fighters',    effect_type: 'boost_hp',         effect_value: 8,  dur: null, cook: 3,  ingr: {strawberry:4, egg:2},              tier: 1 },
-        { name: 'Blueberry Mash',         target: 'fighters',    effect_type: 'boost_chance',      effect_value: 5,  dur: null, cook: 3,  ingr: {blueberry:4, egg:2},               tier: 1 },
-        { name: 'Pinecone Tea',           target: 'farmers',     effect_type: 'boost_production',  effect_value: 25, dur: 20,   cook: 5,  ingr: {pinecone:4, milk:2},               tier: 1 },
-        // T2 — stronger one-shot fighter boosts + farmer/farm_animal buffs
-        { name: 'Mixed Berry Pie',        target: 'fighters',    effect_type: 'boost_hp',         effect_value: 14, dur: null, cook: 8,  ingr: {strawberry:8, blueberry:8, egg:4},  tier: 2 },
-        { name: 'Egg Forest Rice',        target: 'fighters',    effect_type: 'boost_defense',     effect_value: 8,  dur: null, cook: 8,  ingr: {egg:10, strawberry:6},             tier: 2 },
-        { name: 'Pinecone Cake',          target: 'farmers',     effect_type: 'boost_production',  effect_value: 40, dur: 30,   cook: 10, ingr: {pinecone:12, milk:6},              tier: 2 },
-        { name: 'Forest Stew',            target: 'farm_animals',effect_type: 'boost_production',  effect_value: 20, dur: 30,   cook: 10, ingr: {strawberry:8, pinecone:8, egg:5},  tier: 2 },
-        // T3 — powerful one-shot fighter boosts + long-duration farm_animal buffs
-        { name: 'Magic Forest Soup',      target: 'fighters',    effect_type: 'boost_hp',         effect_value: 20, dur: null, cook: 15, ingr: {strawberry:15, blueberry:12, egg:8},         tier: 3 },
-        { name: 'Ironbark Stew',          target: 'fighters',    effect_type: 'boost_defense',     effect_value: 14, dur: null, cook: 15, ingr: {egg:12, wool:6, strawberry:8},              tier: 3 },
-        { name: 'Dragon Pinecone Delight',target: 'farm_animals',effect_type: 'boost_production',  effect_value: 35, dur: 60,   cook: 20, ingr: {pinecone:20, milk:12, wool:8},              tier: 3 },
-        { name: 'Mystic Wool Dessert',    target: 'farm_animals',effect_type: 'boost_capacity',    effect_value: 5,  dur: 45,   cook: 20, ingr: {wool:15, milk:10, blueberry:10},            tier: 3 },
-      ];
-
-      for (const r of newRecipes) {
+      const baseRecipes = RECIPES.filter(r => r.effect_type !== 'boost_attack' && !WARRIOR_RECIPE_NAMES.has(getLocalizedField(r.name, 'en')));
+      for (const r of baseRecipes) {
+        const rName = getLocalizedField(r.name, 'en');
         await query(
           `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
            VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::jsonb, $8::INT)`,
-          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+          [rName, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
         );
       }
       console.log('Recipes v2 seeded (11 new recipes)');
@@ -551,19 +507,13 @@ async function migrate() {
     // Add 3 new warriors-only timed defense recipes if they don't exist yet
     const warriorBrewCheck = await query(`SELECT 1 FROM recipes WHERE name = 'Forest Warrior Brew' LIMIT 1`);
     if (!warriorBrewCheck.length) {
-      const warriorRecipes = [
-        // 30s cook (0.5 min) — for quick testing; +10 defense for 30 min
-        { name: 'Forest Warrior Brew', target: 'fighters', effect_type: 'boost_defense', effect_value: 10, dur: 30,  cook: 0.5, ingr: { pinecone: 6, egg: 4 },                        tier: 2 },
-        // +15 defense for 1 hour
-        { name: 'Shield Bark Soup',    target: 'fighters', effect_type: 'boost_defense', effect_value: 15, dur: 60,  cook: 20,  ingr: { pinecone: 12, egg: 8, wool: 5 },              tier: 3 },
-        // +20 defense for 2 hours
-        { name: 'Titanwood Feast',     target: 'fighters', effect_type: 'boost_defense', effect_value: 20, dur: 120, cook: 35,  ingr: { pinecone: 20, egg: 14, wool: 10, blueberry: 8 }, tier: 3 },
-      ];
-      for (const r of warriorRecipes) {
+      const warriorRecipesList = RECIPES.filter(r => WARRIOR_RECIPE_NAMES.has(getLocalizedField(r.name, 'en')));
+      for (const r of warriorRecipesList) {
+        const rName = getLocalizedField(r.name, 'en');
         await query(
           `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
            VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::NUMERIC, $7::jsonb, $8::INT)`,
-          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+          [rName, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
         );
       }
       console.log('3 warrior defense recipes added');
@@ -733,27 +683,15 @@ async function migrate() {
     console.log('Updated forge stone ingredient costs');
 
     // ── Attack boost recipes ──────────────────────────────────────────────────
-    const attackRecipes = [
-      // T1 — one-shot (next battle)
-      { name: 'Wild Berry Tonic',      target: 'fighters', effect_type: 'boost_attack', effect_value: 5,  dur: null, cook: 4,  ingr: { strawberry: 4, blueberry: 3 },            tier: 1 },
-      // T1 — timed (30 min)
-      { name: 'Spiced Pinecone Brew',  target: 'fighters', effect_type: 'boost_attack', effect_value: 6,  dur: 30,   cook: 6,  ingr: { blueberry: 5, pinecone: 4 },             tier: 1 },
-      // T2 — one-shot (next battle)
-      { name: 'Battle Berry Stew',     target: 'fighters', effect_type: 'boost_attack', effect_value: 10, dur: null, cook: 10, ingr: { blueberry: 10, egg: 6, strawberry: 5 },   tier: 2 },
-      // T2 — timed (45 min)
-      { name: 'Ironbark Attack Broth', target: 'fighters', effect_type: 'boost_attack', effect_value: 8,  dur: 45,   cook: 15, ingr: { pinecone: 10, blueberry: 8, egg: 5 },     tier: 2 },
-      // T3 — one-shot (next battle)
-      { name: "Dragon's Wrath Elixir", target: 'fighters', effect_type: 'boost_attack', effect_value: 18, dur: null, cook: 20, ingr: { blueberry: 15, egg: 10, wool: 6 },        tier: 3 },
-      // T3 — timed (60 min)
-      { name: 'Ancient Forest Rage',   target: 'fighters', effect_type: 'boost_attack', effect_value: 12, dur: 60,   cook: 25, ingr: { pinecone: 20, blueberry: 12, egg: 8, wool: 4 }, tier: 3 },
-    ];
-    for (const r of attackRecipes) {
-      const existing = await query(`SELECT id FROM recipes WHERE name = $1`, [r.name]);
+    const attackBoostRecipes = RECIPES.filter(r => r.effect_type === 'boost_attack');
+    for (const r of attackBoostRecipes) {
+      const rName = getLocalizedField(r.name, 'en');
+      const existing = await query(`SELECT id FROM recipes WHERE name = $1`, [rName]);
       if (existing.length === 0) {
         await query(
           `INSERT INTO recipes (name, target, effect_type, effect_value, effect_duration_minutes, cook_duration_minutes, ingredients, tier)
            VALUES ($1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::jsonb, $8::INT)`,
-          [r.name, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
+          [rName, r.target, r.effect_type, r.effect_value, r.dur, r.cook, JSON.stringify(r.ingr), r.tier]
         );
       }
     }
@@ -782,36 +720,19 @@ async function migrate() {
     await query(`UPDATE dungeons SET is_boss_stage = FALSE WHERE dungeon_type = 'adventure' AND stage_number IN (5, 15)`);
     console.log('Fixed adventure dungeon boss stages (only 10, 20, 30 are bosses)');
 
-    // Seed adventure stages 16-30 (levels 2 & 3 expansion)
-    const newAdventureStages = [
-      // Level 2 completion — stages 16-19
-      { stage: 16, name: 'Moonlit Forest',      desc: 'A twilight forest where shadow wolves prowl.',                        enemy: 'Shadow Wolf',     atk: 38, def: 20, chc: 25, hp: 175, dur: 35, coins: 30,  xp: 200, boss: false, lv: 2, amt: 8  },
-      { stage: 17, name: 'Storm Peak',           desc: 'A mountain summit lashed by eternal thunder.',                       enemy: 'Thunder Eagle',   atk: 42, def: 22, chc: 28, hp: 185, dur: 35, coins: 35,  xp: 220, boss: false, lv: 2, amt: 8  },
-      { stage: 18, name: 'Ice Fortress',         desc: 'A frozen fortress carved from glacial ice.',                         enemy: 'Frost Golem',     atk: 46, def: 26, chc: 22, hp: 200, dur: 40, coins: 40,  xp: 250, boss: false, lv: 2, amt: 8  },
-      { stage: 19, name: 'Lava Plains',          desc: 'Scorched flatlands where fire salamanders roam.',                    enemy: 'Fire Salamander', atk: 50, def: 24, chc: 30, hp: 210, dur: 40, coins: 45,  xp: 280, boss: false, lv: 2, amt: 8  },
-      // Level 2 boss — stage 20
-      { stage: 20, name: "Demon Warlord's Keep", desc: 'The fortified stronghold of a fearsome demon warlord.',             enemy: 'Demon Warlord',   atk: 65, def: 35, chc: 32, hp: 320, dur: 45, coins: 100, xp: 400, boss: true,  lv: 2, amt: 20 },
-      // Level 3 stages — stages 21-29
-      { stage: 21, name: 'Umbral Wastes',        desc: 'A desolate realm where shade specters drift endlessly.',             enemy: 'Shade Specter',   atk: 55, def: 28, chc: 33, hp: 225, dur: 40, coins: 50,  xp: 300, boss: false, lv: 3, amt: 12 },
-      { stage: 22, name: 'Dragonspine Peak',     desc: 'A jagged mountain range where wyverns make their nests.',           enemy: 'Wyvern',          atk: 60, def: 30, chc: 30, hp: 240, dur: 45, coins: 55,  xp: 330, boss: false, lv: 3, amt: 12 },
-      { stage: 23, name: 'Ancient Ruins',        desc: 'Collapsed temples guarded by a dormant stone colossus.',            enemy: 'Stone Colossus',  atk: 64, def: 34, chc: 28, hp: 255, dur: 45, coins: 60,  xp: 360, boss: false, lv: 3, amt: 12 },
-      { stage: 24, name: 'The Abyss',            desc: 'A bottomless chasm filled with void crawlers.',                     enemy: 'Void Crawler',    atk: 68, def: 32, chc: 35, hp: 265, dur: 50, coins: 65,  xp: 390, boss: false, lv: 3, amt: 12 },
-      { stage: 25, name: 'Celestial Tower',      desc: 'A tower reaching the heavens, guarded by a fallen paladin.',        enemy: 'Fallen Paladin',  atk: 70, def: 36, chc: 32, hp: 280, dur: 50, coins: 70,  xp: 420, boss: false, lv: 3, amt: 12 },
-      { stage: 26, name: 'Dark Forest',          desc: 'An ancient forest where cursed knights stand eternal vigil.',       enemy: 'Cursed Knight',   atk: 74, def: 38, chc: 34, hp: 290, dur: 50, coins: 75,  xp: 450, boss: false, lv: 3, amt: 12 },
-      { stage: 27, name: "Titan's Lair",         desc: "Deep within the earth, a stone titan guards its domain.",           enemy: 'Stone Titan',     atk: 78, def: 42, chc: 30, hp: 310, dur: 55, coins: 80,  xp: 480, boss: false, lv: 3, amt: 12 },
-      { stage: 28, name: 'Eternal Flame',        desc: 'A realm of fire where an inferno djinn holds court.',               enemy: 'Inferno Djinn',   atk: 82, def: 38, chc: 38, hp: 325, dur: 55, coins: 85,  xp: 510, boss: false, lv: 3, amt: 12 },
-      { stage: 29, name: 'Void Sanctum',         desc: 'The inner sanctum of the void, home to an ancient void archon.',   enemy: 'Void Archon',     atk: 86, def: 44, chc: 36, hp: 340, dur: 60, coins: 90,  xp: 540, boss: false, lv: 3, amt: 12 },
-      // Level 3 boss — stage 30
-      { stage: 30, name: 'The Elder Dragon',     desc: 'The ancient dragon that presides over all darkness. Two champions required.', enemy: 'Ancient Dragon', atk: 100, def: 55, chc: 42, hp: 500, dur: 60, coins: 250, xp: 800, boss: true, lv: 3, amt: 35 },
-    ];
-    for (const s of newAdventureStages) {
+    // Seed adventure stages 16-30 — imported from data/content/adventureStages.js
+    const stages16to30 = ADVENTURE_STAGES.filter(s => s.stage >= 16);
+    for (const s of stages16to30) {
+      const sName  = getLocalizedField(s.name,  'en');
+      const sDesc  = getLocalizedField(s.desc,  'en');
+      const sEnemy = getLocalizedField(s.enemy, 'en');
       await query(`
         INSERT INTO dungeons (name, description, enemy_name, enemy_attack, enemy_defense, enemy_chance, enemy_hp,
           duration_minutes, reward_resource, reward_amount, dungeon_type, stage_number, is_boss_stage, coin_reward, xp_reward, dungeon_level)
         SELECT $1::VARCHAR, $2::TEXT, $3::VARCHAR, $4::INT, $5::INT, $6::INT, $7::INT,
                $8::INT, 'pinecone', $9::INT, 'adventure', $10::INT, $11::BOOLEAN, $12::INT, $13::INT, $14::INT
         WHERE NOT EXISTS (SELECT 1 FROM dungeons WHERE name = $1::VARCHAR)
-      `, [s.name, s.desc, s.enemy, s.atk, s.def, s.chc, s.hp, s.dur, s.amt, s.stage, s.boss, s.coins, s.xp, s.lv]);
+      `, [sName, sDesc, sEnemy, s.atk, s.def, s.chc, s.hp, s.dur, s.amt, s.stage, s.boss, s.coins, s.xp, s.lv]);
     }
     console.log('Seeded adventure stages 16-30 (3-level system with boss battles)');
 

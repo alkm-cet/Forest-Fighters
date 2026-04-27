@@ -1,11 +1,9 @@
 const express = require('express');
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { RARITY_MULT } = require('../data/config/gear');
 
 const router = express.Router();
-
-// ── Rarity multipliers ────────────────────────────────────────────────────────
-const RARITY_MULT = { common: 1.0, rare: 1.35, epic: 1.75 };
 
 /**
  * Compute stat bonus for a single gear piece at a given rarity + level.

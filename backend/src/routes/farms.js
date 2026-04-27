@@ -3,46 +3,11 @@ const router = express.Router();
 const { query } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { incrementQuestProgress } = require('../quests');
-
-const ANIMAL_MAX_LEVEL = 50;
-const MAX_FARM_SLOTS = 20;
-// Farm upgrade costs level * 5 of each: strawberry + pinecone + blueberry
-const FARM_UPGRADE_COST_PER_LEVEL = 5;
-
-const MINUTES_PER_FEED = {
-  chicken: 5,
-  sheep:   8,
-  cow:     10,
-};
-
-function getProduceInterval(animalType, level) {
-  const L = Math.max(1, Math.min(ANIMAL_MAX_LEVEL, level));
-  const base = { chicken: 20, sheep: 32, cow: 40 };
-  const min  = { chicken:  5, sheep:  8, cow: 10 };
-  const b = base[animalType];
-  const m = min[animalType];
-  return b - (b - m) * (L - 1) / (ANIMAL_MAX_LEVEL - 1);
-}
-
-function getMaxCapacity(level) { return 9 + level; }
-function getMaxFeed(level)     { return 9 + level; }
-function getMaxFuelMinutes(animalType, level) {
-  return getMaxFeed(level) * MINUTES_PER_FEED[animalType];
-}
-
-function getUpgradeCost(level) { return level * 2; }
-
-const UPGRADE_RESOURCES = {
-  chicken: ['strawberry', 'pinecone'],
-  sheep:   ['pinecone',   'blueberry'],
-  cow:     ['blueberry',  'strawberry'],
-};
-
-const ANIMAL_CONFIGS = {
-  chicken: { consumeResource: 'strawberry', produceResource: 'egg'  },
-  sheep:   { consumeResource: 'pinecone',   produceResource: 'wool' },
-  cow:     { consumeResource: 'blueberry',  produceResource: 'milk' },
-};
+const {
+  ANIMAL_MAX_LEVEL, MINUTES_PER_FEED, ANIMAL_CONFIGS, UPGRADE_RESOURCES,
+  getProduceInterval, getMaxCapacity, getMaxFeed, getMaxFuelMinutes, getUpgradeCost,
+} = require('../data/config/animal');
+const { MAX_FARM_SLOTS, FARM_UPGRADE_COST_PER_LEVEL } = require('../data/config/farm');
 
 const SELECT_COLS = 'id, animal_type, level, fuel_remaining_minutes, progress_minutes, pending_production, last_computed_ms, farm_id';
 
