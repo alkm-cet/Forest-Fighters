@@ -3,7 +3,7 @@ const { simulateCombat } = require('../combat');
 const { getIo } = require('../socket');
 const { incrementQuestProgress } = require('../quests');
 const { getChampionGearBonuses, getChampionEquippedGearSnapshot } = require('../routes/gear');
-const { LEAGUE_TIERS, TROPHY_FLOOR, RESULT_DELAY_MS, LOOT_PCT, LOOT_MIN, LOOT_MAX } = require('../data/config/pvp');
+const { LEAGUE_TIERS, TROPHY_FLOOR, RESULT_DELAY_MS, LOOT_PCT, LOOT_MIN } = require('../data/config/pvp');
 
 function getLeague(trophies) {
   for (const tier of LEAGUE_TIERS) {
@@ -13,16 +13,17 @@ function getLeague(trophies) {
 }
 
 function getTrophyChange(trophies) {
-  const delta = Math.max(2, Math.round(trophies * 0.17));
-  return { win: delta, lose: delta };
+  for (const tier of LEAGUE_TIERS) {
+    if (trophies >= tier.min) return { win: tier.win, lose: tier.lose };
+  }
+  return { win: 30, lose: 25 };
 }
 
 // Loot is calculated from the loser's pvp_storage (snapshot at battle creation).
 // Winner cap is enforced separately in the SQL UPDATE via LEAST(..., cap).
-function calcTransfer(loserStorage) {
-  if (loserStorage <= 0) return 0;
-  const steal = Math.max(LOOT_MIN, Math.floor(loserStorage * LOOT_PCT));
-  return Math.min(steal, LOOT_MAX);
+function calcTransfer(amount) {
+  if (amount <= 0) return 0;
+  return Math.max(LOOT_MIN, Math.floor(amount * LOOT_PCT));
 }
 
 // Shared matchmaking logic — finds an eligible opponent and their defender champion.
@@ -68,7 +69,7 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
   );
   if (realWide.length) return realWide[Math.floor(Math.random() * realWide.length)];
 
-  // Bot fallback
+  // Bot fallback — pick the bot whose trophies are closest to the attacker's
   const bots = await query(
     `SELECT * FROM players
      WHERE is_bot = TRUE
@@ -78,9 +79,12 @@ async function resolveOpponent(playerId, attTrophies, opponentId) {
          WHERE dc.id = defender_champion_id
            AND dc.current_hp > 0
            AND dc.is_deployed = FALSE
-       )`
+       )
+     ORDER BY ABS(trophies - $1) ASC
+     LIMIT 1`,
+    [attTrophies]
   );
-  if (bots.length) return bots[Math.floor(Math.random() * bots.length)];
+  if (bots.length) return bots[0];
 
   return null;
 }
@@ -249,28 +253,34 @@ async function attackPvp(req, res) {
     const winnerId = attackerWon ? playerId : opponent.id;
     const loserId  = attackerWon ? opponent.id : playerId;
 
-    // Trophy change is based on each player's current league at battle time.
-    // No trophy change when fighting a bot — bots are fill opponents only.
+    // Trophy change applies regardless of whether the opponent is a bot.
     const defTrophies = opponent.trophies ?? 10;
     const isBot = !!opponent.is_bot;
     const attChange = getTrophyChange(attTrophies);
     const defChange = getTrophyChange(defTrophies);
-    const attDelta = isBot ? 0 : (attackerWon ?  attChange.win : -attChange.lose);
-    const defDelta = isBot ? 0 : (attackerWon ? -defChange.lose :  defChange.win);
+    const attDelta = attackerWon ?  attChange.win : -attChange.lose;
+    const defDelta = attackerWon ? -defChange.lose :  defChange.win;
 
-    // ── Snapshot loot from loser's pvp_storage ─────────────────────────────────
-    // Trophies and resources are NOT applied here — they are applied when the
-    // player views the result (GET /api/pvp/battles). The computed amounts are
-    // stored in pvp_battles and applied exactly once at result reveal time.
+    // ── Snapshot loot from loser's pvp_storage, capped by actual resources ────
+    // pvp_storage grows with each farmer collect but is never reduced when
+    // resources are spent — so it can exceed actual balance. We cap at the
+    // real resource count so a player can never lose more than they actually have.
+    // Trophies and resources are NOT applied here — applied at GET /api/pvp/battles.
     const loserStorageRows = await query(
-      'SELECT pvp_storage_strawberry, pvp_storage_pinecone, pvp_storage_blueberry FROM players WHERE id = $1',
+      `SELECT
+         LEAST(p.pvp_storage_strawberry, COALESCE(pr.strawberry, 0)) AS eff_strawberry,
+         LEAST(p.pvp_storage_pinecone,   COALESCE(pr.pinecone,   0)) AS eff_pinecone,
+         LEAST(p.pvp_storage_blueberry,  COALESCE(pr.blueberry,  0)) AS eff_blueberry
+       FROM players p
+       LEFT JOIN player_resources pr ON pr.player_id = p.id
+       WHERE p.id = $1`,
       [loserId]
     );
     const ls = loserStorageRows[0] ?? {};
     const transfers = {
-      strawberry: calcTransfer(ls.pvp_storage_strawberry || 0),
-      pinecone:   calcTransfer(ls.pvp_storage_pinecone   || 0),
-      blueberry:  calcTransfer(ls.pvp_storage_blueberry  || 0),
+      strawberry: calcTransfer(ls.eff_strawberry || 0),
+      pinecone:   calcTransfer(ls.eff_pinecone   || 0),
+      blueberry:  calcTransfer(ls.eff_blueberry  || 0),
     };
 
     // ── Defender champion last_defender ────────────────────────────────────────

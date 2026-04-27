@@ -15,10 +15,9 @@ const LEAGUE_TIERS = [
 const TROPHY_FLOOR    = 10;
 const RESULT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
 
-// Loot: steal 10% of loser's pvp_storage per resource, min 1, max 15.
-const LOOT_PCT = 0.10;
+// Loot: steal 15% of loser's actual resources per resource, min 1, no hard cap.
+const LOOT_PCT = 0.15;
 const LOOT_MIN = 1;
-const LOOT_MAX = 15;
 
 // Matchmaking trophy windows — expands progressively before falling back to bots.
 const MATCHMAKING_WINDOWS = [30, 60, 200];
@@ -35,7 +34,6 @@ module.exports = {
   RESULT_DELAY_MS,
   LOOT_PCT,
   LOOT_MIN,
-  LOOT_MAX,
   MATCHMAKING_WINDOWS,
   PVP_UNLOCK_LEVEL,
   DEFENSE_SHIELD_MINUTES,

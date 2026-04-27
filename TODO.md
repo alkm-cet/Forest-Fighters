@@ -27,6 +27,7 @@
 - DONE / süreli boostların süresi bitmemesine rağmen etkileri bitiyor. Ayrıca champion Ölürse bu boostların süreleri devam etse bile silinmeli. Uı da varlar ama etkileri yok şu anda, bu düzeltilmeli.
 - DONE / Uygulama blurdan sonra onfocus olunca tüm verileri yeniden çekmek için biz splash ekranına yönlendirelim.
 - ANimals ların besleme sürelerindeki geri sayım hareket etmiyor, buglı, düzeltilmeli.
+- ONBOARDING ekranı eklenmeli, oyunculara oyunu tanıtmak için.
 
 NOTES:
 

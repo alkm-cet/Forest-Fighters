@@ -72,44 +72,52 @@ async function seed() {
     }
 
     // ── Bot players for PvP matchmaking ──────────────────────────────────────
-    const existingBots = await query(`SELECT id FROM players WHERE is_bot = TRUE LIMIT 1`);
-    if (existingBots.length === 0) {
-      const botHash = await bcrypt.hash('botpassword_never_used', 10);
+    // Per-bot idempotency: check by email so new bots can be added without
+    // skipping the whole block when earlier bots already exist.
+    const botHash = await bcrypt.hash('botpassword_never_used', 10);
+    let botsAdded = 0;
 
-      for (const bot of BOT_PLAYERS) {
-        const botUsername = getLocalizedField(bot.username, 'en');
-        const botRow = await query(
-          `INSERT INTO players (username, email, password_hash, trophies, is_bot) VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
-          [botUsername, bot.email, botHash, bot.trophies]
-        );
-        const botId = botRow[0].id;
-
-        await query(
-          'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, 30, 30, 30)',
-          [botId]
-        );
-        await query(
-          'UPDATE players SET pvp_storage_strawberry = 30, pvp_storage_pinecone = 30, pvp_storage_blueberry = 30 WHERE id = $1',
-          [botId]
-        );
-
-        const champIds = [];
-        for (const c of bot.champions) {
-          const champName = getLocalizedField(c.name, 'en');
-          const cRow = await query(
-            'INSERT INTO champions (player_id, name, class) VALUES ($1, $2, $3) RETURNING id',
-            [botId, champName, c.class]
-          );
-          champIds.push(cRow[0].id);
-        }
-
-        await query('UPDATE players SET defender_champion_id = $1 WHERE id = $2', [champIds[bot.defIdx], botId]);
+    for (const bot of BOT_PLAYERS) {
+      const exists = await query('SELECT id FROM players WHERE email = $1', [bot.email]);
+      if (exists.length > 0) {
+        console.log(`Bot ${bot.email} already seeded. Skipping.`);
+        continue;
       }
 
-      console.log('Added 3 bot players for PvP');
-    } else {
-      console.log('Bot players already seeded. Skipping.');
+      const botUsername = getLocalizedField(bot.username, 'en');
+      const botRow = await query(
+        `INSERT INTO players (username, email, password_hash, trophies, is_bot) VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
+        [botUsername, bot.email, botHash, bot.trophies]
+      );
+      const botId = botRow[0].id;
+
+      await query(
+        'INSERT INTO player_resources (player_id, strawberry, pinecone, blueberry) VALUES ($1, 30, 30, 30)',
+        [botId]
+      );
+      await query(
+        'UPDATE players SET pvp_storage_strawberry = 30, pvp_storage_pinecone = 30, pvp_storage_blueberry = 30 WHERE id = $1',
+        [botId]
+      );
+
+      const champIds = [];
+      for (const c of bot.champions) {
+        const champName = getLocalizedField(c.name, 'en');
+        const cRow = await query(
+          `INSERT INTO champions (player_id, name, class, attack, defense, chance, max_hp, current_hp)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+          [botId, champName, c.class,
+           c.attack ?? 10, c.defense ?? 10, c.chance ?? 10,
+           c.max_hp ?? 100, c.max_hp ?? 100]
+        );
+        champIds.push(cRow[0].id);
+      }
+
+      await query('UPDATE players SET defender_champion_id = $1 WHERE id = $2', [champIds[bot.defIdx], botId]);
+      botsAdded++;
     }
+
+    if (botsAdded > 0) console.log(`Added ${botsAdded} new bot player(s) for PvP`);
 
     // ── Quest definitions (idempotent) ────────────────────────────────────────
     const questCheck = await query('SELECT 1 FROM quest_definitions LIMIT 1');
