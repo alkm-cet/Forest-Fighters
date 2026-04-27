@@ -54,9 +54,9 @@ export const GEAR_IMAGES: Record<string, any> = {
 };
 
 const FORGE_STONE_IMGS = [
-  require("../assets/firestone-t1.webp"),
-  require("../assets/firestone-t2.webp"),
-  require("../assets/firestone-t3.webp"),
+  require("../assets/items/firestone-t1.webp"),
+  require("../assets/items/firestone-t2.webp"),
+  require("../assets/items/firestone-t3.webp"),
 ];
 
 const DISMISS_THRESHOLD = 100;

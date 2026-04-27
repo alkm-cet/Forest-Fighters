@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  View,
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-} from "react-native";
+import { View, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "./StyledText";
 import { Timer, Zap } from "lucide-react-native";
 import { Recipe, Resources } from "../types";
@@ -17,9 +12,9 @@ const COIN_IMG = require("../assets/icons/icon-coin.webp");
 const BOILER_IMG = require("../assets/boiler.webp");
 
 export const FORGE_STONE_IMGS: Record<string, any> = {
-  "Forge Stone":        require("../assets/firestone-t1.webp"),
-  "Fine Forge Stone":   require("../assets/firestone-t2.webp"),
-  "Master Forge Stone": require("../assets/firestone-t3.webp"),
+  "Forge Stone": require("../assets/items/firestone-t1.webp"),
+  "Fine Forge Stone": require("../assets/items/firestone-t2.webp"),
+  "Master Forge Stone": require("../assets/items/firestone-t3.webp"),
 };
 
 const TIER_COLORS: Record<number, string> = {
@@ -29,60 +24,79 @@ const TIER_COLORS: Record<number, string> = {
 };
 
 const TARGET_META: Record<string, { label: string; color: string }> = {
-  fighters:    { label: "Warriors",       color: "#c0392b" },
-  farmers:     { label: "Farmers",        color: "#2980b9" },
-  animals:     { label: "Animals",        color: "#27ae60" },
-  farm_animals:{ label: "Farm & Animals", color: "#16a085" },
-  all:         { label: "All",            color: "#7f8c8d" },
+  fighters: { label: "Warriors", color: "#c0392b" },
+  farmers: { label: "Farmers", color: "#2980b9" },
+  animals: { label: "Animals", color: "#27ae60" },
+  farm_animals: { label: "Farm & Animals", color: "#16a085" },
+  all: { label: "All", color: "#7f8c8d" },
 };
 
 export const FOOD_EMOJIS: Record<string, string> = {
   // v2 recipes
-  "Forest Berry Jam":         "🍓",
-  "Blueberry Mash":           "🫐",
-  "Pinecone Tea":             "🍵",
-  "Mixed Berry Pie":          "🥧",
-  "Egg Forest Rice":          "🍚",
-  "Pinecone Cake":            "🎂",
-  "Forest Stew":              "🍲",
-  "Magic Forest Soup":        "✨",
-  "Ironbark Stew":            "🥘",
-  "Dragon Pinecone Delight":  "🐉",
-  "Mystic Wool Dessert":      "🧁",
+  "Forest Berry Jam": "🍓",
+  "Blueberry Mash": "🫐",
+  "Pinecone Tea": "🍵",
+  "Mixed Berry Pie": "🥧",
+  "Egg Forest Rice": "🍚",
+  "Pinecone Cake": "🎂",
+  "Forest Stew": "🍲",
+  "Magic Forest Soup": "✨",
+  "Ironbark Stew": "🥘",
+  "Dragon Pinecone Delight": "🐉",
+  "Mystic Wool Dessert": "🧁",
   // warrior defense recipes
-  "Forest Warrior Brew":      "🛡️",
-  "Shield Bark Soup":         "⚔️",
-  "Titanwood Feast":          "🪖",
+  "Forest Warrior Brew": "🛡️",
+  "Shield Bark Soup": "⚔️",
+  "Titanwood Feast": "🪖",
   // attack boost recipes
-  "Wild Berry Tonic":         "🍹",
-  "Spiced Pinecone Brew":     "🌶️",
-  "Battle Berry Stew":        "⚔️",
-  "Ironbark Attack Broth":    "🪵",
-  "Dragon's Wrath Elixir":    "🐉",
-  "Ancient Forest Rage":      "🌿",
+  "Wild Berry Tonic": "🍹",
+  "Spiced Pinecone Brew": "🌶️",
+  "Battle Berry Stew": "⚔️",
+  "Ironbark Attack Broth": "🪵",
+  "Dragon's Wrath Elixir": "🐉",
+  "Ancient Forest Rage": "🌿",
   // forge stones
-  "Forge Stone":              "🔨",
-  "Fine Forge Stone":         "⚒️",
-  "Master Forge Stone":       "🔥",
+  "Forge Stone": "🔨",
+  "Fine Forge Stone": "⚒️",
+  "Master Forge Stone": "🔥",
   // legacy names kept for backward compat
-  "Strawberry Jam":           "🍓",
-  "Great Forest Feast":       "🍽️",
+  "Strawberry Jam": "🍓",
+  "Great Forest Feast": "🍽️",
 };
 
-export function describeEffect(recipe: Recipe, t?: (key: TranslationKeys) => string): string {
+export function describeEffect(
+  recipe: Recipe,
+  t?: (key: TranslationKeys) => string,
+): string {
   if (recipe.effect_type === "gear_upgrade") {
     const gearTier = (recipe as any).gear_upgrade_tier as number | undefined;
-    if (gearTier === 3) return t ? t("forgeStoneAnyDesc") : "Upgrades any tier gear by 1 level";
-    if (gearTier === 2) return t ? t("forgeStoneT2Desc") : "Upgrades Tier 2 gear by 1 level";
+    if (gearTier === 3)
+      return t ? t("forgeStoneAnyDesc") : "Upgrades any tier gear by 1 level";
+    if (gearTier === 2)
+      return t ? t("forgeStoneT2Desc") : "Upgrades Tier 2 gear by 1 level";
     return t ? t("forgeStoneT1Desc") : "Upgrades Tier 1 gear by 1 level";
   }
 
   const target =
-    recipe.target === "fighters"       ? (t ? t("targetFighters")    : "Fighters")
-    : recipe.target === "farmers"      ? (t ? t("targetFarmers")     : "Farmers")
-    : recipe.target === "animals"      ? (t ? t("targetAnimals")     : "Animals")
-    : recipe.target === "farm_animals" ? (t ? t("targetFarmAnimals") : "Farmers & Animals")
-    : (t ? t("targetAll") : "All units");
+    recipe.target === "fighters"
+      ? t
+        ? t("targetFighters")
+        : "Fighters"
+      : recipe.target === "farmers"
+        ? t
+          ? t("targetFarmers")
+          : "Farmers"
+        : recipe.target === "animals"
+          ? t
+            ? t("targetAnimals")
+            : "Animals"
+          : recipe.target === "farm_animals"
+            ? t
+              ? t("targetFarmAnimals")
+              : "Farmers & Animals"
+            : t
+              ? t("targetAll")
+              : "All units";
 
   const minLabel = t ? t("minuteAbbr") : "min";
   const dur = recipe.effect_duration_minutes
@@ -90,14 +104,22 @@ export function describeEffect(recipe: Recipe, t?: (key: TranslationKeys) => str
     : "";
 
   switch (recipe.effect_type) {
-    case "boost_hp":       return `${target} +${recipe.effect_value} HP${dur}`;
-    case "boost_attack":   return `${target} +${recipe.effect_value} ATK${dur}`;
-    case "boost_defense":  return `${target} +${recipe.effect_value} DEF${dur}`;
-    case "boost_chance":   return `${target} +${recipe.effect_value} CRIT${dur}`;
-    case "boost_production": return `${target} +${recipe.effect_value}% üretim${dur}`;
-    case "boost_all":      return `${target} ×${recipe.effect_value} boost${dur}`;
-    case "boost_capacity": return `${target} +${recipe.effect_value} kapasite${dur}`;
-    default:               return `${target} +${recipe.effect_value} ${recipe.effect_type.replace("boost_", "")}${dur}`;
+    case "boost_hp":
+      return `${target} +${recipe.effect_value} HP${dur}`;
+    case "boost_attack":
+      return `${target} +${recipe.effect_value} ATK${dur}`;
+    case "boost_defense":
+      return `${target} +${recipe.effect_value} DEF${dur}`;
+    case "boost_chance":
+      return `${target} +${recipe.effect_value} CRIT${dur}`;
+    case "boost_production":
+      return `${target} +${recipe.effect_value}% üretim${dur}`;
+    case "boost_all":
+      return `${target} ×${recipe.effect_value} boost${dur}`;
+    case "boost_capacity":
+      return `${target} +${recipe.effect_value} kapasite${dur}`;
+    default:
+      return `${target} +${recipe.effect_value} ${recipe.effect_type.replace("boost_", "")}${dur}`;
   }
 }
 
@@ -122,26 +144,40 @@ type Props = {
   onInstantCook?: (foodId: string, coinCost: number) => void;
 };
 
-export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, cookingFoodId, coins = 0, onInstantCook }: Props) {
+export default function FoodCard({
+  recipe,
+  resources,
+  onCook,
+  cookingReadyAtMs,
+  cookingFoodId,
+  coins = 0,
+  onInstantCook,
+}: Props) {
   const { t } = useLanguage();
-  const tierColor  = TIER_COLORS[recipe.tier] ?? "#9a7040";
+  const tierColor = TIER_COLORS[recipe.tier] ?? "#9a7040";
   const targetMeta = TARGET_META[recipe.target] ?? TARGET_META.all;
   const emoji = FOOD_EMOJIS[recipe.name] ?? "🍴";
   const isCooking = !!cookingReadyAtMs && cookingReadyAtMs > Date.now();
 
-  const canAfford = Object.entries(recipe.ingredients).every(([res, amt]) =>
-    ((resources as any)[res] ?? 0) >= (amt ?? 0)
+  const canAfford = Object.entries(recipe.ingredients).every(
+    ([res, amt]) => ((resources as any)[res] ?? 0) >= (amt ?? 0),
   );
 
   const cookTotalMs = recipe.cook_duration_minutes * 60 * 1000;
   const [msLeft, setMsLeft] = useState(() =>
-    cookingReadyAtMs ? Math.max(0, cookingReadyAtMs - Date.now()) : 0
+    cookingReadyAtMs ? Math.max(0, cookingReadyAtMs - Date.now()) : 0,
   );
 
   useEffect(() => {
-    if (!cookingReadyAtMs) { setMsLeft(0); return; }
+    if (!cookingReadyAtMs) {
+      setMsLeft(0);
+      return;
+    }
     setMsLeft(Math.max(0, cookingReadyAtMs - Date.now()));
-    const iv = setInterval(() => setMsLeft(Math.max(0, cookingReadyAtMs - Date.now())), 1000);
+    const iv = setInterval(
+      () => setMsLeft(Math.max(0, cookingReadyAtMs - Date.now())),
+      1000,
+    );
     return () => clearInterval(iv);
   }, [cookingReadyAtMs]);
 
@@ -154,27 +190,40 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
         <View style={[styles.tierBadge, { backgroundColor: tierColor }]}>
           <Text style={styles.tierText}>T{recipe.tier}</Text>
         </View>
-        <View style={[styles.targetBadge, { backgroundColor: targetMeta.color }]}>
+        <View
+          style={[styles.targetBadge, { backgroundColor: targetMeta.color }]}
+        >
           <Text style={styles.targetText}>{targetMeta.label}</Text>
         </View>
         <View style={styles.cookTimeChip}>
           <Timer size={9} color="#9a7040" strokeWidth={2.5} />
-          <Text style={styles.cookTimeText}>{recipe.cook_duration_minutes}m</Text>
+          <Text style={styles.cookTimeText}>
+            {recipe.cook_duration_minutes}m
+          </Text>
         </View>
       </View>
 
       {/* Emoji / item image */}
-      {FORGE_STONE_IMGS[recipe.name]
-        ? <Image source={FORGE_STONE_IMGS[recipe.name]} style={styles.itemImg} resizeMode="contain" />
-        : <Text style={styles.emoji}>{emoji}</Text>
-      }
+      {FORGE_STONE_IMGS[recipe.name] ? (
+        <Image
+          source={FORGE_STONE_IMGS[recipe.name]}
+          style={styles.itemImg}
+          resizeMode="contain"
+        />
+      ) : (
+        <Text style={styles.emoji}>{emoji}</Text>
+      )}
 
       {/* Name */}
-      <Text style={styles.name} numberOfLines={2}>{recipe.name}</Text>
+      <Text style={styles.name} numberOfLines={2}>
+        {recipe.name}
+      </Text>
 
       {/* Effect */}
       <View style={styles.effectChip}>
-        <Text style={styles.effectText} numberOfLines={2}>{describeEffect(recipe, t)}</Text>
+        <Text style={styles.effectText} numberOfLines={2}>
+          {describeEffect(recipe, t)}
+        </Text>
       </View>
 
       {/* Ingredients */}
@@ -185,9 +234,15 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
           return (
             <View key={res} style={styles.ingredientItem}>
               {meta?.image ? (
-                <Image source={meta.image} style={styles.ingredientIcon} resizeMode="contain" />
+                <Image
+                  source={meta.image}
+                  style={styles.ingredientIcon}
+                  resizeMode="contain"
+                />
               ) : null}
-              <Text style={[styles.ingredientAmt, short && styles.ingredientShort]}>
+              <Text
+                style={[styles.ingredientAmt, short && styles.ingredientShort]}
+              >
                 {amt}
               </Text>
             </View>
@@ -199,30 +254,54 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
       {isCooking && (
         <>
           <View style={styles.cookBarTrack}>
-            <View style={[styles.cookBarFill, { width: `${progress * 100}%` as any }]} />
+            <View
+              style={[
+                styles.cookBarFill,
+                { width: `${progress * 100}%` as any },
+              ]}
+            />
             <View style={styles.cookBarLabel}>
               <Timer size={10} color="#3a2a10" strokeWidth={2} />
-              <Text style={styles.cookBarText}>{formatTime(msLeft / 1000)}</Text>
+              <Text style={styles.cookBarText}>
+                {formatTime(msLeft / 1000)}
+              </Text>
             </View>
           </View>
-          {cookingFoodId && onInstantCook && (() => {
-            const coinCost = Math.max(1, Math.ceil(msLeft / 60000));
-            const canAffordInstant = coins >= coinCost;
-            return (
-              <TouchableOpacity
-                style={[styles.instantBtn, !canAffordInstant && styles.instantBtnDisabled]}
-                activeOpacity={canAffordInstant ? 0.75 : 1}
-                onPress={() => canAffordInstant && onInstantCook(cookingFoodId, coinCost)}
-              >
-                <Zap size={11} color={canAffordInstant ? "#fff" : "rgba(255,255,255,0.5)"} strokeWidth={2.5} />
-                <Text style={styles.instantBtnText}>{t("instantCookBtn")}</Text>
-                <View style={styles.instantCostRow}>
-                  <Image source={COIN_IMG} style={styles.instantCoinIcon} resizeMode="contain" />
-                  <Text style={styles.instantCostText}>×{coinCost}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })()}
+          {cookingFoodId &&
+            onInstantCook &&
+            (() => {
+              const coinCost = Math.max(1, Math.ceil(msLeft / 60000));
+              const canAffordInstant = coins >= coinCost;
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.instantBtn,
+                    !canAffordInstant && styles.instantBtnDisabled,
+                  ]}
+                  activeOpacity={canAffordInstant ? 0.75 : 1}
+                  onPress={() =>
+                    canAffordInstant && onInstantCook(cookingFoodId, coinCost)
+                  }
+                >
+                  <Zap
+                    size={11}
+                    color={canAffordInstant ? "#fff" : "rgba(255,255,255,0.5)"}
+                    strokeWidth={2.5}
+                  />
+                  <Text style={styles.instantBtnText}>
+                    {t("instantCookBtn")}
+                  </Text>
+                  <View style={styles.instantCostRow}>
+                    <Image
+                      source={COIN_IMG}
+                      style={styles.instantCoinIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.instantCostText}>×{coinCost}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })()}
         </>
       )}
 
@@ -236,7 +315,11 @@ export default function FoodCard({ recipe, resources, onCook, cookingReadyAtMs, 
           activeOpacity={canAfford ? 0.75 : 1}
           onPress={() => canAfford && onCook(recipe)}
         >
-          <Image source={BOILER_IMG} style={styles.boilerIcon} resizeMode="contain" />
+          <Image
+            source={BOILER_IMG}
+            style={styles.boilerIcon}
+            resizeMode="contain"
+          />
           <Text style={styles.cookBtnText}>
             {canAfford ? t("cookBtn") : t("notEnoughIngredients")}
           </Text>
@@ -270,14 +353,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  tierText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.3 },
+  tierText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.3,
+  },
   targetBadge: {
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 2,
     flex: 1,
   },
-  targetText: { fontSize: 8, fontWeight: "800", color: "#fff", letterSpacing: 0.1 },
+  targetText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.1,
+  },
   cookTimeChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -364,7 +457,9 @@ const styles = StyleSheet.create({
   },
   cookBarFill: {
     position: "absolute",
-    left: 0, top: 0, bottom: 0,
+    left: 0,
+    top: 0,
+    bottom: 0,
     backgroundColor: "#c87820",
     borderRadius: 8,
   },
@@ -392,5 +487,9 @@ const styles = StyleSheet.create({
   instantBtnText: { fontSize: 10, fontWeight: "900", color: "#fff" },
   instantCostRow: { flexDirection: "row", alignItems: "center", gap: 2 },
   instantCoinIcon: { width: 12, height: 12 },
-  instantCostText: { fontSize: 10, fontWeight: "800", color: "rgba(255,255,255,0.85)" },
+  instantCostText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.85)",
+  },
 });
