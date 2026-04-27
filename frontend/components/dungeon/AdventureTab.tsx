@@ -51,7 +51,7 @@ const NODE_SPACING = 120;
 const DOT_SIZE = 5;
 const DOT_GAP = 9;
 const S_OFFSET = 16;
-const LEVEL_SEPARATOR_H = 56;
+const LEFT_PANEL_WIDTH = 72;
 
 interface Props {
   dungeons: AdventureDungeon[];
@@ -63,7 +63,11 @@ interface Props {
   championClass: string | undefined;
   championIsBusy: boolean;
   initialDungeonId?: string;
-  onEnter: (dungeon: Dungeon, champion2Id?: string, champion2Class?: string) => void;
+  onEnter: (
+    dungeon: Dungeon,
+    champion2Id?: string,
+    champion2Class?: string,
+  ) => void;
   onClaim: (run: DungeonRun) => void;
   onMilestoneClaim: (requiredStars: number) => void;
 }
@@ -167,7 +171,9 @@ export default function AdventureTab({
   const { width } = useWindowDimensions();
   const [selectedDungeon, setSelectedDungeon] =
     useState<AdventureDungeon | null>(null);
-  const [selectedChampion2, setSelectedChampion2] = useState<Champion | null>(null);
+  const [selectedChampion2, setSelectedChampion2] = useState<Champion | null>(
+    null,
+  );
   const [availableChampions, setAvailableChampions] = useState<Champion[]>([]);
   const [loadingChampions, setLoadingChampions] = useState(false);
   const lastAutoOpenedId = useRef<string | null>(null);
@@ -214,21 +220,23 @@ export default function AdventureTab({
       Promise.all([
         api.get("/api/champions"),
         api.get("/api/pvp/status").catch(() => ({ data: null })),
-      ]).then(([champsRes, pvpRes]) => {
-        const all: Champion[] = champsRes.data;
-        const pvpDefenderId: string | null =
-          pvpRes.data?.defender_champion_id ?? null;
-        setAvailableChampions(
-          all.filter(
-            (c) =>
-              c.id !== championId &&
-              !c.is_deployed &&
-              c.current_hp > 0 &&
-              c.id !== pvpDefenderId,
-          ),
-        );
-        setLoadingChampions(false);
-      }).catch(() => setLoadingChampions(false));
+      ])
+        .then(([champsRes, pvpRes]) => {
+          const all: Champion[] = champsRes.data;
+          const pvpDefenderId: string | null =
+            pvpRes.data?.defender_champion_id ?? null;
+          setAvailableChampions(
+            all.filter(
+              (c) =>
+                c.id !== championId &&
+                !c.is_deployed &&
+                c.current_hp > 0 &&
+                c.id !== pvpDefenderId,
+            ),
+          );
+          setLoadingChampions(false);
+        })
+        .catch(() => setLoadingChampions(false));
     } else {
       setAvailableChampions([]);
       setSelectedChampion2(null);
@@ -258,12 +266,27 @@ export default function AdventureTab({
   const level2Locked = !isBossCleared(1);
   const level3Locked = !isBossCleared(2);
 
+  const level1Completed = isBossCleared(1);
+  const level2Completed = isBossCleared(2);
+  const level3Completed = isBossCleared(3);
+
+  const defaultLevel = !level3Locked ? 3 : !level2Locked ? 2 : 1;
+  const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(
+    defaultLevel as 1 | 2 | 3,
+  );
+
   const nextMilestone = milestones.find((m) => !m.claimed);
   const nextClaimable = milestones.find(
     (m) => !m.claimed && totalStars >= m.required_stars,
   );
 
-  const ZIGZAG_X = [width * 0.5, width * 0.73, width * 0.5, width * 0.27];
+  const mapWidth = width - LEFT_PANEL_WIDTH;
+  const ZIGZAG_X = [
+    mapWidth * 0.5,
+    mapWidth * 0.73,
+    mapWidth * 0.5,
+    mapWidth * 0.27,
+  ];
 
   function getProgress(dungeonId: string): AdventureProgress | undefined {
     return progress.find((p) => p.dungeon_id === dungeonId);
@@ -401,7 +424,10 @@ export default function AdventureTab({
                 activeOpacity={locked ? 1 : 0.75}
               >
                 <Image
-                  source={CAT_PAWN}
+                  source={
+                    ENEMY_IMAGES[dungeon.enemy_name?.toLowerCase() ?? ""] ??
+                    CAT_PAWN
+                  }
                   style={{
                     width: nodeSize * 0.72,
                     height: nodeSize * 0.72,
@@ -480,35 +506,16 @@ export default function AdventureTab({
     );
   }
 
-  function renderLevelSeparator(level: number, locked: boolean) {
-    return (
-      <View key={`sep-${level}`} style={styles.levelSeparator}>
-        <View style={styles.levelSeparatorLine} />
-        <View
-          style={[
-            styles.levelSeparatorBadge,
-            locked && styles.levelSeparatorBadgeLocked,
-          ]}
-        >
-          {locked && (
-            <Lock size={11} color="#c8a96e" strokeWidth={2.5} style={{ marginRight: 4 }} />
-          )}
-          <Text style={styles.levelSeparatorText}>LEVEL {level}</Text>
-        </View>
-        <View style={styles.levelSeparatorLine} />
-      </View>
-    );
-  }
-
-  const totalScrollHeight =
-    [level1Dungeons, level2Dungeons, level3Dungeons].reduce(
-      (sum, arr) =>
-        arr.length > 0
-          ? sum + 44 + arr.length * NODE_SPACING + 80
-          : sum,
-      0,
-    ) +
-    2 * LEVEL_SEPARATOR_H;
+  const levelDungeonsMap = {
+    1: level1Dungeons,
+    2: level2Dungeons,
+    3: level3Dungeons,
+  };
+  const selectedDungeons = levelDungeonsMap[selectedLevel];
+  const selectedScrollHeight =
+    selectedDungeons.length > 0
+      ? 44 + selectedDungeons.length * NODE_SPACING + 80
+      : 200;
 
   return (
     <View style={styles.container}>
@@ -555,20 +562,53 @@ export default function AdventureTab({
         </View>
       )}
 
-      {/* Map — 3 level sections */}
-      <ScrollView
-        contentContainerStyle={[
-          styles.mapContainer,
-          { height: totalScrollHeight },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderMapSection(level1Dungeons, false, "1")}
-        {renderLevelSeparator(2, level2Locked)}
-        {renderMapSection(level2Dungeons, level2Locked, "2")}
-        {renderLevelSeparator(3, level3Locked)}
-        {renderMapSection(level3Dungeons, level3Locked, "3")}
-      </ScrollView>
+      {/* Map — level selector + single level view */}
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        {/* Left: Level buttons */}
+        <View style={styles.levelSidebar}>
+          {([1, 2, 3] as const).map((lvl) => {
+            const locked =
+              lvl === 2 ? level2Locked : lvl === 3 ? level3Locked : false;
+            const completed =
+              lvl === 1 ? level1Completed : lvl === 2 ? level2Completed : level3Completed;
+            const isSelected = selectedLevel === lvl;
+            return (
+              <TouchableOpacity
+                key={lvl}
+                style={[
+                  styles.levelBtn,
+                  isSelected && styles.levelBtnSelected,
+                  completed && styles.levelBtnCompleted,
+                  locked && styles.levelBtnLocked,
+                ]}
+                onPress={() => setSelectedLevel(lvl)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.levelBtnText, isSelected && styles.levelBtnTextSelected]}>
+                  Lv {lvl}
+                </Text>
+                {locked && <Lock size={9} color="#c8a96e" strokeWidth={2.5} style={{ marginLeft: 3 }} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Right: Map for selected level */}
+        <ScrollView
+          contentContainerStyle={[
+            styles.mapContainer,
+            { height: selectedScrollHeight },
+          ]}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          {selectedLevel === 1 && renderMapSection(level1Dungeons, false, "1")}
+          {selectedLevel === 2 &&
+            renderMapSection(level2Dungeons, level2Locked, "2")}
+          {selectedLevel === 3 &&
+            renderMapSection(level3Dungeons, level3Locked, "3")}
+        </ScrollView>
+      </View>
 
       {/* Stage detail modal */}
       <Modal
@@ -823,10 +863,14 @@ export default function AdventureTab({
                     Primary: {championClass ?? "—"}
                   </Text>
                   {loadingChampions ? (
-                    <ActivityIndicator color="#7a5a30" style={{ marginTop: 8 }} />
+                    <ActivityIndicator
+                      color="#7a5a30"
+                      style={{ marginTop: 8 }}
+                    />
                   ) : availableChampions.length === 0 ? (
                     <Text style={styles.noChampText}>
-                      No available champions. All others are deployed or defending.
+                      No available champions. All others are deployed or
+                      defending.
                     </Text>
                   ) : (
                     <ScrollView
@@ -851,7 +895,8 @@ export default function AdventureTab({
                           />
                           <Text style={styles.champ2Name}>{c.name}</Text>
                           <Text style={styles.champ2Stats}>
-                            ATK {c.attack + (c.gear_attack ?? 0)}  DEF {c.defense + (c.gear_defense ?? 0)}
+                            ATK {c.attack + (c.gear_attack ?? 0)} DEF{" "}
+                            {c.defense + (c.gear_defense ?? 0)}
                           </Text>
                           <Text style={styles.champ2Lv}>LV {c.level}</Text>
                         </TouchableOpacity>
@@ -899,8 +944,12 @@ export default function AdventureTab({
                     onClick={() => {
                       onEnter(
                         selectedDungeon,
-                        selectedDungeon.is_boss_stage ? selectedChampion2?.id : undefined,
-                        selectedDungeon.is_boss_stage ? selectedChampion2?.class : undefined,
+                        selectedDungeon.is_boss_stage
+                          ? selectedChampion2?.id
+                          : undefined,
+                        selectedDungeon.is_boss_stage
+                          ? selectedChampion2?.class
+                          : undefined,
                       );
                       setSelectedDungeon(null);
                     }}
@@ -1000,7 +1049,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   levelSeparator: {
-    height: LEVEL_SEPARATOR_H,
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -1389,5 +1438,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#3d2a10",
+  },
+  levelSidebar: {
+    width: LEFT_PANEL_WIDTH,
+    paddingTop: 14,
+    alignItems: "center",
+    gap: 10,
+  },
+  levelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 60,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: "rgba(35,25,14,0.88)",
+    borderWidth: 2,
+    borderColor: "#6a5030",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  levelBtnSelected: {
+    backgroundColor: "#2a4822",
+    borderColor: "#6aaa4a",
+    shadowColor: "#6aaa4a",
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  levelBtnCompleted: {
+    borderColor: "#6aaa4a",
+    shadowColor: "#6aaa4a",
+    shadowOpacity: 0.4,
+    shadowRadius: 7,
+  },
+  levelBtnLocked: {
+    opacity: 0.35,
+  },
+  levelBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#c8a96e",
+    letterSpacing: 0.5,
+  },
+  levelBtnTextSelected: {
+    color: "#e8ffdf",
   },
 });

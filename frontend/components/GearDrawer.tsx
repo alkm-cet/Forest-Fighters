@@ -39,18 +39,46 @@ import type { TranslationKeys } from "../lib/i18n";
 const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
 export const GEAR_IMAGES: Record<string, any> = {
-  iron_sword: require("../assets/items/item-iron-sword.webp"),
-  steel_axe: require("../assets/items/item-steel-axe.webp"),
-  battle_blade: require("../assets/items/item-battle-blade.webp"),
-  oak_staff: require("../assets/items/item-oak-staff.webp"),
-  crystal_staff: require("../assets/items/item-crystal-staff.webp"),
-  arcane_orb: require("../assets/items/item-arcane-orb.webp"),
-  pine_bow: require("../assets/items/item-pine-bow.webp"),
-  hunter_bow: require("../assets/items/item-hunter-bow.webp"),
-  shadow_bow: require("../assets/items/item-shadow-bow.webp"),
-  forest_charm: require("../assets/items/item-forest-charm.webp"),
-  silver_charm: require("../assets/items/item-silver-charm.webp"),
-  dragon_charm: require("../assets/items/item-dragon-charm.webp"),
+  // Warrior weapons
+  iron_sword:     require("../assets/items/item-iron-sword.webp"),
+  war_hammer:     require("../assets/items/item-war-hammer.webp"),
+  shield_sword:   require("../assets/items/item-shield-sword.webp"),
+  steel_axe:      require("../assets/items/item-steel-axe.webp"),
+  great_axe:      require("../assets/items/item-great-axe.webp"),
+  tower_shield:   require("../assets/items/item-tower-shield.webp"),
+  battle_blade:   require("../assets/items/item-battle-blade.webp"),
+  blood_cleaver:  require("../assets/items/item-blood-claver.webp"),
+  fortress_blade: require("../assets/items/item-fortress-blade.webp"),
+  // Mage weapons
+  oak_staff:      require("../assets/items/item-oak-staff.webp"),
+  ember_wand:     require("../assets/items/item-ember-wand.webp"),
+  moon_focus:     require("../assets/items/item-moon-focus.webp"),
+  crystal_staff:  require("../assets/items/item-crystal-staff.webp"),
+  flame_staff:    require("../assets/items/item-flame-staff.webp"),
+  void_lens:      require("../assets/items/item-void-lens.webp"),
+  arcane_orb:     require("../assets/items/item-arcane-orb.webp"),
+  inferno_orb:    require("../assets/items/item-inferno-orb.webp"),
+  // eclipse_staff — no webp available, falls back to emoji
+  // Archer weapons
+  pine_bow:       require("../assets/items/item-pine-bow.webp"),
+  // sharp_arrow — no webp available, falls back to emoji
+  swift_bow:      require("../assets/items/item-swift-bow.webp"),
+  hunter_bow:     require("../assets/items/item-hunter-bow.webp"),
+  storm_bow:      require("../assets/items/item-storm-bow.webp"),
+  phantom_quiver: require("../assets/items/item-ghost-quiver.webp"),
+  shadow_bow:     require("../assets/items/item-shadow-bow.webp"),
+  death_arrow:    require("../assets/items/item-death-arrow.webp"),
+  ghost_bow:      require("../assets/items/item-ghost-bow.webp"),
+  // Universal charms
+  forest_charm:   require("../assets/items/item-forest-charm.webp"),
+  bone_charm:     require("../assets/items/items-bone-charm.webp"),
+  ember_charm:    require("../assets/items/item-ember-charm.webp"),
+  silver_charm:   require("../assets/items/item-silver-charm.webp"),
+  storm_charm:    require("../assets/items/item-storm-charm.webp"),
+  war_charm:      require("../assets/items/item-war-charm.webp"),
+  dragon_charm:   require("../assets/items/item-dragon-charm.webp"),
+  void_charm:     require("../assets/items/item-void-charm.webp"),
+  titan_charm:    require("../assets/items/item-titan-charm.webp"),
 };
 
 const FORGE_STONE_IMGS = [
