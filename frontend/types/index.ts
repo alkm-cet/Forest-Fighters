@@ -245,6 +245,8 @@ export type ClaimResult = {
   champion2XpGained?: number;
   champion2LevelsGained?: number;
   champion2NewLevel?: number;
+  championStartStats?: { attack: number; defense: number; chance: number; hp: number };
+  enemyStartStats?: { attack: number; defense: number; chance: number; hp: number };
   c1StartStats?: { attack: number; defense: number; chance: number; hp: number };
   c2StartStats?: { attack: number; defense: number; chance: number; hp: number };
   bossStartStats?: { attack: number; defense: number; chance: number; hp: number };

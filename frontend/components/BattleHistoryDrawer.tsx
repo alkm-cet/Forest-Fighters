@@ -293,6 +293,8 @@ function normalize(props: PvpProps | PveProps): Normalized | null {
       rightGear: null,
       rightEnemyImg: enemyImg(result.enemyName),
       log,
+      leftStartStats: result.championStartStats,
+      rightStartStats: result.enemyStartStats,
       rewardResource: result.rewardResource,
       rewardAmount: result.rewardAmount,
       rewardResource2: result.rewardResource2,
@@ -374,8 +376,14 @@ function normalizeBoss(
 
 function GearChip({ gear }: { gear: PlayerGear }) {
   const meta = RARITY_META[gear.rarity];
+  const stats = [
+    gear.attack_bonus > 0 ? `+${gear.attack_bonus} ⚔️` : null,
+    gear.defense_bonus > 0 ? `+${gear.defense_bonus} 🛡️` : null,
+    gear.chance_bonus > 0 ? `+${gear.chance_bonus} 🎯` : null,
+  ].filter(Boolean) as string[];
   return (
     <View style={[gearChipStyles.chip, { borderColor: meta.borderColor }]}>
+      <Text style={gearChipStyles.levelText}>Lv.{gear.level}</Text>
       {GEAR_IMAGES[gear.definition.id] ? (
         <Image
           source={GEAR_IMAGES[gear.definition.id]}
@@ -401,6 +409,14 @@ function GearChip({ gear }: { gear: PlayerGear }) {
           <Text style={gearChipStyles.tier}>T{gear.definition.tier}</Text>
         </View>
       </View>
+
+      <View style={gearChipStyles.rightCol}>
+        {stats.map((s) => (
+          <Text key={s} style={gearChipStyles.statLine}>
+            {s}
+          </Text>
+        ))}
+      </View>
     </View>
   );
 }
@@ -418,11 +434,23 @@ const gearChipStyles = StyleSheet.create({
     marginBottom: 3,
   },
   emoji: { fontSize: 16, lineHeight: 20 },
-  gearImg: { width: 20, height: 20 },
-  name: { fontSize: 10, fontWeight: "700", color: "#3a2a10", maxWidth: 90 },
+  gearImg: { width: 25, height: 25 },
+  name: { fontSize: 10, fontWeight: "700", color: "#3a2a10", maxWidth: 75 },
   rarityBadge: { borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   rarityText: { fontSize: 8, fontWeight: "700", color: "#fff" },
   tier: { fontSize: 9, color: "#888", fontWeight: "600" },
+  rightCol: { alignItems: "flex-end", gap: 1 },
+  levelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a5230",
+    backgroundColor: "#fbe8c4",
+    borderWidth: 1,
+    borderColor: "#e0c9a6",
+    borderRadius: 4,
+    paddingHorizontal: 2,
+  },
+  statLine: { fontSize: 9, fontWeight: "600", color: "#4a7c3f" },
 });
 
 function GearSlotRow({

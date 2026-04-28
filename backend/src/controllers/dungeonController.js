@@ -559,6 +559,8 @@ async function claimRun(req, res) {
       champion2LevelsGained: champ2LevelsGained || undefined,
       champion2NewLevel: champ2NewLevel ?? undefined,
       // Starting stats for battle history display
+      championStartStats: !isBossBattle ? { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.current_hp ?? attacker.max_hp } : undefined,
+      enemyStartStats: !isBossBattle ? { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.max_hp } : undefined,
       c1StartStats: isBossBattle ? { attack: attacker.attack, defense: attacker.defense, chance: attacker.chance, hp: attacker.current_hp } : undefined,
       c2StartStats: isBossBattle && champ2 ? { attack: attacker2.attack, defense: attacker2.defense, chance: attacker2.chance, hp: attacker2.current_hp } : undefined,
       bossStartStats: isBossBattle ? { attack: defender.attack, defense: defender.defense, chance: defender.chance, hp: defender.max_hp } : undefined,

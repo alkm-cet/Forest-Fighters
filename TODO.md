@@ -29,7 +29,7 @@
 - ANimals ların besleme sürelerindeki geri sayım hareket etmiyor, buglı, düzeltilmeli.
 - ONBOARDING ekranı eklenmeli, oyunculara oyunu tanıtmak için.
 - Savaşı in game oinle bitirir bitirmez battlehistorydrawer otomatik açılıyo sonucu gör demeden.
-- Gearkar can vermiyor, can verenler de olmalı.
+- Gearlar can vermiyor, can verenler de olmalı.
 - Kullanıcı level atladığında can değerini de arttırabilmeli. (2 2 her lv için olabilir, ama bu çok fazla olabilir)
 - PvP savaşlardan da xp gelmeli, ama xp gitmemeli.
 - FarmerDrawer içerisindeki geri sayımlar hala buglanıyor, düzeltilmeli. gerekirse farmerCardlar görünür olduğunda serverdaki geri sayım fetch edilsin, yada başka bir yöntem düşünülmeli.
@@ -38,7 +38,7 @@
 - Bildirimler eklenecek, savaş bitti, storage doldu vs.
 - uygulama açılıyor, ana sayfaya gidiyoruz ve bir kere daha ana sayfaya gidiyoruz, screen stack te 2 tane ana sayfa oluyor, bu düzeltilmeli.
 - Leaderboard kısmına tab li yapı yapsak, arkadaşlar eklense ve mesaj sistemi olsa.
-- Champion Drawer açıkkan yemeği bitir diğince onaylama butonu kitchen bag in arkasında çıkıyor.
+- DONE / Champion Drawer açıkkan yemeği bitir diğince onaylama butonu kitchen bag in arkasında çıkıyor.
 
 NOTES:
 

@@ -654,8 +654,10 @@ export default function ChampionDrawer({
             <ScrollView
               showsVerticalScrollIndicator={false}
               bounces={false}
-              style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
-              contentContainerStyle={{ paddingBottom: 24 }}
+              style={{
+                maxHeight: SCREEN_HEIGHT * 0.65,
+              }}
+              contentContainerStyle={{ paddingBottom: 4 }}
               onScroll={(e) => {
                 contentScrollY.current = e.nativeEvent.contentOffset.y;
               }}
@@ -1540,7 +1542,6 @@ export default function ChampionDrawer({
               </View>
             </Modal>
           )}
-          <InGameCoinConfirmModal coins={coins} />
         </Animated.View>
 
         {/* Battle log modal */}
@@ -1600,12 +1601,14 @@ export default function ChampionDrawer({
           champion={champion}
           visible={gearDrawerOpen}
           onClose={() => setGearDrawerOpen(false)}
-          onNavigateToDungeon={onNavigateToDungeon
-            ? (champ, dungeonId) => {
-                setGearDrawerOpen(false);
-                onNavigateToDungeon(champ, dungeonId);
-              }
-            : undefined}
+          onNavigateToDungeon={
+            onNavigateToDungeon
+              ? (champ, dungeonId) => {
+                  setGearDrawerOpen(false);
+                  onNavigateToDungeon(champ, dungeonId);
+                }
+              : undefined
+          }
         />
 
         {/* Remove food popup */}
@@ -1659,6 +1662,8 @@ export default function ChampionDrawer({
               </View>
             );
           })()}
+
+        <InGameCoinConfirmModal coins={coins} />
       </View>
     </Modal>
   );
