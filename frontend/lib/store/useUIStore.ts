@@ -80,6 +80,8 @@ type UIState = {
   // Called from mutation onMutate (lock=true) and onSettled (lock=false).
   // Use useUIStore.getState().setLock() inside mutation callbacks (non-hook context).
   setLock: (entityId: string, locked: boolean) => void;
+
+  reset: () => void;
 };
 
 export const useUIStore = create<UIState>((set) => ({
@@ -128,5 +130,21 @@ export const useUIStore = create<UIState>((set) => ({
       const next = { ...state.locks };
       delete next[entityId];
       return { locks: next };
+    }),
+
+  reset: () =>
+    set({
+      selectedFarmerId: null,
+      selectedAnimalId: null,
+      selectedFarmId: null,
+      selectedChampionId: null,
+      collectAnim: null,
+      animalCollectAnim: null,
+      activeTab: 'farmers',
+      displayedBg: '',
+      capUpgradeConfirm: null,
+      advancedCapUpgradeConfirm: null,
+      toast: null,
+      locks: {},
     }),
 }));

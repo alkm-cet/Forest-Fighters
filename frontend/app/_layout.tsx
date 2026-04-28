@@ -42,7 +42,7 @@ function AuthGuard() {
     if (!token && !inAuthGroup) {
       router.replace("/(auth)/login");
     } else if (token && !inGameGroup) {
-      router.replace("/(game)/");
+      router.replace("/loading");
     }
   }, [token, segments]);
 

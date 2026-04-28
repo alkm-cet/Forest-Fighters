@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "./api";
+import { useAuth } from "./auth-context";
 import { Player, Resources, Champion, Farmer, Animal, Farm, DungeonRun } from "../types";
 
 const DEFAULT_RESOURCES: Resources = {
@@ -62,6 +63,11 @@ const GameDataContext = createContext<GameDataContextType | null>(null);
 
 export function GameDataProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<GameSnapshot | null>(null);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    if (token === null) setSnapshot(null);
+  }, [token]);
 
   async function loadAll(onProgress: (pct: number, label: string) => void) {
     let cumulative = 0;

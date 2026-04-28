@@ -16,6 +16,7 @@ type FeedQueueState = {
   queues: Record<string, FeedQueueEntry>;
   tapFeed: (animal: Animal, queryClient: QueryClient) => void;
   tapFeedMax: (animal: Animal, requested: number, queryClient: QueryClient) => void;
+  reset: () => void;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -133,6 +134,8 @@ export const useFeedQueue = create<FeedQueueState>((set, get) => ({
       _flush(animal.id, queryClient);
     }
   },
+
+  reset: () => set({ queues: {} }),
 
   tapFeedMax(animal, requested, queryClient) {
     const { queues } = get();
