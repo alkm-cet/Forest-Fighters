@@ -567,7 +567,7 @@ export function useSpendStatMutation() {
 
     onSuccess: (data, { championId }) => {
       queryClient.setQueryData<Champion[]>(queryKeys.champions(), (old) =>
-        (old ?? []).map((c) => (c.id === championId ? data : c)),
+        (old ?? []).map((c) => (c.id === championId ? { ...c, ...data } : c)),
       );
     },
 

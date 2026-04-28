@@ -74,7 +74,7 @@ const HEALTH_POTION_IMG = require("../assets/icons/icon-health-potion.webp");
 const SHIELD_IMG = require("../assets/icons/shield.webp");
 const COIN_IMG = require("../assets/icons/icon-coin.webp");
 
-type StatKey = "attack" | "defense" | "chance";
+type StatKey = "attack" | "defense" | "chance" | "max_hp";
 
 type Props = {
   champion: Champion | null;
@@ -885,15 +885,30 @@ export default function ChampionDrawer({
                       },
                     ]}
                   >
-                    <View style={styles.hpLabelRow}>
-                      <HeartPulse size={16} color={hpColor} strokeWidth={2.5} />
-                      <Text style={[styles.hpTitle, { color: hpColor }]}>
-                        {champion.current_hp} / {champion.max_hp}
-                        {boostHp > 0 && (
-                          <Text style={styles.hpBoost}> +{boostHp}</Text>
-                        )}{" "}
-                        HP
-                      </Text>
+                    <View style={[styles.hpLabelRow, { justifyContent: "space-between" }]}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <HeartPulse size={16} color={hpColor} strokeWidth={2.5} />
+                        <Text style={[styles.hpTitle, { color: hpColor }]}>
+                          {champion.current_hp} / {champion.max_hp}
+                          {boostHp > 0 && (
+                            <Text style={styles.hpBoost}> +{boostHp}</Text>
+                          )}{" "}
+                          HP
+                        </Text>
+                      </View>
+                      {champion.stat_points > 0 && !isPvpBattle && (
+                        <TouchableOpacity
+                          onPress={() => setPendingStat("max_hp")}
+                          activeOpacity={0.75}
+                          style={styles.statPlusWrap}
+                        >
+                          <Image
+                            source={PLUS_BTN}
+                            style={styles.statPlusBtn}
+                            resizeMode="contain"
+                          />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <View style={styles.hpBarTrack}>
                       <View
@@ -1040,7 +1055,9 @@ export default function ChampionDrawer({
                           ? "upgradeStatAttack"
                           : pendingStat === "defense"
                             ? "upgradeStatDefense"
-                            : "upgradeStatChance",
+                            : pendingStat === "chance"
+                              ? "upgradeStatChance"
+                              : "upgradeStatHp",
                       )}
                     </Text>
                     <View style={styles.confirmValueRow}>
@@ -1049,7 +1066,7 @@ export default function ChampionDrawer({
                       </Text>
                       <Text style={styles.confirmValueArrow}>→</Text>
                       <Text style={styles.confirmValueNext}>
-                        {champion[pendingStat] + 1}
+                        {champion[pendingStat] + (pendingStat === "max_hp" ? 2 : 1)}
                       </Text>
                     </View>
                     <View style={styles.confirmBtnRow}>

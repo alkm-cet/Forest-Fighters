@@ -195,16 +195,16 @@ router.post("/:id/heal", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /:id/spend-stat — spend 1 stat point on attack, defense, or chance
+// POST /:id/spend-stat — spend 1 stat point on attack, defense, chance, or max_hp
 router.post("/:id/spend-stat", authMiddleware, async (req, res) => {
   const playerId = req.player.id;
   const championId = req.params.id;
   const { stat } = req.body;
 
-  if (!["attack", "defense", "chance"].includes(stat)) {
+  if (!["attack", "defense", "chance", "max_hp"].includes(stat)) {
     return res
       .status(400)
-      .json({ error: "Invalid stat. Must be attack, defense, or chance." });
+      .json({ error: "Invalid stat. Must be attack, defense, chance, or max_hp." });
   }
 
   try {
@@ -220,10 +220,11 @@ router.post("/:id/spend-stat", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "No stat points available" });
     }
 
-    await query(
-      `UPDATE champions SET ${stat} = ${stat} + 1, stat_points = stat_points - 1 WHERE id = $1`,
-      [championId],
-    );
+    const sql =
+      stat === "max_hp"
+        ? `UPDATE champions SET max_hp = max_hp + 2, current_hp = LEAST(current_hp + 2, max_hp + 2), stat_points = stat_points - 1 WHERE id = $1`
+        : `UPDATE champions SET ${stat} = ${stat} + 1, stat_points = stat_points - 1 WHERE id = $1`;
+    await query(sql, [championId]);
 
     const updated = await query(
       `SELECT ${CHAMPION_FIELDS} FROM champions WHERE id = $1`,

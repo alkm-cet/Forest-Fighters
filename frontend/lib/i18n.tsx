@@ -92,6 +92,8 @@ const translations = {
     upgradeStatAttack: "Upgrade Attack stat",
     upgradeStatDefense: "Upgrade Defense stat",
     upgradeStatChance: "Upgrade Chance stat",
+    hp: "HP",
+    upgradeStatHp: "Upgrade HP stat",
 
     // Dungeon screen
     dungeons: "Dungeons",
@@ -349,6 +351,7 @@ const translations = {
     statHp: "❤️ HP",
     statCrit: "⚡ CRIT",
     minuteAbbr: "min",
+    forOneTour: "for one tour",
     targetFighters: "Fighters",
     targetFarmers: "Farmers",
     targetAnimals: "Animals",
@@ -441,6 +444,8 @@ const translations = {
     upgradeStatAttack: "Saldırı istatistiğini güçlendir",
     upgradeStatDefense: "Savunma istatistiğini güçlendir",
     upgradeStatChance: "Şans istatistiğini güçlendir",
+    hp: "Can",
+    upgradeStatHp: "Can istatistiğini güçlendir",
 
     // Dungeon screen
     dungeons: "Zindanlar",
@@ -698,6 +703,7 @@ const translations = {
     statHp: "❤️ HP",
     statCrit: "⚡ CRIT",
     minuteAbbr: "dak",
+    forOneTour: "bir tur için",
     targetFighters: "Savaşçılar",
     targetFarmers: "Çiftçiler",
     targetAnimals: "Hayvanlar",

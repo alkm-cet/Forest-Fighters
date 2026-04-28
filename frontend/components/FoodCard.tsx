@@ -101,7 +101,7 @@ export function describeEffect(
   const minLabel = t ? t("minuteAbbr") : "min";
   const dur = recipe.effect_duration_minutes
     ? ` (${recipe.effect_duration_minutes} ${minLabel})`
-    : "";
+    : ` ${t ? t("forOneTour") : "for one tour"}`;
 
   switch (recipe.effect_type) {
     case "boost_hp":
