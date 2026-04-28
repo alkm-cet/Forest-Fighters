@@ -133,7 +133,10 @@ export default function FarmScreen() {
       .then((res) => {
         const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
         if (fresh.current_feed >= fresh.max_feed) feedBufferRef.current = 0;
-        if (res.data.resources) setResources(res.data.resources);
+        if (res.data.resources) {
+          setResources(res.data.resources);
+          queryClient.setQueryData(queryKeys.resources(), res.data.resources);
+        }
         const currentFarm = farm;
         if (currentFarm) {
           const updated = {
@@ -384,6 +387,7 @@ export default function FarmScreen() {
       const apiRes = await api.post(`/api/animals/${animal.id}/upgrade`);
       const fresh = { ...apiRes.data.animal, _fetched_at_ms: Date.now() };
       setResources(apiRes.data.resources);
+      queryClient.setQueryData(queryKeys.resources(), apiRes.data.resources);
       if (farm) {
         const updated = {
           ...farm,
@@ -419,6 +423,7 @@ export default function FarmScreen() {
       setFarm(updated);
       syncFarm(updated);
       setResources(res.data.resources);
+      queryClient.setQueryData(queryKeys.resources(), res.data.resources);
       initLiveMap(updated.animals);
     } catch (err: any) {
       alert(err.response?.data?.error ?? "Collect failed");
@@ -441,7 +446,10 @@ export default function FarmScreen() {
     const optimisticFarm = {
       ...farm,
       animals: optimisticAnimals,
-      total_pending: optimisticAnimals.reduce((s, a) => s + (a.pending ?? 0), 0),
+      total_pending: optimisticAnimals.reduce(
+        (s, a) => s + (a.pending ?? 0),
+        0,
+      ),
     };
     const prevFarm = farm;
     syncFarm(optimisticFarm);
@@ -471,7 +479,10 @@ export default function FarmScreen() {
       const confirmedFarm = {
         ...farm,
         animals: confirmedAnimals,
-        total_pending: confirmedAnimals.reduce((s, a) => s + (a.pending ?? 0), 0),
+        total_pending: confirmedAnimals.reduce(
+          (s, a) => s + (a.pending ?? 0),
+          0,
+        ),
       };
       syncFarm(confirmedFarm);
       setFarm(confirmedFarm);
@@ -857,6 +868,13 @@ export default function FarmScreen() {
               activeOpacity={0.7}
               onPress={() => {
                 if (!canFeedOne) return;
+                const consumeKey = selectedAnimal.consume_resource as keyof Resources;
+                setResources((prev) =>
+                  prev ? { ...prev, [consumeKey]: Math.max(0, (prev[consumeKey] as number) - 1) } : prev,
+                );
+                queryClient.setQueryData<Resources>(queryKeys.resources(), (old) =>
+                  old ? { ...old, [consumeKey]: Math.max(0, (old[consumeKey] as number) - 1) } : old,
+                );
                 optimisticQuestProgress(queryClient, "animal_feed", {
                   animalType: selectedAnimal.animal_type,
                 });
@@ -1070,6 +1088,14 @@ export default function FarmScreen() {
             feedBufferRef.current += feedNeededForMax;
             return;
           }
+          const consumeKey = selectedAnimal.consume_resource as keyof Resources;
+          const units = feedNeededForMax;
+          setResources((prev) =>
+            prev ? { ...prev, [consumeKey]: Math.max(0, (prev[consumeKey] as number) - units) } : prev,
+          );
+          queryClient.setQueryData<Resources>(queryKeys.resources(), (old) =>
+            old ? { ...old, [consumeKey]: Math.max(0, (old[consumeKey] as number) - units) } : old,
+          );
           optimisticQuestProgress(queryClient, "animal_feed", {
             animalType: selectedAnimal.animal_type,
           });
@@ -1079,7 +1105,10 @@ export default function FarmScreen() {
             })
             .then((res) => {
               const fresh = { ...res.data.animal, _fetched_at_ms: Date.now() };
-              if (res.data.resources) setResources(res.data.resources);
+              if (res.data.resources) {
+                setResources(res.data.resources);
+                queryClient.setQueryData(queryKeys.resources(), res.data.resources);
+              }
               setFarm((prev) => {
                 if (!prev) return prev;
                 return {

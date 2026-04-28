@@ -37,6 +37,8 @@
 - Yemekler için görseller oluşturulmalı.
 - Bildirimler eklenecek, savaş bitti, storage doldu vs.
 - uygulama açılıyor, ana sayfaya gidiyoruz ve bir kere daha ana sayfaya gidiyoruz, screen stack te 2 tane ana sayfa oluyor, bu düzeltilmeli.
+- Leaderboard kısmına tab li yapı yapsak, arkadaşlar eklense ve mesaj sistemi olsa.
+- Champion Drawer açıkkan yemeği bitir diğince onaylama butonu kitchen bag in arkasında çıkıyor.
 
 NOTES:
 
