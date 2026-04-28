@@ -694,6 +694,7 @@ export function useClaimRunMutation() {
       queryClient.invalidateQueries({ queryKey: queryKeys.champions() });
       queryClient.invalidateQueries({ queryKey: queryKeys.dungeonRuns() });
       queryClient.invalidateQueries({ queryKey: queryKeys.quests() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gearInventory() });
     },
   });
 }
